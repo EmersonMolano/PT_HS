@@ -3,19 +3,15 @@ const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
 
 const databaseUrl = process.env.INTEGRATION_ADMIN_DATABASE_URL;
+const administratorEmail = process.env.INTEGRATION_ADMINISTRATOR_EMAIL || process.env.INTEGRATION_ADMIN_EMAIL;
+const administratorPassword = process.env.INTEGRATION_ADMINISTRATOR_PASSWORD || process.env.INTEGRATION_ADMIN_PASSWORD;
 
 const users = [
   {
     role: 'Administrator',
-    email: process.env.INTEGRATION_ADMIN_EMAIL,
-    password: process.env.INTEGRATION_ADMIN_PASSWORD,
+    email: administratorEmail,
+    password: administratorPassword,
     username: 'ci_administrator'
-  },
-  {
-    role: 'Support',
-    email: process.env.INTEGRATION_SUPPORT_EMAIL,
-    password: process.env.INTEGRATION_SUPPORT_PASSWORD,
-    username: 'ci_support'
   },
   {
     role: 'HomeUser',
@@ -35,8 +31,9 @@ function requireConfiguration() {
   const missing = [];
   if (!databaseUrl) missing.push('INTEGRATION_ADMIN_DATABASE_URL');
   for (const user of users) {
-    if (!user.email) missing.push(`INTEGRATION_${user.role.toUpperCase()}_EMAIL`);
-    if (!user.password) missing.push(`INTEGRATION_${user.role.toUpperCase()}_PASSWORD`);
+    const roleKey = user.role === 'Administrator' ? 'ADMINISTRATOR (o ADMIN)' : user.role.toUpperCase();
+    if (!user.email) missing.push(`INTEGRATION_${roleKey}_EMAIL`);
+    if (!user.password) missing.push(`INTEGRATION_${roleKey}_PASSWORD`);
   }
   if (missing.length) {
     throw new Error(`Faltan variables para sembrar usuarios de integración: ${missing.join(', ')}`);

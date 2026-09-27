@@ -103,6 +103,14 @@ class AccountAdminService {
     };
   }
 
+  async getUserOverview({ actorId, targetUserId }) {
+    this.requireUuid(actorId, 'actorId');
+    this.requireUuid(targetUserId, 'userId');
+    const overview = await this.userRepository.getManagedUserOverview({ actorId, targetUserId });
+    if (!overview) throw this.error('Usuario no encontrado o ya eliminado', 404);
+    return overview;
+  }
+
   requireUuid(value, field) {
     if (typeof value !== 'string' || !UUID_PATTERN.test(value)) {
       throw this.error(`${field} no es válido`, 400);

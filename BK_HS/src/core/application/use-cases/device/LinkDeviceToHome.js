@@ -1,19 +1,34 @@
+const { Device } = require('../../../domain/entities/Device');
+
 class LinkDeviceToHome {
   constructor({ deviceRepository }) {
     this.deviceRepository = deviceRepository;
   }
 
-  async execute({ userId, homeId, code }) {
+  async execute({ userId, homeId, code, hardwareId }) {
     if (!userId) this.badRequest('El usuario autenticado es obligatorio');
     if (!this.isUuid(homeId)) this.badRequest('homeId no es válido');
-    if (typeof code !== 'string' || code.trim().length < 3 || code.trim().length > 100) {
+    const normalizedCode = typeof code === 'string' && code.trim() ? code.trim() : null;
+    let normalizedHardwareId = null;
+    if (hardwareId !== undefined && hardwareId !== null && hardwareId !== '') {
+      try {
+        normalizedHardwareId = Device.optionalHardwareId(hardwareId);
+      } catch (error) {
+        this.badRequest(error.message);
+      }
+    }
+    if (!normalizedCode && !normalizedHardwareId) {
+      this.badRequest('Debes indicar code o hardwareId');
+    }
+    if (normalizedCode && (normalizedCode.length < 3 || normalizedCode.length > 100)) {
       this.badRequest('code debe tener entre 3 y 100 caracteres');
     }
 
     const device = await this.deviceRepository.linkToHome({
       userId,
       homeId,
-      code: code.trim()
+      code: normalizedCode,
+      hardwareId: normalizedHardwareId
     });
     if (!device) {
       const error = new Error('No existe un dispositivo activo con ese código');

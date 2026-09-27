@@ -1,8 +1,12 @@
 # Protocolo MQTT implementado
 
-Fecha de revisión: 2026-09-15.
+Fecha de revisión: 2026-09-23.
 
 Este es el contrato vigente entre el backend y el firmware ESP32 versionado. Sustituye los ejemplos antiguos basados en `hidro-smart/device/...`.
+
+La prueba actual confirmó inserción e idempotencia MQTT en PostgreSQL. Para una
+lectura del ESP32 se necesita un dispositivo activo y vinculado en
+`home.home_device`; sin esa relación el backend debe rechazar la lectura.
 
 ## Identidad del dispositivo
 
@@ -125,7 +129,7 @@ La validación, normalización, persistencia y deduplicación están implementad
 La ingesta vigente ejecuta este circuito:
 
 1. resolver `deviceCode` contra `device.device.code`;
-2. comprobar dispositivo activo y asociación en `device.home_device`;
+2. comprobar dispositivo activo y asociación en `home.home_device`;
 3. validar límites, timestamp y duplicados;
 4. insertar consumo en `consumption.sensor_reading` mediante la función protegida;
 5. guardar las métricas de salud disponibles en el historial correspondiente;

@@ -1,6 +1,6 @@
 # Documentacion de la base de datos - Hidro Smart
 
-Fecha de revision: 2026-09-15.
+Fecha de revision: 2026-09-23.
 
 El resumen transversal del sistema esta en [`../../docs/estado-integral.md`](../../docs/estado-integral.md).
 
@@ -12,7 +12,8 @@ una migracion.
 ## Estado actual
 
 - PostgreSQL 16 y Liquibase 5.0.2 estan definidos en `BD_HS/docker-compose.yml`.
-- El changelog contiene 223 changesets aplicados en el último estado verificado.
+- El changelog contiene 245 changesets aplicados en el último estado verificado.
+- La base tiene 58 tablas de aplicación, 5 vistas materializadas y 0 restricciones IoT pendientes de validar.
 - El backend usa el rol tecnico `hidro_smart_app`.
 - La ingesta IoT esta separada en `hidro_smart_ingest`.
 - RLS y RBAC funcional estan implementados para los dominios protegidos.
@@ -64,7 +65,7 @@ parte del flujo normal de `update`.
 - `hidro_smart_ingest`: escritura minima para ingesta IoT.
 - `hidro_smart_readonly`: consultas agregadas de reportes.
 
-Los roles de negocio (`Administrator`, `Support`, `HomeUser`, `Guest`) viven en
+Los roles de negocio (`Administrator`, `HomeUser`, `Guest`) viven en
 `user_account.role`. El backend establece `app.user_id` dentro de la
 transaccion y PostgreSQL aplica RLS como barrera final. Nunca se deben poner
 credenciales reales en un changeset ni en la documentacion versionada.
@@ -103,6 +104,8 @@ hogar-dispositivo e idempotencia por `mqtt_message_id`.
 - `03_dcl.md`: roles, grants y RLS.
 - `guia-ejecucion-liquibase.md`: ejecucion y verificacion.
 - `diagnostico-actual.md`: estado comprobado y brechas conocidas.
+- `auditoria-esquema-actual-2026-09-23.md`: inventario de tablas, datos y correcciones del último corte.
 - `configuracion-credenciales-liquibase.md`: variables locales sin secretos.
 - `sql-layer-architecture.md`: arquitectura por capas SQL.
 - Bitácora transversal de cambios del 2026-09-14: `../../docs/cambios-2026-09-14.md`.
+- Estado verificado vigente: `../../docs/estado-verificado-2026-09-26.md`.

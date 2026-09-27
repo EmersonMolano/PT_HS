@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Activity, CalendarDays, Droplets, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
@@ -42,6 +42,9 @@ export function ConsumptionPage({ homeId }: { homeId?: string }) {
   const [weekly, setWeekly] = useState<DailyPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  const requestInFlightRef = useRef(false);
+  const viewKeyRef = useRef('');
+  viewKeyRef.current = `${homeId || ''}:${selectedDate}`;
 
   const range = useMemo(() => {
     const end = new Date(`${selectedDate}T12:00:00`);
@@ -49,9 +52,11 @@ export function ConsumptionPage({ homeId }: { homeId?: string }) {
     return { from: localDate(start), to: selectedDate };
   }, [selectedDate]);
 
-  const load = async () => {
-    if (!homeId) return;
-    setLoading(true);
+  const load = async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!homeId || requestInFlightRef.current) return;
+    const requestKey = `${homeId}:${selectedDate}`;
+    requestInFlightRef.current = true;
+    if (!silent) setLoading(true);
     setError(false);
     try {
       const dates = Array.from({ length: 7 }, (_, index) => {
@@ -68,11 +73,12 @@ export function ConsumptionPage({ homeId }: { homeId?: string }) {
           query({ homeId, from: range.from, to: range.to, groupBy: 'daily' })
         ),
       ]);
+      if (viewKeyRef.current !== requestKey) return;
       setSummary(summaryResponse.data);
       setHourly(mapHourlySeries(hourlyResponse.data.points || [], homeId));
       const dailyByDate = new Map(
         (dailyResponse.data.points || []).map((point) => [
-          point.bucketDate || point.groupKey,
+          point.bucketDate ? point.bucketDate.slice(0, 10) : point.groupKey,
           point,
         ])
       );
@@ -83,18 +89,26 @@ export function ConsumptionPage({ homeId }: { homeId?: string }) {
         }))
       );
     } catch (loadError) {
-      setSummary(null);
-      setHourly([]);
-      setWeekly([]);
-      setError(true);
-      toast.error(loadError instanceof Error ? loadError.message : t('consumption.loadError'));
+      if (!silent && viewKeyRef.current === requestKey) {
+        setSummary(null);
+        setHourly([]);
+        setWeekly([]);
+        setError(true);
+        toast.error(loadError instanceof Error ? loadError.message : t('consumption.loadError'));
+      }
     } finally {
-      setLoading(false);
+      requestInFlightRef.current = false;
+      if (!silent && viewKeyRef.current === requestKey) setLoading(false);
     }
   };
 
   useEffect(() => {
     void load();
+    const refreshTimer = window.setInterval(() => {
+      void load({ silent: true });
+    }, 5000);
+
+    return () => window.clearInterval(refreshTimer);
   }, [homeId, selectedDate, i18n.language]);
 
   if (!homeId) {

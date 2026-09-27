@@ -1,6 +1,6 @@
 ﻿# Estado y arquitectura del frontend
 
-Ãšltima revisiÃ³n: 2026-09-14.
+Ãšltima revisiÃ³n: 2026-09-23.
 
 ## Estado actual
 
@@ -82,7 +82,6 @@ El backend devuelve en `/users/me` el usuario, sus roles funcionales, permisos y
 Los roles funcionales reconocidos son:
 
 - `Administrator`
-- `Support`
 - `HomeUser`
 - `Guest`
 

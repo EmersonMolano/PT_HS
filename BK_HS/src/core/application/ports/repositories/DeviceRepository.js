@@ -24,6 +24,7 @@ class DeviceRepository {
   async updateProvisioningForUser() { throw new Error('DeviceRepository.updateProvisioningForUser no implementado'); }
 
   async unlinkFromHome() { throw new Error('DeviceRepository.unlinkFromHome no implementado'); }
+  async deleteUnlinked() { throw new Error('DeviceRepository.deleteUnlinked no implementado'); }
 }
 
 module.exports = { DeviceRepository };

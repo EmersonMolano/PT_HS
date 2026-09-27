@@ -174,13 +174,7 @@ export function DashboardLayout({ session, onLogout }: DashboardLayoutProps) {
   const primaryRole = getPrimaryRole(session.roles);
   const roleLabel = t(roleTranslationKey(primaryRole));
   const roleIcon =
-    primaryRole === 'Administrator'
-      ? '👑'
-      : primaryRole === 'Support'
-        ? '🛠️'
-        : primaryRole === 'HomeUser'
-          ? '🏠'
-          : '👁️';
+    primaryRole === 'Administrator' ? '👑' : primaryRole === 'HomeUser' ? '🏠' : '👁️';
   const canManageRoles = can(session.permissions, 'roles.manage');
   const canManageUsers = can(session.permissions, 'users.manage');
   const canReadAudit = can(session.permissions, 'audit.read');
@@ -219,15 +213,12 @@ export function DashboardLayout({ session, onLogout }: DashboardLayoutProps) {
         requiredRoles: ['Administrator'],
         ariaLabel: t('nav.audit'),
       },
-    ];
-
-    const supportItems: MenuItem[] = [
       {
         id: 'support-panel',
         label: t('nav.supportPanel'),
         icon: Wrench,
         requiredPermission: 'tickets.manage',
-        requiredRoles: ['Support'],
+        requiredRoles: ['Administrator'],
         ariaLabel: t('nav.supportPanel'),
       },
     ];
@@ -302,9 +293,7 @@ export function DashboardLayout({ session, onLogout }: DashboardLayoutProps) {
     const normalUserItems = userItems.filter((item) => item.id !== 'settings');
     const allItems = isAdministrator
       ? [...adminItems, ...(settingsItem ? [settingsItem] : [])]
-      : hasRole(session.roles, 'Support')
-        ? [...supportItems, ...(settingsItem ? [settingsItem] : [])]
-        : [...baseItems, ...normalUserItems, ...(settingsItem ? [settingsItem] : [])];
+      : [...baseItems, ...normalUserItems, ...(settingsItem ? [settingsItem] : [])];
 
     return allItems.filter(
       (item) =>
@@ -355,7 +344,7 @@ export function DashboardLayout({ session, onLogout }: DashboardLayoutProps) {
     'admin-panel': ['Administrator'],
     users: ['Administrator'],
     audit: ['Administrator'],
-    'support-panel': ['Support'],
+    'support-panel': ['Administrator'],
     notifications: [],
     support: ['HomeUser', 'Guest'],
     homes: ['HomeUser', 'Guest'],

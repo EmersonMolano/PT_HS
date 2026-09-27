@@ -8,12 +8,15 @@ Para el estado transversal de base de datos, backend, frontend, MQTT, correo y
 pendientes globales consulta
 [`../../docs/estado-integral.md`](../../docs/estado-integral.md).
 
+Fecha de revision: 2026-09-23.
+
 ## Documentos
 
 - [Estado y arquitectura](./arquitectura-frontend.md)
 - [Acceso local y paneles por rol](./acceso-local-y-roles.md)
 - [Rutas de pantalla e integración API](./rutas-y-api-frontend.md)
 - [Pendientes exclusivos del frontend](./pendientes-frontend.md)
+- [Auditoria vigente de integracion](./auditoria-frontend-integracion-2026-09-23.md)
 - [Guía de dispositivos IoT](../../docs/dispositivos-iot.md)
 
 ## Proyecto unificado
@@ -28,3 +31,4 @@ Ambos clientes usan el mismo `FT_HS/frontend/package.json`,
 `FT_HS/frontend/src`. No existen instalaciones ni manifests separados para
 Web y Mobile.
 - Bitácora transversal de cambios del 2026-09-14: `../../docs/cambios-2026-09-14.md`.
+- Estado verificado vigente: `../../docs/estado-verificado-2026-09-26.md`.

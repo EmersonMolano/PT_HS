@@ -144,6 +144,24 @@ class PostgresUserRepository extends UserRepository {
       total: Number(result.rows[0]?.total_count || 0)
     };
   }
+  async getManagedUserOverview({ actorId, targetUserId }) {
+    const result = await withTransaction(actorId, (client) => client.query(
+      `SELECT user_account_id, username, email, status, full_name, homes, devices
+         FROM user_account.fn_get_managed_user_overview($1::uuid)`,
+      [targetUserId]
+    ));
+    const row = result.rows[0];
+    if (!row) return null;
+    return {
+      userId: row.user_account_id,
+      username: row.username,
+      email: row.email,
+      status: row.status,
+      fullName: row.full_name,
+      homes: row.homes || [],
+      devices: row.devices || [],
+    };
+  }
   toEntity(row) { return new User({ id: row.user_account_id, username: row.username, email: row.email, status: row.status, fullName: row.full_name, documentType: row.document_type, documentNumber: row.document_number, phone: row.phone, city: row.city, avatarDataUrl: row.avatar_data_url, createdAt: row.created_at }); }
 }
 module.exports = { PostgresUserRepository };

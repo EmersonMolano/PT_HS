@@ -13,18 +13,8 @@ const roleUsers = [
     permissions: ['users.manage', 'roles.manage', 'audit.read'],
     checks: [
       { path: '/api/v1/users', status: 200 },
-      { path: '/api/v1/audit/logs', status: 200 }
-    ]
-  },
-  {
-    role: 'Support',
-    email: process.env.INTEGRATION_SUPPORT_EMAIL,
-    password: process.env.INTEGRATION_SUPPORT_PASSWORD,
-    permissions: ['tickets.manage'],
-    checks: [
       { path: '/api/v1/support/tickets', status: 200 },
-      { path: '/api/v1/users', status: 403 },
-      { path: '/api/v1/audit/logs', status: 403 }
+      { path: '/api/v1/audit/logs', status: 200 }
     ]
   },
   {
@@ -79,6 +69,13 @@ test('matriz funcional de roles, permisos y rutas', { skip: !enabled }, async ()
     assert.ok(profile.body?.data?.roles?.includes(user.role), `rol ${user.role}`);
     for (const permission of user.permissions) {
       assert.ok(profile.body?.data?.permissions?.includes(permission), `${user.role}: ${permission}`);
+    }
+
+    if (user.role === 'Administrator') {
+      const overview = await requestJson(`/api/v1/users/${profile.body.data.userId}/overview`, { headers });
+      assert.equal(overview.response.status, 200, 'Administrator: /api/v1/users/:userId/overview');
+      assert.ok(Array.isArray(overview.body?.data?.homes), 'Administrator: overview homes');
+      assert.ok(Array.isArray(overview.body?.data?.devices), 'Administrator: overview devices');
     }
 
     for (const check of user.checks) {

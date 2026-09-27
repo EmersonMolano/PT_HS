@@ -24,8 +24,6 @@ jobs:
       INTEGRATION_USER_PASSWORD: CiHomeuser123!
       INTEGRATION_ADMIN_EMAIL: ci-administrator@hidrosmart.local
       INTEGRATION_ADMIN_PASSWORD: CiAdministrator123!
-      INTEGRATION_SUPPORT_EMAIL: ci-support@hidrosmart.local
-      INTEGRATION_SUPPORT_PASSWORD: CiSupport123!
       INTEGRATION_HOMEUSER_EMAIL: ci-homeuser@hidrosmart.local
       INTEGRATION_HOMEUSER_PASSWORD: CiHomeuser123!
       INTEGRATION_GUEST_EMAIL: ci-guest@hidrosmart.local

@@ -290,6 +290,8 @@ export const userApi = {
       pagination: { page: number; pageSize: number; total: number; totalPages: number };
     }>(`/users${suffix}`);
   },
+  getManagedUserOverview: (userId: string) =>
+    apiClient.get<{ data: ManagedUserOverview }>(`/users/${encodeURIComponent(userId)}/overview`),
   changeUserStatus: (userId: string, status: 'Active' | 'Suspended' | 'Blocked', reason?: string) =>
     apiClient.patch<{ data: ManagedUser }>(`/users/${encodeURIComponent(userId)}/status`, {
       status,
@@ -336,6 +338,44 @@ export type ManagedUser = {
   documentType?: string | null;
   documentNumber?: string | null;
   roles: string[];
+};
+
+export type ManagedUserOverview = {
+  userId: string;
+  username: string;
+  email: string;
+  status: string;
+  fullName?: string | null;
+  homes: ManagedHomeOverview[];
+  devices: ManagedDeviceOverview[];
+};
+
+export type ManagedHomeOverview = {
+  homeId: string;
+  name: string;
+  address: string;
+  city: string;
+  tier?: number | null;
+  status: string;
+  homeRole: string;
+  deviceCount: number;
+};
+
+export type ManagedDeviceOverview = {
+  deviceId: string;
+  code: string;
+  name: string;
+  type: string;
+  status: string;
+  homeId: string;
+  homeName: string;
+  location?: string | null;
+  hardwareId?: string | null;
+  connectivityStatus?: string | null;
+  provisioningStatus?: string | null;
+  lastConnectionAt?: string | null;
+  signalQuality?: number | null;
+  batteryLevel?: number | null;
 };
 
 export type CollectionPagination = {
@@ -394,11 +434,26 @@ export type DeviceTelemetryListResponse = {
 export const homesApi = {
   list: () => apiClient.get<{ data: unknown[] }>('/homes'),
   get: (homeId: number | string) => apiClient.get<{ data: unknown }>(`/homes/${homeId}`),
-  create: (payload: { name: string; address: string; city: string; tier?: string | null }) =>
-    apiClient.post<{ data: unknown }>('/homes', payload),
+  create: (payload: {
+    name: string;
+    address: string;
+    city: string;
+    usageType: 'RESIDENTIAL' | 'COMMERCIAL' | 'INDUSTRIAL';
+    tier?: string | null;
+    altitudeMeters?: string | null;
+    peopleCount?: number | string | null;
+  }) => apiClient.post<{ data: unknown }>('/homes', payload),
   update: (
     homeId: number | string,
-    payload: { name?: string; address?: string; city?: string; tier?: string | null }
+    payload: {
+      name?: string;
+      address?: string;
+      city?: string;
+      usageType?: 'RESIDENTIAL' | 'COMMERCIAL' | 'INDUSTRIAL';
+      tier?: string | null;
+      altitudeMeters?: string | null;
+      peopleCount?: number | string | null;
+    }
   ) => apiClient.put<{ data: unknown }>(`/homes/${homeId}`, payload),
   members: (homeId: number | string) =>
     apiClient.get<{ data: unknown[] }>(`/homes/${homeId}/members`),
@@ -456,7 +511,7 @@ export const devicesApi = {
     model?: string;
     alertThreshold?: number | null;
   }) => apiClient.post<{ data: unknown }>('/devices', payload),
-  link: (payload: { homeId: string; code: string }) =>
+  link: (payload: { homeId: string; code?: string; hardwareId?: string }) =>
     apiClient.post<{ data: unknown }>('/devices/link', payload),
   latestTelemetry: (deviceId: string) =>
     apiClient.get<{ data: DeviceTelemetry | null }>(
@@ -492,6 +547,7 @@ export const devicesApi = {
     apiClient.post<void>(`/devices/${deviceId}/deactivate`),
   unlink: (deviceId: number | string, homeId: number | string) =>
     apiClient.delete<void>(`/devices/${deviceId}/home/${homeId}`),
+  delete: (deviceId: number | string) => apiClient.delete<void>(`/devices/${deviceId}`),
 };
 
 export type ActuatorType = 'VALVE' | 'PUMP';
@@ -608,9 +664,40 @@ export type ConsumptionSeriesPoint = {
   peakFlowLpm: number | null;
 };
 
+export type BudgetStatus = {
+  homeId: string;
+  asOfDate: string;
+  periodStart: string;
+  periodEnd: string;
+  daysInMonth: number;
+  dayOfMonth: number;
+  peopleCount: number;
+  referenceSource: 'NATIONAL_REFERENCE' | 'HOME_HISTORY' | string;
+  historyDays: number;
+  expectedDailyLiters: number;
+  expectedWeeklyLiters: number;
+  expectedMonthlyLiters: number;
+  expectedToDateLiters: number;
+  currentLiters: number;
+  currentM3: number;
+  currentCost: number;
+  tariffM3: number;
+  monthlyBudget: number | null;
+  expectedBudgetToDate: number | null;
+  budgetPercentage: number | null;
+  budgetPacePercentage: number | null;
+  budgetStatus: 'NORMAL' | 'CAUTION' | 'HIGH' | 'CRITICAL' | null;
+  remainingBudget: number | null;
+  remainingLiters: number | null;
+  consumptionPacePercentage: number | null;
+  consumptionStatus: 'NORMAL' | 'CAUTION' | 'HIGH' | 'CRITICAL' | null;
+};
+
 export const consumptionApi = {
   summary: (query: string) =>
     apiClient.get<{ data: ConsumptionSummary }>(`/consumption/summary?${query}`),
+  budgetStatus: (query: string) =>
+    apiClient.get<{ data: BudgetStatus | null }>(`/consumption/budget-status?${query}`),
   daily: (query: string) =>
     apiClient.get<{ data: DailyConsumption }>(`/consumption/daily?${query}`),
   hourly: (query: string) =>

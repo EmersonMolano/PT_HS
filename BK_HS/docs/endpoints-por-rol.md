@@ -1,6 +1,6 @@
 # Endpoints accesibles por rol
 
-Fecha de revisión: 2026-09-14.
+Fecha de revisión: 2026-09-23.
 
 La ruta exacta de cada método está en `03-endpoints.md`. Este documento resume el control de acceso real, incluidos los endpoints de actuadores.
 
@@ -42,7 +42,7 @@ La ruta también comprueba pertenencia al hogar, propiedad o autorización del r
 ## Roles globales
 
 - `Administrator`: administración global, roles y auditoría; puede operar según los permisos asignados.
-- `Support`: soporte y operaciones necesarias para atención; no debe recibir acceso de propietario de hogar por defecto.
+- `Administrator`: soporte y operaciones administrativas autorizadas mediante `tickets.manage`; no debe recibir acceso de propietario de hogar por defecto.
 - `HomeUser`: administra hogares y dispositivos que le corresponden.
 - `Guest`: solo lectura autorizada.
 

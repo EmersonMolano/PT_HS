@@ -1,9 +1,12 @@
 class CreateHomeRequest {
-  constructor({ name, address, city, tier = null }) {
+  constructor({ name, address, city, usageType = 'RESIDENTIAL', tier = null, altitudeMeters = null, peopleCount = 3 }) {
     this.name = name;
     this.address = address;
     this.city = city;
+    this.usageType = usageType;
     this.tier = tier;
+    this.altitudeMeters = altitudeMeters;
+    this.peopleCount = peopleCount;
   }
 
   static fromRequest(body = {}) {
@@ -11,7 +14,10 @@ class CreateHomeRequest {
       name: body.name,
       address: body.address,
       city: body.city,
-      tier: body.tier
+      usageType: body.usageType,
+      tier: body.tier,
+      altitudeMeters: body.altitudeMeters,
+      peopleCount: body.peopleCount
     });
   }
 }

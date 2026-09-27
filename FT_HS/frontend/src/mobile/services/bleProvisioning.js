@@ -49,7 +49,10 @@ class BleProvisioningService {
     }
     await this.ensureBluetooth();
     this.manager.stopDeviceScan();
-    this.manager.startDeviceScan([SERVICE_UUID], null, (error, device) => {
+    // Escaneamos sin filtro de UUID porque algunos adaptadores no exponen el
+    // servicio anunciado por el ESP32 hasta después de conectarse. Luego
+    // filtramos por el nombre oficial del dispositivo.
+    this.manager.startDeviceScan(null, null, (error, device) => {
       if (error) {
         onResult({ type: 'error', message: error.message });
         return;
@@ -128,6 +131,7 @@ class BleProvisioningService {
       mqttHost,
       mqttPort,
       ...(deviceCode ? { deviceCode } : {}),
+      disableBleAfterProvisioning: true,
     });
     await this.device.writeCharacteristicWithResponseForService(
       SERVICE_UUID,

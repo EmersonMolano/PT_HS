@@ -24,12 +24,12 @@ test('lista los roles del usuario objetivo', async () => {
 test('normaliza el nombre al asignar un rol', async () => {
   let received;
   const repository = {
-    assign: async (input) => { received = input; return { roleName: 'Support' }; },
+    assign: async (input) => { received = input; return { roleName: 'Administrator' }; },
   };
 
-  await new AssignUserRole({ repository }).execute({ userId, targetUserId, roleName: ' Support ' });
+  await new AssignUserRole({ repository }).execute({ userId, targetUserId, roleName: ' Administrator ' });
 
-  assert.deepEqual(received, { userId, targetUserId, roleName: 'Support' });
+  assert.deepEqual(received, { userId, targetUserId, roleName: 'Administrator' });
 });
 
 test('retira un rol mediante el repositorio', async () => {
@@ -48,11 +48,15 @@ test('rechaza identificadores y nombres de rol inválidos', async () => {
   const useCase = new AssignUserRole({ repository });
 
   assert.throws(
-    () => useCase.execute({ userId, targetUserId: 'invalid', roleName: 'Support' }),
+    () => useCase.execute({ userId, targetUserId: 'invalid', roleName: 'Administrator' }),
     { status: 400 },
   );
   assert.throws(
     () => useCase.execute({ userId, targetUserId, roleName: 'x' }),
+    { status: 400 },
+  );
+  assert.throws(
+    () => useCase.execute({ userId, targetUserId, roleName: 'Support' }),
     { status: 400 },
   );
 });

@@ -10,7 +10,7 @@ La capa `03_dcl` controla acceso al motor PostgreSQL, objetos y filas.
   `consumption.sensor_reading`.
 - `hidro_smart_readonly`: consultas y reportes de solo lectura.
 
-Los roles de negocio `Administrator`, `Support`, `HomeUser` y `Guest` viven en `user_account.role`. El backend los interpreta; no se mezclan automáticamente con roles PostgreSQL.
+Los roles de negocio `Administrator`, `HomeUser` y `Guest` viven en `user_account.role`. La administración de tickets usa el permiso `tickets.manage` de `Administrator`; no se mezclan automáticamente con roles PostgreSQL.
 
 ## Registro y hogares
 
@@ -110,7 +110,7 @@ El rollback correspondiente restaura el SELECT directo únicamente como reversi�
 El changeset 20260828-ingest-references otorga únicamente REFERENCES sobre home.home_device al rol hidro_smart_ingest. Esto permite que PostgreSQL valide el FK compuesto de sensor_reading durante la ingesta, sin concederle lectura ni escritura general sobre home_device.
 
 El changeset 20260828-homeuser-device-permission asigna devices.manage al rol funcional HomeUser. El usuario normal puede registrar un dispositivo mediante device.fn_register_device_with_location o vincularlo mediante device.fn_link_device_to_home; la asociación y las actualizaciones continúan limitadas por permisos, titularidad, membresía activa y RLS.
-## Estado de permisos para MQTT (2026-09-14)
+## Estado de permisos para MQTT (2026-09-23)
 
 La ingesta MQTT ya está conectada al backend mediante `IngestReading` y `PostgresTelemetryRepository`. Los changesets `20260913-telemetry-ingest-function-grant` y `20260913-revoke-ingest-direct-insert` dejan al rol `hidro_smart_ingest` con ejecución de `device.fn_ingest_sensor_reading(...)`, sin `INSERT` directo sobre `consumption.sensor_reading`. La función `SECURITY DEFINER` mantiene la validación de dispositivo, asociación activa, rangos e idempotencia. No se deben ampliar grants de forma manual.
 

@@ -36,11 +36,15 @@
 namespace {
 constexpr char TELEMETRY_SUFFIX[] = "/telemetry";
 constexpr char STATUS_SUFFIX[] = "/status";
+constexpr char COMMANDS_SUFFIX[] = "/commands";
 constexpr char NVS_NAMESPACE[] = "hidrosmart";
 constexpr char NVS_NETWORKS_KEY[] = "networks";
 constexpr char NVS_MQTT_HOST_KEY[] = "mqttHost";
 constexpr char NVS_MQTT_PORT_KEY[] = "mqttPort";
 constexpr char NVS_DEVICE_CODE_KEY[] = "deviceCode";
+constexpr char NVS_BLE_LOCKED_KEY[] = "bleLocked";
+constexpr char NVS_LINKED_HOME_KEY[] = "linkedHome";
+constexpr char NVS_TOTAL_LITERS_KEY[] = "totalLiters";
 constexpr char BLE_SERVICE_UUID[] = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 constexpr char BLE_CONFIG_CHAR_UUID[] = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
 constexpr char BLE_STATUS_CHAR_UUID[] = "beb5483e-36e1-4688-b7f5-ea07361b26a9";
@@ -48,6 +52,10 @@ constexpr uint8_t MAX_WIFI_NETWORKS = 5;
 constexpr unsigned long WIFI_TIMEOUT_MS = 15000UL;
 constexpr unsigned long WIFI_RETRY_INTERVAL_MS = 10000UL;
 constexpr unsigned long MQTT_RETRY_INTERVAL_MS = 5000UL;
+constexpr unsigned long TOTAL_SAVE_INTERVAL_MS = 300000UL;
+constexpr float TOTAL_SAVE_MIN_DELTA_LITERS = 1.0f;
+constexpr uint8_t CONFIG_BUTTON_PIN = 0;
+constexpr size_t BLE_PAYLOAD_MAX = 768;
 
 struct WifiCredential {
   String ssid;
@@ -74,10 +82,50 @@ volatile uint32_t pulseCount = 0;
 uint32_t sequence = 0;
 uint32_t bootId = 0;
 float totalLiters = 0.0f;
+float lastPersistedTotalLiters = 0.0f;
+uint32_t pendingPulses = 0;
+float pendingConsumptionLiters = 0.0f;
+float pendingSampleSeconds = 0.0f;
 unsigned long lastSampleAt = 0;
+unsigned long lastTotalSaveAt = 0;
 unsigned long lastWifiAttemptAt = 0;
 unsigned long lastMqttAttemptAt = 0;
-bool provisioningActive = false;
+bool bleInitialized = false;
+bool bleAdvertising = false;
+volatile bool bleClientConnected = false;
+char pendingBlePayload[BLE_PAYLOAD_MAX] = {};
+volatile bool pendingBlePayloadReady = false;
+portMUX_TYPE blePayloadMux = portMUX_INITIALIZER_UNLOCKED;
+bool bleLocked = false;
+bool linkedToHome = false;
+bool configButtonPressed = false;
+bool configButtonHandled = false;
+unsigned long configButtonStartedAt = 0;
+
+void startProvisioningBLE();
+void stopProvisioningBLE();
+void notifyStatus(const char* state);
+void saveBleLock(bool locked);
+void saveLinkedToHome(bool linked);
+void applyBlePolicy();
+
+bool takePendingBlePayload(String& payload) {
+  char copiedPayload[BLE_PAYLOAD_MAX] = {};
+  bool hasPayload = false;
+
+  portENTER_CRITICAL(&blePayloadMux);
+  if (pendingBlePayloadReady) {
+    std::strncpy(copiedPayload, pendingBlePayload, BLE_PAYLOAD_MAX - 1);
+    copiedPayload[BLE_PAYLOAD_MAX - 1] = '\0';
+    pendingBlePayload[0] = '\0';
+    pendingBlePayloadReady = false;
+    hasPayload = true;
+  }
+  portEXIT_CRITICAL(&blePayloadMux);
+
+  if (hasPayload) payload = String(copiedPayload);
+  return hasPayload;
+}
 
 bool isConfiguredText(const char* value) {
   return value != nullptr && std::strlen(value) > 0 && std::strncmp(value, "CAMBIA_", 7) != 0;
@@ -123,9 +171,16 @@ String statusPayload(const char* status) {
   const String activeSsid = WiFi.status() == WL_CONNECTED && connectedSsid.isEmpty()
     ? WiFi.SSID()
     : connectedSsid;
-  const char* provisioningState = std::strcmp(status, "ONLINE") == 0
-    ? "complete"
-    : (WiFi.status() == WL_CONNECTED ? "wifi_connected" : "waiting_for_wifi");
+  // Este campo viaja por MQTT y debe usar exactamente los estados que valida
+  // el backend. Los estados detallados del proceso BLE siguen viajando por la
+  // caracteristica BLE de estado.
+  const bool wifiConnected = WiFi.status() == WL_CONNECTED;
+  const bool mqttConnected = mqttClient.connected();
+  const char* provisioningState = linkedToHome && std::strcmp(status, "ONLINE") == 0
+    ? "COMPLETE"
+    : (mqttConnected
+      ? "MQTT_CONNECTED"
+      : (wifiConnected ? "WIFI_CONNECTED" : (bleAdvertising ? "BLE_READY" : "PENDING")));
   JsonDocument document;
   document["deviceId"] = deviceCode;
   document["hardwareId"] = hardwareId;
@@ -134,6 +189,8 @@ String statusPayload(const char* status) {
   document["timestamp"] = timestamp;
   document["firmwareVersion"] = HIDROSMART_FIRMWARE_VERSION;
   document["lastIp"] = ip;
+  document["linkedToHome"] = linkedToHome;
+  document["bleLocked"] = bleLocked;
   if (!activeSsid.isEmpty()) document["ssid"] = activeSsid;
   document["wifiRssiDbm"] = WiFi.RSSI();
 
@@ -219,15 +276,55 @@ void loadNetworks(const String& serialized) {
   }
 }
 
+void loadLegacyNetworks() {
+  preferences.begin(NVS_NAMESPACE, true);
+  const uint8_t legacyCount = preferences.getUChar("netCount", 0);
+
+  for (uint8_t index = 0; index < legacyCount && index < MAX_WIFI_NETWORKS; index++) {
+    const String suffix = String(index);
+    const String ssid = preferences.getString((String("ssid") + suffix).c_str(), "");
+    if (ssid.isEmpty()) continue;
+
+    knownNetworks[knownNetworkCount].ssid = ssid;
+    knownNetworks[knownNetworkCount].password = preferences.getString((String("pass") + suffix).c_str(), "");
+    knownNetworks[knownNetworkCount].mqttHost = preferences.getString((String("host") + suffix).c_str(), mqttHost);
+    knownNetworks[knownNetworkCount].mqttPort = preferences.getUShort(
+      (String("port") + suffix).c_str(),
+      mqttPort
+    );
+    if (knownNetworks[knownNetworkCount].mqttHost.isEmpty()) {
+      knownNetworks[knownNetworkCount].mqttHost = HIDROSMART_MQTT_HOST;
+    }
+    if (knownNetworks[knownNetworkCount].mqttPort == 0) {
+      knownNetworks[knownNetworkCount].mqttPort = HIDROSMART_MQTT_PORT;
+    }
+    knownNetworkCount++;
+  }
+
+  preferences.end();
+}
+
 void loadConfiguration() {
   preferences.begin(NVS_NAMESPACE, true);
   const String serializedNetworks = preferences.getString(NVS_NETWORKS_KEY, "");
   mqttHost = preferences.getString(NVS_MQTT_HOST_KEY, "");
   mqttPort = preferences.getUShort(NVS_MQTT_PORT_KEY, HIDROSMART_MQTT_PORT);
   deviceCode = preferences.getString(NVS_DEVICE_CODE_KEY, "");
+  bleLocked = preferences.getBool(NVS_BLE_LOCKED_KEY, false);
+  linkedToHome = preferences.getBool(NVS_LINKED_HOME_KEY, false);
+  totalLiters = preferences.isKey(NVS_TOTAL_LITERS_KEY)
+    ? preferences.getFloat(NVS_TOTAL_LITERS_KEY, 0.0f)
+    : 0.0f;
   preferences.end();
 
   loadNetworks(serializedNetworks);
+  if (knownNetworkCount == 0) {
+    loadLegacyNetworks();
+    if (knownNetworkCount > 0) {
+      saveNetworks();
+      Serial.println("[NVS] Redes antiguas migradas al formato actual.");
+    }
+  }
 
   if (deviceCode.isEmpty() && isConfiguredText(HIDROSMART_DEVICE_CODE)) {
     deviceCode = HIDROSMART_DEVICE_CODE;
@@ -236,6 +333,15 @@ void loadConfiguration() {
 
   if (mqttHost.isEmpty()) mqttHost = HIDROSMART_MQTT_HOST;
   if (mqttPort == 0) mqttPort = HIDROSMART_MQTT_PORT;
+
+  lastPersistedTotalLiters = totalLiters;
+
+  // La asociacion es la autoridad para BLE. Un ESP32 sin hogar nunca debe
+  // quedar bloqueado y debe poder volver a vincularse por Bluetooth.
+  if (!linkedToHome && bleLocked) {
+    bleLocked = false;
+    saveBleLock(false);
+  }
 
   // Compatibilidad de migracion: una red definida en config.h se prueba una vez
   // y solo se guarda en NVS desde connectKnownWifi cuando conecta correctamente.
@@ -259,6 +365,28 @@ void saveMqttConfiguration(const String& host, uint16_t port) {
   preferences.putUShort(NVS_MQTT_PORT_KEY, mqttPort);
   preferences.putString(NVS_DEVICE_CODE_KEY, deviceCode);
   preferences.end();
+}
+
+void saveBleLock(bool locked) {
+  bleLocked = locked;
+  preferences.begin(NVS_NAMESPACE, false);
+  preferences.putBool(NVS_BLE_LOCKED_KEY, bleLocked);
+  preferences.end();
+}
+
+void saveLinkedToHome(bool linked) {
+  linkedToHome = linked;
+  preferences.begin(NVS_NAMESPACE, false);
+  preferences.putBool(NVS_LINKED_HOME_KEY, linkedToHome);
+  preferences.end();
+}
+
+void saveTotalLiters() {
+  preferences.begin(NVS_NAMESPACE, false);
+  preferences.putFloat(NVS_TOTAL_LITERS_KEY, totalLiters);
+  preferences.end();
+  lastPersistedTotalLiters = totalLiters;
+  lastTotalSaveAt = millis();
 }
 
 bool connectToWifi(const String& ssid, const String& password, unsigned long timeoutMs) {
@@ -310,8 +438,12 @@ void setBleStatus(const char* state, bool shouldNotify) {
   document["firmwareVersion"] = HIDROSMART_FIRMWARE_VERSION;
   document["savedNetworks"] = knownNetworkCount;
   const bool wifiConnected = WiFi.status() == WL_CONNECTED;
+  const bool mqttConnected = mqttClient.connected();
   document["wifiConnected"] = wifiConnected;
-  document["mqttConnected"] = mqttClient.connected();
+  document["mqttConnected"] = mqttConnected;
+  document["bleEnabled"] = bleAdvertising;
+  document["linkedToHome"] = linkedToHome;
+  document["bleLocked"] = bleLocked;
   const String activeSsid = wifiConnected && connectedSsid.isEmpty() ? WiFi.SSID() : connectedSsid;
   if (!activeSsid.isEmpty()) document["ssid"] = activeSsid;
   if (wifiConnected) {
@@ -331,10 +463,60 @@ void notifyStatus(const char* state) {
   setBleStatus(state, true);
 }
 
+void handleMqttCommand(char* topic, uint8_t* payload, unsigned int length) {
+  if (String(topic) != deviceTopic(COMMANDS_SUFFIX)) return;
+
+  String serialized;
+  serialized.reserve(length + 1);
+  for (unsigned int index = 0; index < length; index++) {
+    serialized += static_cast<char>(payload[index]);
+  }
+
+  JsonDocument document;
+  if (deserializeJson(document, serialized)) return;
+
+  String command = document["command"] | "";
+  command.toLowerCase();
+
+  if (command == "enable_ble") {
+    saveBleLock(false);
+    startProvisioningBLE();
+    notifyStatus("ble_enabled");
+    return;
+  }
+
+  if (command == "confirm_link") {
+    saveLinkedToHome(true);
+    saveBleLock(true);
+    applyBlePolicy();
+    notifyStatus("provisioning_complete");
+    return;
+  }
+
+  if (command == "unlink") {
+    saveLinkedToHome(false);
+    saveBleLock(false);
+    applyBlePolicy();
+    notifyStatus("ble_enabled");
+    return;
+  }
+
+  if (command == "disable_ble") {
+    if (!linkedToHome) {
+      notifyStatus("ble_disable_rejected");
+      return;
+    }
+    saveBleLock(true);
+    applyBlePolicy();
+    notifyStatus("ble_disabled");
+  }
+}
+
 bool connectMqtt() {
   if (WiFi.status() != WL_CONNECTED || mqttHost.isEmpty()) return false;
 
   mqttClient.setServer(mqttHost.c_str(), mqttPort);
+  mqttClient.setCallback(handleMqttCommand);
   const String clientId = deviceCode + "-" + String(bootId);
   const String statusTopic = deviceTopic(STATUS_SUFFIX);
   const String offlinePayload = statusPayload("OFFLINE");
@@ -359,17 +541,20 @@ bool connectMqtt() {
 
   const String onlinePayload = statusPayload("ONLINE");
   const bool published = mqttClient.publish(statusTopic.c_str(), onlinePayload.c_str(), true);
+  const String commandsTopic = deviceTopic(COMMANDS_SUFFIX);
+  const bool subscribed = mqttClient.subscribe(commandsTopic.c_str(), 1);
   Serial.print("[MQTT] Conectado a ");
   Serial.print(mqttHost);
   Serial.print(':');
   Serial.println(mqttPort);
-  return published;
+  if (!subscribed) Serial.println("[MQTT] No se pudo suscribir al canal de comandos");
+  return published && subscribed;
 }
 
-void publishTelemetry(unsigned long pulses, float flowRateLpm, float consumptionLiters, float intervalSeconds) {
+bool publishTelemetry(uint32_t pulses, float flowRateLpm, float consumptionLiters, float intervalSeconds) {
   if (!mqttClient.connected()) {
-    Serial.println("[MQTT] Broker desconectado; la lectura se omitio.");
-    return;
+    Serial.println("[MQTT] Broker desconectado; la lectura queda pendiente.");
+    return false;
   }
 
   const uint32_t currentSequence = ++sequence;
@@ -393,6 +578,7 @@ void publishTelemetry(unsigned long pulses, float flowRateLpm, float consumption
   Serial.print("[MQTT] ");
   Serial.print(published ? "Telemetria enviada: " : "Error enviando telemetria: ");
   Serial.println(payload);
+  return published;
 }
 
 void handleProvisioningPayload(const String& serialized) {
@@ -436,7 +622,15 @@ void handleProvisioningPayload(const String& serialized) {
   notifyStatus("wifi_connected");
 
   if (connectMqtt()) {
-    notifyStatus("provisioning_complete");
+    if (linkedToHome) {
+      saveBleLock(true);
+      applyBlePolicy();
+      notifyStatus("provisioning_complete");
+    } else {
+      // La red ya quedo guardada, pero el backend aun debe confirmar que el
+      // equipo pertenece a un hogar. Mientras tanto BLE permanece disponible.
+      notifyStatus("waiting_link_confirmation");
+    }
   } else {
     notifyStatus("mqtt_unreachable");
   }
@@ -446,39 +640,156 @@ class ProvisioningCallbacks : public NimBLECharacteristicCallbacks {
   void onWrite(NimBLECharacteristic* characteristic, NimBLEConnInfo&) override {
     const std::string value = characteristic->getValue();
     if (value.empty()) return;
-    handleProvisioningPayload(String(value.c_str()));
+
+    // No bloquear el callback GATT: conectar Wi-Fi y MQTT puede tardar varios
+    // segundos y el navegador necesita recibir primero la respuesta del write.
+    portENTER_CRITICAL(&blePayloadMux);
+    std::strncpy(pendingBlePayload, value.c_str(), BLE_PAYLOAD_MAX - 1);
+    pendingBlePayload[BLE_PAYLOAD_MAX - 1] = '\0';
+    pendingBlePayloadReady = true;
+    portEXIT_CRITICAL(&blePayloadMux);
+  }
+};
+
+class ProvisioningServerCallbacks : public NimBLEServerCallbacks {
+  void onConnect(NimBLEServer* server, NimBLEConnInfo& connInfo) override {
+    // Un intervalo corto y un timeout amplio evitan que Windows descarte el
+    // enlace mientras descubre el servicio y sus caracteristicas GATT.
+    server->updateConnParams(connInfo.getConnHandle(), 12, 24, 0, 200);
+    bleClientConnected = true;
+    Serial.println("[BLE] Cliente conectado; GATT listo.");
+  }
+
+  void onDisconnect(NimBLEServer*, NimBLEConnInfo&, int reason) override {
+    bleClientConnected = false;
+    // NimBLE detiene el advertising al aceptar una conexion. Si el usuario
+    // cancela el selector BLE o la conexion falla, debe volver a descubrirse
+    // sin reiniciar el ESP32. Un equipo ya vinculado y bloqueado permanece
+    // fuera de BLE hasta que el backend mande unlink o se use BOOT.
+    if (!linkedToHome || !bleLocked) {
+      NimBLEDevice::startAdvertising();
+      bleAdvertising = true;
+      setBleStatus("ready", false);
+      Serial.print("[BLE] Cliente desconectado (razon ");
+      Serial.print(reason);
+      Serial.println("); advertising reiniciado.");
+    }
   }
 };
 
 void startProvisioningBLE() {
-  if (provisioningActive) return;
-  provisioningActive = true;
-
   const String bleName = String("HidroSmart-") + hardwareId.substring(hardwareId.length() - 6);
-  NimBLEDevice::init(bleName.c_str());
+  if (!bleInitialized) {
+    NimBLEDevice::init(bleName.c_str());
+    // Mantiene el enlace de provisionamiento estable durante el escaneo y la
+    // lectura/escritura GATT, especialmente cuando el ESP32 esta junto a un
+    // router Wi-Fi activo.
+    NimBLEDevice::setPower(9);
 
-  NimBLEServer* server = NimBLEDevice::createServer();
-  NimBLEService* service = server->createService(BLE_SERVICE_UUID);
-  configCharacteristic = service->createCharacteristic(
-    BLE_CONFIG_CHAR_UUID,
-    NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE
-  );
-  configCharacteristic->setCallbacks(new ProvisioningCallbacks());
-  statusCharacteristic = service->createCharacteristic(
-    BLE_STATUS_CHAR_UUID,
-    NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
-  );
-  service->start();
+    NimBLEServer* server = NimBLEDevice::createServer();
+    server->setCallbacks(new ProvisioningServerCallbacks());
+    NimBLEService* service = server->createService(BLE_SERVICE_UUID);
+    configCharacteristic = service->createCharacteristic(
+      BLE_CONFIG_CHAR_UUID,
+      NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::WRITE
+    );
+    configCharacteristic->setCallbacks(new ProvisioningCallbacks());
+    statusCharacteristic = service->createCharacteristic(
+      BLE_STATUS_CHAR_UUID,
+      NIMBLE_PROPERTY::READ | NIMBLE_PROPERTY::NOTIFY
+    );
+    configCharacteristic->setValue("");
+    statusCharacteristic->setValue("{}");
 
-  NimBLEAdvertising* advertising = NimBLEDevice::getAdvertising();
-  advertising->addServiceUUID(BLE_SERVICE_UUID);
-  advertising->setName(bleName.c_str());
-  NimBLEDevice::startAdvertising();
+    NimBLEAdvertising* advertising = NimBLEDevice::getAdvertising();
+    // El nombre y el UUID de servicio no caben juntos en el anuncio BLE
+    // principal. El nombre se entrega en la respuesta de escaneo para que
+    // Chrome/Edge pueda descubrir el ESP32 sin truncar el anuncio.
+    advertising->enableScanResponse(true);
+    advertising->addServiceUUID(BLE_SERVICE_UUID);
+    advertising->setName(bleName.c_str());
+    bleInitialized = true;
+  }
 
-  Serial.print("[BLE] Provisionamiento activo: ");
-  Serial.println(bleName);
-  // La primera lectura BLE devuelve la identidad y el estado inicial.
-  setBleStatus("ready", false);
+  if (!bleAdvertising) {
+    // Inicia el GATT despues de registrar todos los atributos. En NimBLE
+    // 2.x service->start() ya no registra el servicio; debe arrancar el
+    // servidor antes de publicar el anuncio.
+    NimBLEServer* server = NimBLEDevice::getServer();
+    if (server != nullptr && !server->start()) {
+      Serial.println("[BLE] No se pudo iniciar el servidor GATT");
+      return;
+    }
+    NimBLEDevice::startAdvertising();
+    bleAdvertising = true;
+    // El estado ready debe reflejar que el anuncio BLE ya esta activo.
+    setBleStatus("ready", false);
+    Serial.print("[BLE] Provisionamiento activo: ");
+    Serial.println(bleName);
+  }
+}
+
+void stopProvisioningBLE() {
+  if (!bleInitialized) return;
+
+  // Si el backend acaba de confirmar la vinculacion mientras el navegador
+  // sigue conectado, cerrar tambien las conexiones GATT existentes. De lo
+  // contrario el anuncio se detiene, pero el cliente puede seguir viendo BLE
+  // como conectado y el equipo queda en un estado ambiguo.
+  NimBLEServer* server = NimBLEDevice::getServer();
+  if (server != nullptr) {
+    for (const uint16_t connHandle : server->getPeerDevices()) {
+      server->disconnect(connHandle);
+    }
+  }
+
+  NimBLEDevice::getAdvertising()->stop();
+  bleAdvertising = false;
+  bleClientConnected = false;
+  Serial.println("[BLE] Provisionamiento detenido: dispositivo asociado");
+}
+
+void applyBlePolicy() {
+  // Sin hogar asociado, el ESP32 siempre debe poder ser descubierto y
+  // vinculado, aunque conserve una red Wi-Fi en NVS.
+  if (!linkedToHome) {
+    if (bleLocked) saveBleLock(false);
+    if (!bleAdvertising) startProvisioningBLE();
+    return;
+  }
+
+  // La vinculacion confirmada es la autoridad para apagar BLE. Si se habilito
+  // manualmente con BOOT o por un comando, se mantiene encendido hasta que el
+  // backend confirme nuevamente disable_ble.
+  if (!bleLocked) {
+    if (!bleAdvertising) startProvisioningBLE();
+    return;
+  }
+
+  stopProvisioningBLE();
+}
+
+void checkConfigurationButton() {
+  const bool pressed = digitalRead(CONFIG_BUTTON_PIN) == LOW;
+
+  if (pressed && !configButtonPressed) {
+    configButtonPressed = true;
+    configButtonHandled = false;
+    configButtonStartedAt = millis();
+  }
+
+  if (pressed && !configButtonHandled && millis() - configButtonStartedAt >= 5000UL) {
+    configButtonHandled = true;
+    saveBleLock(false);
+    startProvisioningBLE();
+    notifyStatus("ble_enabled");
+    Serial.println("[BLE] Configuracion manual activada con BOOT");
+  }
+
+  if (!pressed) {
+    configButtonPressed = false;
+    configButtonHandled = false;
+  }
 }
 } // namespace
 
@@ -502,6 +813,7 @@ void setup() {
 
   pinMode(HIDROSMART_FLOW_PIN, INPUT);
   attachInterrupt(digitalPinToInterrupt(HIDROSMART_FLOW_PIN), onPulse, FALLING);
+  pinMode(CONFIG_BUTTON_PIN, INPUT_PULLUP);
 
   configTime(0, 0, "pool.ntp.org", "time.nist.gov");
   mqttClient.setKeepAlive(HIDROSMART_MQTT_KEEPALIVE_SECONDS);
@@ -510,36 +822,42 @@ void setup() {
   if (connectKnownWifi()) {
     if (!connectMqtt()) {
       Serial.println("[MQTT] Mosquitto no disponible; se activa Bluetooth para corregir la configuracion.");
-      startProvisioningBLE();
     }
   } else {
     Serial.println("[WIFI] No hay redes guardadas disponibles.");
-    startProvisioningBLE();
   }
 
+  applyBlePolicy();
+
   lastSampleAt = millis();
+  lastTotalSaveAt = millis();
 }
 
 void loop() {
   const unsigned long now = millis();
 
+  checkConfigurationButton();
+
+  String blePayload;
+  if (takePendingBlePayload(blePayload)) {
+    handleProvisioningPayload(blePayload);
+  }
+
   if (WiFi.status() != WL_CONNECTED) {
     if (now - lastWifiAttemptAt >= WIFI_RETRY_INTERVAL_MS) {
       lastWifiAttemptAt = now;
-      if (!connectKnownWifi() && knownNetworkCount > 0) startProvisioningBLE();
+      connectKnownWifi();
     }
-    delay(50);
-    return;
+  } else {
+    if (!mqttClient.connected() && now - lastMqttAttemptAt >= MQTT_RETRY_INTERVAL_MS) {
+      lastMqttAttemptAt = now;
+      connectMqtt();
+    }
+    mqttClient.loop();
   }
-
-  if (!mqttClient.connected() && now - lastMqttAttemptAt >= MQTT_RETRY_INTERVAL_MS) {
-    lastMqttAttemptAt = now;
-    if (!connectMqtt()) startProvisioningBLE();
-  }
-  mqttClient.loop();
 
   if (now - lastSampleAt < HIDROSMART_SAMPLE_INTERVAL_MS) {
-    delay(2);
+    delay(10);
     return;
   }
 
@@ -547,7 +865,7 @@ void loop() {
   lastSampleAt = now;
 
   noInterrupts();
-  const unsigned long pulses = pulseCount;
+  const uint32_t pulses = pulseCount;
   pulseCount = 0;
   interrupts();
 
@@ -556,6 +874,14 @@ void loop() {
   const float flowRateLpm = pulsesPerSecond / HIDROSMART_FLOW_FACTOR;
   const float consumptionLiters = flowRateLpm * intervalSeconds / 60.0f;
   totalLiters += consumptionLiters;
+  pendingPulses += pulses;
+  pendingConsumptionLiters += consumptionLiters;
+  pendingSampleSeconds += intervalSeconds;
+
+  if ((now - lastTotalSaveAt >= TOTAL_SAVE_INTERVAL_MS) ||
+      (totalLiters - lastPersistedTotalLiters >= TOTAL_SAVE_MIN_DELTA_LITERS)) {
+    saveTotalLiters();
+  }
 
   Serial.print("Pulsos: ");
   Serial.print(pulses);
@@ -567,5 +893,15 @@ void loop() {
   Serial.print(totalLiters, 5);
   Serial.println(" L");
 
-  publishTelemetry(pulses, flowRateLpm, consumptionLiters, intervalSeconds);
+  // La telemetria conserva el periodo de 5 segundos aunque el navegador siga
+  // conectado por BLE. BLE y MQTT pueden trabajar en paralelo; pausar MQTT
+  // aqui dejaba lecturas acumuladas y rompia la sincronizacion con el frontend.
+  if (mqttClient.connected() && pendingSampleSeconds > 0.0f) {
+    const float pendingFlowRateLpm = pendingConsumptionLiters / (pendingSampleSeconds / 60.0f);
+    if (publishTelemetry(pendingPulses, pendingFlowRateLpm, pendingConsumptionLiters, pendingSampleSeconds)) {
+      pendingPulses = 0;
+      pendingConsumptionLiters = 0.0f;
+      pendingSampleSeconds = 0.0f;
+    }
+  }
 }

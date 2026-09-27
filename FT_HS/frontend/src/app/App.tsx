@@ -127,11 +127,7 @@ function AuthenticatedApplication() {
   const { session, logout } = useAuth();
   if (!session) return <Navigate to="/login" replace />;
 
-  const defaultPath = session.roles.includes('Administrator')
-    ? '/app/admin'
-    : session.roles.includes('Support')
-      ? '/app/support/management'
-      : '/app';
+  const defaultPath = session.roles.includes('Administrator') ? '/app/admin' : '/app';
 
   if (location.pathname === '/app' && defaultPath !== '/app') {
     return <Navigate to={defaultPath} replace />;

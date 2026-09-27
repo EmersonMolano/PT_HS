@@ -165,6 +165,44 @@ test('persiste el SSID y la IP reportados por el ESP32 sin recibir la clave Wi-F
   assert.equal(Object.hasOwn(persistenceInput, 'password'), false);
 });
 
+test('acepta el RSSI negativo que publica el ESP32 en el estado ONLINE', async () => {
+  const result = await handleDeviceStatus({
+    topic: 'hidrosmart/devices/ESP32-001/status',
+    message: JSON.stringify({
+      deviceId: 'ESP32-001',
+      hardwareId: 'HS-141F47470968',
+      status: 'ONLINE',
+      wifiRssiDbm: -70,
+      signalQuality: -70,
+      provisioningState: 'complete'
+    }),
+    logger: silentLogger,
+    deviceRepository: {
+      recordMqttStatus: async (input) => input
+    }
+  });
+
+  assert.equal(result.wifiRssiDbm, -70);
+  assert.equal(result.signalQuality, 60);
+});
+
+test('normaliza estados BLE antiguos antes de persistirlos en PostgreSQL', async () => {
+  const result = await handleDeviceStatus({
+    topic: 'hidrosmart/devices/ESP32-001/status',
+    message: JSON.stringify({
+      deviceId: 'ESP32-001',
+      status: 'OFFLINE',
+      provisioningState: 'waiting_for_wifi'
+    }),
+    logger: silentLogger,
+    deviceRepository: {
+      recordMqttStatus: async (input) => input
+    }
+  });
+
+  assert.equal(result.provisioningStatus, 'PENDING');
+});
+
 test('permite desactivar la compatibilidad con payloads MQTT legados', async () => {
   await assert.rejects(
     handleReading({

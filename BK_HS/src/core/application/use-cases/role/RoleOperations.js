@@ -12,7 +12,13 @@ function validateRoleName(value) {
     error.status = 400;
     throw error;
   }
-  return value.trim();
+  const roleName = value.trim();
+  if (!['Administrator', 'HomeUser', 'Guest'].includes(roleName)) {
+    const error = new Error('roleName no es un rol funcional permitido');
+    error.status = 400;
+    throw error;
+  }
+  return roleName;
 }
 
 function requireAuthenticatedUser(userId) {

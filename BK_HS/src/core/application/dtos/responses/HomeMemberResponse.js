@@ -3,7 +3,6 @@ class HomeMemberResponse {
     return {
       userId: member.user_id,
       username: member.username,
-      email: member.email,
       fullName: member.full_name,
       homeRole: member.home_role,
       assignedAt: member.assigned_at

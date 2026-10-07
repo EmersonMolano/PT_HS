@@ -1,100 +1,76 @@
 # Diagnóstico actual de BD_HS
 
-Fecha de revisión: 2026-09-03.
+Fecha de revisión: 2026-09-23.
 
 ## Resultado ejecutivo
 
-La instalación limpia de Hidro Smart fue ejecutada correctamente contra PostgreSQL 16.15 usando Liquibase 5.0.2.
+La configuración local de `hidro_smart` quedó verificada en la última ejecución con PostgreSQL 16 y Liquibase 5.0.2. El changelog actual contiene 245 changesets aplicados.
 
-El resultado actual es operativo:
+> Último estado comprobado: `validate`, `update` y `status` fueron exitosos; PostgreSQL estaba saludable, `hidro_smart_app` autenticaba correctamente y el backend respondía `/health` con HTTP 200. Si Docker Desktop no está iniciado, estas comprobaciones deben repetirse antes de aplicar cambios.
 
-- PostgreSQL está `healthy`.
-- Liquibase `validate` terminó sin errores.
-- Liquibase `update` terminó correctamente.
-- Se aplicaron 166 changesets.
-- Liquibase `status` indica que la base está actualizada.
-- La base `hidro_smart` responde por el puerto local `5433`.
+- PostgreSQL responde por `localhost:5433` desde Windows.
+- Dentro de Docker la conexión es `postgres:5432`.
+- El backend se conecta con el rol `hidro_smart_app`.
+- Liquibase se ejecuta con el perfil `tooling` y el rol administrador correspondiente.
+- Existen los roles `hidro_smart_admin`, `hidro_smart_liquibase`, `hidro_smart_app`, `hidro_smart_ingest` y `hidro_smart_readonly`.
+- La auditoría del esquema encontró 58 tablas de aplicación y 5 vistas
+  materializadas; no se identificaron tablas seguras para eliminar.
+- Las 15 restricciones de métricas IoT quedaron validadas y actualmente hay 0
+  restricciones `NOT VALID` en las tablas revisadas.
+- `user_account.user_account` acepta `Pending` para altas sin verificar y
+  `user_account.user_profile` contiene avatar opcional y teléfono de hasta 60
+  caracteres.
 
-## Verificaciones realizadas
+## Comandos de verificación
 
-Se confirmó una conexión administrativa con:
+Desde la raíz del repositorio:
 
-```text
-current_database = hidro_smart
-current_user     = hidro_smart_admin
+```powershell
+docker compose --env-file .env up -d postgres db-bootstrap
+docker compose --env-file .env --profile tooling run --rm liquibase validate
+docker compose --env-file .env --profile tooling run --rm liquibase status --verbose
+docker compose --env-file .env --profile tooling run --rm liquibase update
 ```
 
-También se verificó que existen los roles:
+No se deben editar changesets ya aplicados. Cada cambio posterior debe crear un nuevo changeset con rollback revisado.
 
-- `hidro_smart_admin`
-- `hidro_smart_liquibase`
-- `hidro_smart_app`
-- `hidro_smart_ingest`
-- `hidro_smart_readonly`
+## Objetos relevantes para IoT
 
-La conexión real como `hidro_smart_app` también fue probada correctamente.
+La base ya contiene objetos para:
 
-## Corrección del provisioning
+- `device.device`: identidad y código del dispositivo.
+- `device.device.location`: ubicación visible opcional, máximo 120 caracteres.
+- `home.home_device`: asociación del dispositivo con el hogar.
+- `consumption.sensor_reading`: lecturas de consumo.
+- `device.device_telemetry_history`: historial de salud/telemetría del dispositivo.
+- funciones y vistas de consumo que alimentan la API, incluida
+  `consumption.fn_get_consumption_series(...)` para agrupaciones diaria, horaria,
+  mensual y por ubicación.
 
-El script `scripts/provision-liquibase-role.ps1` fue corregido en dos puntos:
+Los conteos de dispositivos y lecturas dependen de los datos cargados en la base de desarrollo; una instalación limpia puede mostrar cero registros. En el corte del 2026-09-23 hay 0 hogares, 0 dispositivos y 0 lecturas porque las pruebas limpian sus datos temporales. La capacidad de persistencia se verifica mediante la función de ingesta y las pruebas del backend.
 
-1. Se escapó correctamente `DO $$ ... $$` para que PowerShell no elimine los delimitadores enviados a PostgreSQL.
-2. Se agregó `GRANT USAGE, CREATE ON SCHEMA public`, necesario para crear las tablas `databasechangelog` y `databasechangeloglock`.
+## Estado de ingestión MQTT
 
-## Seguridad de ingesta IoT
+La infraestructura MQTT del backend recibe, normaliza y persiste mensajes mediante `IngestReading` y `PostgresTelemetryRepository`. La función SQL resuelve el dispositivo, valida su asociación y estado, aplica deduplicación y guarda las métricas. El rol `hidro_smart_ingest` tiene el permiso `EXECUTE` versionado por Liquibase sobre la función protegida y no tiene `INSERT` directo sobre la tabla.
 
-La ingesta ya no depende de `SELECT` global sobre `device.device` ni `home.home_device`.
+Comprobaciones vigentes:
 
-La solución activa incluye:
+1. resolver `deviceCode` a `device_id` y `home_id`;
+2. verificar dispositivo activo y relación con el hogar;
+3. insertar la lectura mediante la función y el pool de ingesta;
+4. guardar las métricas de telemetría incluidas en el contrato;
+5. probar límites e idempotencia.
 
-- `device.fn_can_ingest_reading(UUID, UUID)` como función `SECURITY DEFINER`.
-- Política RLS que valida la relación dispositivo-hogar mediante esa función.
-- `GRANT EXECUTE` únicamente a `hidro_smart_ingest`.
-- `REFERENCES` y `USAGE` mínimos para validación de llaves foráneas.
-- Revocación de `SELECT` global para el rol IoT.
-- Rollbacks integrados en `05_rollbacks`.
+No se debe dar al backend permiso administrativo ni acceso amplio a todos los esquemas.
 
-## Liquibase y estructura
+## Precisión de consumo
 
-La cadena principal carga:
+`consumption.sensor_reading.consumption_liters` usa `NUMERIC(14,3)` y el m³
+generado usa `NUMERIC(14,6)`. La migración `20260914-consumption-precision`
+reconstruyó las vistas materializadas y `fn_calculate_consumption` para que una
+muestra de `0.040 L` se conserve como `0.000040 m³`. La prueba del ESP32 real,
+la calibración y la validación de lecturas físicas siguen pendientes.
 
-```text
-01_ddl → 02_dml → 03_dcl
-```
+## RLS, roles y API
 
-`04_tcl` permanece fuera del `update` normal y se ejecuta únicamente mediante procedimientos manuales documentados.
-
-No se detectaron errores de rutas o IDs duplicados durante las verificaciones anteriores. Los cambios nuevos de ingesta quedaron incluidos en sus respectivos `0000changelog.yaml`.
-
-## Estado del backend
-
-La base está lista para conectarse desde el backend con `hidro_smart_app`.
-
-- Desde Windows: `localhost:5433`.
-- Desde otro contenedor del mismo Compose: `postgres:5432`.
-- El backend debe establecer `app.user_id` por transacción.
-- Liquibase no debe ejecutarse automáticamente desde el arranque del backend.
-- El backend no debe utilizar `hidro_smart_admin`.
-
-## Pendientes que no bloquean el arranque
-
-- Ejecutar pruebas end-to-end desde el backend real.
-- Probar una lectura IoT válida y otra inválida con dispositivos y hogares reales.
-- Rotar las contraseñas temporales antes de producción.
-- Definir y modelar actuadores físicos como electroválvulas e hidrobombas.
-- Decidir si `consumption_prediction` permanece dentro del alcance.
-- Completar la estrategia de auditoría para todas las tablas que requieran trazabilidad.
-- MFA queda fuera del alcance funcional actual; el correo operativo se maneja únicamente por Gmail SMTP desde el backend.
-
-## Conclusión
-
-La base ya está desplegada correctamente en el entorno local y Liquibase está al día. El backend utiliza `hidro_smart_app` y las pruebas funcionales de permisos continúan ampliándose por módulo.
-
-## Actualización 2026-09-03
-
-Se aplicaron dos changesets nuevos para la consulta administrativa de auditoría:
-
-- `20260903-fn-list-audit-logs`: función `user_account.fn_list_audit_logs(...)` con filtros y paginación.
-- `20260903-audit-read-function-grant`: `EXECUTE` para `hidro_smart_app`, sin `SELECT` directo sobre `audit.audit_log`.
-
-La verificación de permisos con usuarios funcionales reales permitió consultar únicamente con `Administrator`; `Support`, `HomeUser` y `Guest` fueron rechazados.
+La API establece el contexto de usuario en la transacción para respetar las políticas RLS. Las funciones administrativas, auditoría e ingestión deben conservar permisos explícitos y mínimos. La documentación de dominios está en `01_dominios.md`, la de seguridad en `03_dcl.md` y la de ejecución en `guia-ejecucion-liquibase.md`.

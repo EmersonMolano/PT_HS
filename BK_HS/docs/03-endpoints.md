@@ -1,958 +1,273 @@
-# Endpoints de la API — Hidro Smart
+# Endpoints reales de la API — HidroSmart
 
-## 1. Introducción
+Fecha de revisión: 2026-09-23.
 
-La API REST de Hidro Smart será utilizada para la comunicación entre el frontend, el backend y los diferentes módulos del sistema.
+Este documento refleja las rutas montadas actualmente en `BK_HS/src/app.js`. La URL base pública es `http://localhost:3000/api/v1` en desarrollo directo y `/api/v1` desde el frontend servido por Nginx.
 
-Todos los endpoints estarán versionados mediante:
+## Convenciones
 
-```text
-/api/v1
-```
+- Las rutas protegidas requieren `Authorization: Bearer <access_token>`.
+- Los identificadores de ruta son UUID salvo que el backend indique otra cosa.
+- Los permisos se verifican en backend; ocultar un botón en frontend no reemplaza esa verificación.
+- Las respuestas exitosas usan el envoltorio de datos definido por el backend y los errores usan el contrato común de error.
+- `GET /` y `GET /health` son públicos y no pertenecen a `/api/v1`.
 
-Ejemplo:
+## Auth — `/auth`
 
-```text
-/api/v1/auth/login
-```
+| Método | Ruta completa | Acceso |
+|---|---|---|
+| POST | `/api/v1/auth/register` | público |
+| POST | `/api/v1/auth/login` | público |
+| POST | `/api/v1/auth/refresh` | público con refresh token |
+| POST | `/api/v1/auth/logout` | autenticado |
+| GET | `/api/v1/auth/sessions` | autenticado; solo sesiones propias |
+| DELETE | `/api/v1/auth/sessions/:sessionId` | autenticado; solo una sesion propia |
+| POST | `/api/v1/auth/sessions/revoke-others` | autenticado; conserva la sesion actual |
+| POST | `/api/v1/auth/sessions/revoke-all` | autenticado; cierra todas las sesiones |
+| POST | `/api/v1/auth/change-password` | autenticado |
+| POST | `/api/v1/auth/request-password-reset` | público |
+| GET | `/api/v1/auth/password-reset-context?resetToken=...` | público con token vigente; devuelve solo el correo asociado |
+| POST | `/api/v1/auth/reset-password` | público con token de un solo uso |
+| POST | `/api/v1/auth/resend-verification` | público; reenvía un enlace de verificación con respuesta neutra |
+| POST | `/api/v1/auth/verify-email` | público con token de verificación de un solo uso |
 
-La API estará organizada por módulos funcionales.
+`GET /auth/sessions` nunca devuelve hashes ni tokens. `DELETE /auth/sessions/:sessionId` responde `204` al cerrar una sesion propia; una sesion inexistente, ajena o ya cerrada responde `404`. Las operaciones masivas devuelven `{ data: { revokedCount } }`.
 
----
+## Users — `/users`
 
-# 2. Convenciones
+| Método | Ruta completa | Acceso |
+|---|---|---|
+| GET | `/api/v1/users/me` | autenticado |
+| GET | `/api/v1/users` | `users.manage`; búsqueda, estado, paginación y ordenamiento |
+| PUT | `/api/v1/users/me` | autenticado |
+| GET | `/api/v1/users/me/preferences` | autenticado |
+| PUT | `/api/v1/users/me/preferences` | autenticado |
+| GET | `/api/v1/users/me/notifications` | autenticado; preferencias propias de avisos por correo |
+| PUT | `/api/v1/users/me/notifications` | autenticado; guarda avisos de consumo, alertas, dispositivos y canal Gmail |
+| GET | `/api/v1/users/:userId/overview` | `users.manage`; hogares y dispositivos asociados al usuario seleccionado |
+| PATCH | `/api/v1/users/:userId/status` | `users.manage` |
+| DELETE | `/api/v1/users/:userId` | `users.manage`; eliminación lógica |
 
-## Métodos HTTP
+El correo y el documento se mantienen inmutables en la actualización de perfil según el caso de uso actual. El perfil permite actualizar `fullName`, `city`, `phone` (máximo 60 caracteres) y `avatarDataUrl` (JPG, PNG o WebP en base64, máximo 2 MB).
 
-| Método | Uso |
-|---|---|
-| GET | Consultar información |
-| POST | Crear información o ejecutar una acción |
-| PUT | Actualizar un recurso completo |
-| PATCH | Actualizar parcialmente un recurso |
-| DELETE | Eliminar o desactivar un recurso |
+## Homes — `/homes`
 
----
+| Método | Ruta completa | Acceso |
+|---|---|---|
+| POST | `/api/v1/homes` | `homes.manage` |
+| GET | `/api/v1/homes` | autenticado |
+| GET | `/api/v1/homes/:homeId` | autenticado y con acceso al hogar |
+| PUT | `/api/v1/homes/:homeId` | `homes.manage` |
+| GET | `/api/v1/homes/:homeId/members` | autenticado y con acceso al hogar |
+| POST | `/api/v1/homes/:homeId/members` | `homes.manage`; agrega una cuenta activa y envía el aviso de acceso por SMTP |
+| PATCH | `/api/v1/homes/:homeId/members/:memberUserId/role` | `homes.manage` |
+| DELETE | `/api/v1/homes/:homeId/members/:memberUserId` | `homes.manage` |
+| POST | `/api/v1/homes/:homeId/membership-requests` | autenticado |
+| GET | `/api/v1/homes/:homeId/membership-requests` | autenticado y con acceso al hogar |
+| PATCH | `/api/v1/homes/membership-requests/:requestId` | `homes.manage` |
 
-## Autenticación
+`POST /api/v1/homes/:homeId/members` recibe `{ "email": "persona@correo.com", "homeRole": "Member" | "Guest" }`.
+El correo debe corresponder a una cuenta activa. PostgreSQL mantiene la
+validación de propietario, permiso y duplicados; después de confirmar el alta,
+el backend envía el aviso de acceso mediante el SMTP configurado y responde
+con `notification.sent` y `notification.configured`. Si SMTP no está
+disponible, el miembro permanece agregado y `notification.sent` queda en
+`false`.
 
-Los endpoints protegidos utilizarán:
+## Devices — `/devices`
 
-```text
-Authorization: Bearer <access_token>
-```
+| Método | Ruta completa | Acceso |
+|---|---|---|
+| POST | `/api/v1/devices` | `devices.manage` |
+| POST | `/api/v1/devices/link` | `devices.manage`; vinculación por `hardwareId` o código técnico y titularidad del hogar |
+| GET | `/api/v1/devices` | autenticado; lista dispositivos autorizados con `homeId`, `page`, `pageSize`, `sort` y `order` |
+| GET | `/api/v1/devices/:deviceId` | autenticado y con acceso al dispositivo |
+| GET | `/api/v1/devices/:deviceId/status` | autenticado y con acceso al dispositivo |
+| GET | `/api/v1/devices/:deviceId/telemetry` | autenticado y con acceso al dispositivo; historial paginado con filtros `from`, `to`, `sort` y `order` |
+| GET | `/api/v1/devices/:deviceId/telemetry/latest` | autenticado y con acceso al dispositivo; devuelve la ultima lectura o `null` |
+| PUT | `/api/v1/devices/:deviceId` | `devices.manage` |
+| PUT | `/api/v1/devices/:deviceId/config` | `devices.manage` |
+| PATCH | `/api/v1/devices/:deviceId/status` | `devices.manage` |
+| PATCH | `/api/v1/devices/:deviceId/provisioning` | `devices.manage`; actualiza identidad y estado de aprovisionamiento |
+| POST | `/api/v1/devices/:deviceId/deactivate` | `devices.manage` |
+| DELETE | `/api/v1/devices/:deviceId/home/:homeId` | `devices.manage` |
 
-Los endpoints públicos serán principalmente los relacionados con:
+El `device.code` de este módulo es el identificador que debe aparecer en el topic MQTT como `{deviceCode}`. El alta acepta `hardwareId`; si no se recibe `code`, el backend usa ese hardwareId como código lógico inicial para que el ESP32 que publica con su identidad física sea reconocido. Si tampoco se recibe hardwareId, conserva la generación compatible `ESP32-XXXXXXXXXXXX`.
+El `hardwareId` se puede guardar desde el alta o asociar después con `POST /api/v1/devices/{deviceId}/claim-hardware`. La contraseña Wi-Fi solo viaja por BLE y nunca se guarda en PostgreSQL. La vinculación de un dispositivo ya existente acepta `{ homeId, hardwareId }` en `POST /api/v1/devices/link`; el código técnico anterior sigue siendo válido.
 
-- Registro.
-- Inicio de sesión.
-- Renovación de sesión.
+## Actuators — `/actuators`
 
----
+| Método | Ruta completa | Acceso |
+|---|---|---|
+| GET | `/api/v1/actuators/states?homeId={uuid}` | autenticado; estados de actuadores de hogares autorizados |
+| GET | `/api/v1/actuators/:deviceId/status` | autenticado y con acceso al dispositivo |
+| GET | `/api/v1/actuators/commands?homeId={uuid}&status={status}` | autenticado; comandos del hogar autorizado, con paginación |
+| POST | `/api/v1/actuators/:deviceId/:actuator/commands` | `actuators.manage`; `actuator` es `valve` o `pump` |
 
-# 3. Autenticación
-
-Ruta base:
-
-```text
-/api/v1/auth
-```
-
-| Método | Endpoint | Descripción | Auth |
-|---|---|---|---|
-| POST | `/register` | Registrar usuario | No |
-| POST | `/login` | Iniciar sesión | No |
-| POST | `/change-password` | Cambiar contraseña | Sí |
-| POST | `/request-password-reset` | Solicitar recuperación | No |
-| POST | `/reset-password` | Restablecer contraseña con token | No |
-| POST | `/refresh` | Renovar access token | No/Refresh Token |
-| POST | `/logout` | Cerrar sesión | Sí |
-
-### Ejemplo
-
-```http
-POST /api/v1/auth/login
-```
-
-Body:
+El cuerpo del comando acepta `command` (`OPEN`/`CLOSED` para `VALVE`, `ON`/`OFF` para `PUMP`) y un `correlationId` UUID opcional. Si no se envía, el backend lo genera. La respuesta `202` deja el comando en `Published` cuando Mosquitto lo acepta; si el broker falla, el registro queda en `Failed` y la API responde `503`.
 
 ```json
 {
-  "email": "usuario@example.com",
-  "password": "********"
+  "command": "OPEN",
+  "correlationId": "33333333-3333-4333-8333-333333333333"
 }
 ```
 
-Caso de uso:
+El estado reportado por el dispositivo actualiza `device.actuator_state`. Si el payload MQTT incluye el mismo `correlationId`, el comando pasa a `Acknowledged`. Los comandos `Pending` o `Published` sin ACK se marcan automáticamente como `TimedOut` y la transición queda en `audit.audit_log`.
 
-```text
-LoginUser
-```
+## Consumption — `/consumption`
 
----
-
-# 4. Usuarios
-
-Ruta base:
-
-```text
-/api/v1/users
-```
-
-| Método | Endpoint | Descripción |
+| Método | Ruta completa | Acceso |
 |---|---|---|
-| GET | `/me` | Obtener usuario autenticado |
-| PUT | `/me` | Actualizar información del usuario |
+| GET | `/api/v1/consumption/summary` | `consumption.read` |
+| GET | `/api/v1/consumption/daily` | `consumption.read` |
+| GET | `/api/v1/consumption/monthly` | `consumption.read` |
+| GET | `/api/v1/consumption/hourly` | `consumption.read` |
+| GET | `/api/v1/consumption/cost` | `consumption.read` |
+| GET | `/api/v1/consumption/advanced` | `consumption.read`; series agrupadas por `daily`, `hourly`, `monthly` o `location` |
 
-### Obtener usuario actual
+Estas rutas consultan agregados de PostgreSQL. No son un endpoint de entrada MQTT ni representan por sí mismas caudal instantáneo. Para proteger consultas grandes, `summary` y `cost` aceptan periodos de máximo 366 días; los reportes PDF/Excel aplican el mismo límite.
 
-```http
-GET /api/v1/users/me
-```
+`GET /api/v1/consumption/advanced` recibe `homeId`, `from`, `to` y `groupBy`. Devuelve puntos con fecha/hora o ubicación, litros, m³, cantidad de lecturas, flujo promedio y flujo máximo. La autorización del hogar se comprueba en el caso de uso y nuevamente en `consumption.fn_get_consumption_series(...)`.
 
-Caso de uso:
+## Tariffs — `/tariffs`
 
-```text
-GetUser
-```
-
-### Actualizar usuario
-
-```http
-PUT /api/v1/users/me
-```
-
-Caso de uso:
-
-```text
-UpdateUser
-```
-
-# 5. Hogares
-
-Ruta base:
-
-```text
-/api/v1/homes
-```
-
-| Método | Endpoint | Descripción |
+| Método | Ruta completa | Acceso |
 |---|---|---|
-| POST | `/` | Crear hogar |
-| GET | `/` | Obtener hogares del usuario |
-| GET | `/:homeId` | Obtener información de un hogar |
-| PUT | `/:homeId` | Actualizar hogar |
-| GET | `/:homeId/members` | Consultar miembros |
-| POST | `/:homeId/members` | Agregar/invitar miembro |
-| DELETE | `/:homeId/members/:memberUserId` | Retirar miembro |
+| GET | `/api/v1/tariffs/home/:homeId` | autenticado y con acceso al hogar |
 
-### Crear hogar
+## Alerts — `/alerts`
 
-```http
-POST /api/v1/homes
-```
-
-Caso de uso:
-
-```text
-CreateHome
-```
-
-### Consultar hogar
-
-```http
-GET /api/v1/homes/:homeId
-```
-
-Caso de uso:
-
-```text
-GetHome
-```
-
-### Gestionar miembros
-
-```http
-GET /api/v1/homes/:homeId/members
-```
-
-y:
-
-```http
-POST /api/v1/homes/:homeId/members
-```
-
-Casos de uso: `ListHomeMembers`, `AddHomeMember`, `ChangeHomeMemberRole` y `RemoveHomeMember`.
-
-El acceso deberá comprobar que el usuario pertenece al hogar y que tiene los permisos correspondientes.
-
----
-
-# 6. Dispositivos IoT
-
-Ruta base:
-
-```text
-/api/v1/devices
-```
-
-| Método | Endpoint | Descripción |
+| Método | Ruta completa | Acceso |
 |---|---|---|
-| POST | `/` | Registrar dispositivo |
-| GET | `/` | Listar dispositivos |
-| GET | `/:deviceId` | Consultar dispositivo |
-| PUT | `/:deviceId` | Actualizar dispositivo |
-| GET | `/:deviceId/status` | Consultar estado |
-| PUT | `/:deviceId/config` | Configurar dispositivo |
-| PATCH | `/:deviceId/status` | Cambiar estado y registrar auditoría |
-| POST | `/:deviceId/deactivate` | Desactivar dispositivo con baja lógica |
-| DELETE | `/:deviceId/home/:homeId` | Desvincular dispositivo del hogar |
+| GET | `/api/v1/alerts/home/:homeId/pending` | autenticado y con acceso al hogar |
+| PATCH | `/api/v1/alerts/:alertId/status` | permiso de gestión de alertas |
+| POST | `/api/v1/alerts/home/:homeId/rules` | permiso de gestión de alertas |
+| GET | `/api/v1/alerts/home/:homeId/rules` | autenticado y con acceso al hogar |
+| GET | `/api/v1/alerts/home/:homeId/history` | autenticado y con acceso al hogar |
+| PATCH | `/api/v1/alerts/rules/:ruleId` | permiso de gestión de alertas |
+| DELETE | `/api/v1/alerts/rules/:ruleId` | permiso de gestión de alertas |
+| GET | `/api/v1/alerts/home/:homeId/thresholds` | autenticado y con acceso al hogar |
+| PUT | `/api/v1/alerts/home/:homeId/thresholds` | permiso de gestión de alertas |
+| DELETE | `/api/v1/alerts/home/:homeId/thresholds` | permiso de gestión de alertas |
 
-Implementados actualmente: todas las rutas listadas, incluyendo desactivación y desvinculación.
+## Goals — `/goals`
 
-### Registrar ESP32
-
-```http
-POST /api/v1/devices
-```
-
-Caso de uso:
-
-```text
-RegisterDevice
-```
-
-Payload mínimo actual:
-
-```json
-{
-  "homeId": "uuid-del-hogar",
-  "code": "ESP32-001",
-  "name": "Medidor principal",
-  "type": "YF-S201"
-}
-```
-
-El backend registra el dispositivo y crea su asociación activa con el hogar en la misma transacción. La asociación requiere el permiso `devices.manage` y propiedad del hogar.
-
-El dispositivo registrado representará el ESP32 utilizado por Hidro Smart.
-
----
-
-## Estado del dispositivo
-
-```http
-GET /api/v1/devices/:deviceId/status
-```
-
-La respuesta se obtiene mediante el caso de uso `GetDevice` y expone solo los campos de estado.
-
-### Cambiar estado
-
-```http
-PATCH /api/v1/devices/:deviceId/status
-```
-
-Body para suspender:
-
-```json
-{
-  "status": "Suspended",
-  "reason": "Mantenimiento preventivo"
-}
-```
-
-Los estados permitidos son `Active`, `Suspended` y `Low`. La suspensión exige un motivo. PostgreSQL actualiza el dispositivo y registra el cambio en `device.device_history` dentro de la misma operación.
-
-La desactivación se solicita mediante `POST /api/v1/devices/:deviceId/deactivate` con un `reason` obligatorio. Es una baja lógica: cambia el estado a `Suspended`, conserva el dispositivo y mantiene sus históricos.
-
-### Desvincular dispositivo
-
-```http
-DELETE /api/v1/devices/:deviceId/home/:homeId
-```
-
-La operación elimina únicamente la asociación en `home.home_device`. El dispositivo y sus históricos se conservan. Requiere `devices.manage` y que el usuario sea propietario del hogar.
-
-La información del estado podrá provenir de los mensajes MQTT recibidos desde el dispositivo.
-
----
-
-## Configuración
-
-```http
-PUT /api/v1/devices/:deviceId/config
-```
-
-Caso de uso: `UpdateDeviceConfig`.
-
----
-
-# 7. Consumo
-
-Ruta base:
-
-```text
-/api/v1/consumption
-```
-
-| Método | Endpoint | Descripción |
+| Método | Ruta completa | Acceso |
 |---|---|---|
-| GET | `/summary` | Consultar resumen de consumo |
-| GET | `/daily` | Consultar consumo diario |
-| GET | `/hourly` | Consultar consumo horario |
-| GET | `/cost` | Calcular costo total de un periodo |
-| GET | `/monthly` | Consultar consumo mensual |
+| POST | `/api/v1/goals` | `homes.manage` |
+| GET | `/api/v1/goals` | autenticado |
+| GET | `/api/v1/goals/:goalId` | autenticado y autorizado |
+| GET | `/api/v1/goals/:goalId/progress` | autenticado y autorizado |
+| PUT | `/api/v1/goals/:goalId` | `homes.manage` |
+| DELETE | `/api/v1/goals/:goalId` | `homes.manage` |
 
-### Resumen
+## Vacation — `/vacation`
 
-```http
-GET /api/v1/consumption/summary
-```
-
-Caso de uso:
-
-```text
-GetConsumptionSummary
-```
-
-### Consumo diario, horario y mensual
-
-```http
-GET /api/v1/consumption/daily?homeId=:homeId&date=YYYY-MM-DD
-GET /api/v1/consumption/hourly?homeId=:homeId
-GET /api/v1/consumption/monthly?homeId=:homeId&year=YYYY&month=MM
-```
-
----
-
-# 8. Recepción de lecturas IoT
-
-Las lecturas provenientes del ESP32 no necesariamente entrarán mediante un endpoint HTTP.
-
-El flujo principal será MQTT:
-
-```text
-YF-S201
-    ↓
-ESP32
-    ↓
-MQTT
-    ↓
-Backend
-    ↓
-ReceiveReading
-    ↓
-PostgreSQL
-```
-
-Por esta razón:
-
-```text
-ReceiveReading
-```
-
-es un caso de uso del backend, pero **no necesariamente un endpoint REST público**.
-
-El procesamiento MQTT estará documentado en:
-
-```text
-08-mqtt-iot.md
-```
-
----
-
-# 9. Alertas
-
-Ruta base:
-
-```text
-/api/v1/alerts
-```
-
-| Método | Endpoint | Descripción |
+| Método | Ruta completa | Acceso |
 |---|---|---|
-| GET | `/home/:homeId/pending` | Consultar resumen de alertas pendientes de un hogar |
-| PATCH | `/:alertId/status` | Marcar una alerta como leída o descartada |
-| POST | `/home/:homeId/rules` | Crear regla de alerta |
-| GET | `/home/:homeId/rules` | Listar reglas de alerta |
-| PATCH | `/rules/:ruleId` | Actualizar regla de alerta |
-| DELETE | `/rules/:ruleId` | Eliminar regla de alerta |
-| GET | `/home/:homeId/thresholds` | Consultar límites del hogar |
-| PUT | `/home/:homeId/thresholds` | Crear o actualizar límites del hogar |
-| DELETE | `/home/:homeId/thresholds` | Eliminar límites del hogar |
+| GET | `/api/v1/vacation/home/:homeId` | autenticado y con acceso al hogar |
+| PUT | `/api/v1/vacation/home/:homeId` | `homes.manage` |
+| DELETE | `/api/v1/vacation/home/:homeId` | `homes.manage` |
 
-### Consultar alertas
+## Roles — `/roles`
 
-```http
-GET /api/v1/alerts/home/:homeId/pending
-```
-
-Caso de uso:
-
-```text
-GetPendingAlerts
-```
-
-### Resolver alerta
-
-```http
-PATCH /api/v1/alerts/:alertId/status
-```
-
-Caso de uso:
-
-```text
-UpdateAlertStatus
-```
-
-Las alertas se evalúan automáticamente mediante `alert_rate.fn_generate_alert_events(date)`, ejecutada periódicamente por el job del backend. La generación de un evento requiere reglas activas y lecturas reales asociadas a un dispositivo.
-
-Ejemplo:
-
-```text
-ReadingReceived
-       ↓
-Analizar consumo
-       ↓
-Detectar condición anormal
-       ↓
-AlertTriggered
-       ↓
-Crear alerta
-```
-
----
-
-# 10. Tarifas
-
-Ruta base:
-
-```text
-/api/v1/tariffs
-```
-
-La consulta de tarifa vigente está implementada. La administración avanzada de tarifas históricas queda pendiente.
-
-| Método | Endpoint | Descripción |
+| Método | Ruta completa | Acceso |
 |---|---|---|
-| GET | `/home/:homeId` | Consultar tarifa vigente de un hogar |
+| GET | `/api/v1/roles/users/:userId` | `roles.manage` |
+| POST | `/api/v1/roles/users/:userId` | `roles.manage` |
+| DELETE | `/api/v1/roles/users/:userId` | `roles.manage` |
 
-Implementado actualmente: `GET /api/v1/tariffs/home/:homeId`. Acepta `date=YYYY-MM-DD` opcional; si no se envía, consulta la fecha actual. PostgreSQL aplica RLS y solo devuelve tarifas del hogar al que pertenece el usuario autenticado.
+## Tickets de soporte — `/support`
 
----
-
-# 11. Metas
-
-Ruta base:
-
-```text
-/api/v1/goals
-```
-
-| Método | Endpoint | Descripción |
+| Método | Ruta completa | Acceso |
 |---|---|---|
-| POST | `/` | Crear meta |
-| GET | `/` | Consultar metas |
-| GET | `/:goalId` | Consultar una meta |
-| PUT | `/:goalId` | Actualizar meta |
-| DELETE | `/:goalId` | Eliminar/desactivar meta |
+| GET | `/api/v1/support/catalogs` | autenticado |
+| GET | `/api/v1/support/tickets` | autenticado |
+| GET | `/api/v1/support/tickets/:ticketId` | autenticado y autorizado |
+| GET | `/api/v1/support/tickets/:ticketId/responses` | autenticado y autorizado |
+| POST | `/api/v1/support/tickets` | autenticado; crea un ticket propio |
+| PATCH | `/api/v1/support/tickets/:ticketId` | `tickets.manage` (`Administrator`) |
+| POST | `/api/v1/support/tickets/:ticketId/responses` | autenticado y autorizado por RLS; propio o `tickets.manage` |
 
-Casos de uso:
+## Audit — `/audit`
 
-```text
-CreateGoal
-GetGoals
-GetGoal
-UpdateGoal
-DeleteGoal
-```
-
-Los nombres de los casos de uso podrán ajustarse cuando se defina completamente el dominio de metas.
-
----
-
-# 12. Modo vacaciones
-
-Ruta base:
-
-```text
-/api/v1/vacation
-```
-
-| Método | Endpoint | Descripción |
+| Método | Ruta completa | Acceso |
 |---|---|---|
-| POST | `/activate` | Activar modo vacaciones |
-| POST | `/deactivate` | Desactivar modo vacaciones |
-| GET | `/status` | Consultar estado |
+| GET | `/api/v1/audit/logs` | `audit.read` |
 
-Casos de uso:
+Parámetros de consulta disponibles para auditoría: `action`, `tableName`, `from`, `to`, `page` y `pageSize`.
 
-```text
-ActivateVacation
-DeactivateVacation
-GetVacationStatus
-```
+## Privacy/ARCO — `/privacy`
 
-El modo vacaciones podrá afectar el comportamiento automático de los dispositivos y actuadores según las reglas de negocio que se definan.
-
----
-
-# 13. Actuadores
-
-Este módulo es especialmente importante para la parte IoT de Hidro Smart.
-
-Ruta base:
-
-```text
-/api/v1/actuators
-```
-
-Los actuadores contemplados son:
-
-```text
-Electroválvula
-Hidrobomba
-```
-
----
-
-## Electroválvula
-
-| Método | Endpoint | Acción |
+| Método | Ruta completa | Acceso |
 |---|---|---|
-| POST | `/:actuatorId/valve/open` | Abrir electroválvula |
-| POST | `/:actuatorId/valve/close` | Cerrar electroválvula |
+| GET | `/api/v1/privacy/consents` | autenticado; consentimientos propios |
+| GET | `/api/v1/privacy/export` | autenticado; exportación JSON propia sin secretos |
+| POST | `/api/v1/privacy/consents` | autenticado; agrega un consentimiento aceptado |
+| POST | `/api/v1/privacy/requests` | autenticado; crea una solicitud propia |
+| GET | `/api/v1/privacy/requests` | autenticado; solicitudes propias, paginadas |
+| GET | `/api/v1/privacy/requests/:requestId` | autenticado; solicitud propia o autorizada por RLS |
+| GET | `/api/v1/privacy/requests/manage` | `users.manage`; bandeja administrativa paginada |
+| PATCH | `/api/v1/privacy/requests/:requestId` | `users.manage`; estado y respuesta |
 
-### Abrir
+Los consentimientos son append-only desde la aplicación. Las solicitudes ARCO nuevas reciben una fecha límite de 15 días y solo la administración puede modificar su estado, respuesta y trazabilidad; PostgreSQL/RLS aplica el alcance final.
 
-```http
-POST /api/v1/actuators/:actuatorId/valve/open
-```
+## Reports — `/reports`
 
-Caso de uso:
-
-```text
-OpenValve
-```
-
-### Cerrar
-
-```http
-POST /api/v1/actuators/:actuatorId/valve/close
-```
-
-Caso de uso:
-
-```text
-CloseValve
-```
-
----
-
-# 14. Hidrobomba
-
-| Método | Endpoint | Acción |
+| Método | Ruta completa | Acceso |
 |---|---|---|
-| POST | `/:actuatorId/pump/start` | Encender bomba |
-| POST | `/:actuatorId/pump/stop` | Apagar bomba |
+| GET | `/api/v1/reports/history?homeId={uuid}&type={pdf|excel}&status={Generating|Ready|Error}&page={n}&pageSize={n}` | `reports.read`; historial propio paginado y filtrable |
+| GET | `/api/v1/reports/:reportId/download` | `reports.read`; descarga un reporte propio con estado `Ready` |
+| GET | `/api/v1/reports/consumption.pdf?homeId={uuid}&from=YYYY-MM-DD&to=YYYY-MM-DD` | `reports.read`; PDF resumido del hogar autorizado; máximo 366 días |
+| GET | `/api/v1/reports/consumption.xlsx?homeId={uuid}&from=YYYY-MM-DD&to=YYYY-MM-DD` | `reports.read`; Excel resumido del hogar autorizado; máximo 366 días |
 
-### Encender
+Las descargas reutilizan `consumption.fn_calculate_consumption(...)`, no exponen hashes, tokens ni lecturas de otros hogares y generan el archivo a partir de datos autorizados. Cada archivo se registra en `analytics_support.generated_report`, se almacena en el volumen privado de reportes y puede consultarse o descargarse después mediante las dos rutas de historial.
 
-```http
-POST /api/v1/actuators/:actuatorId/pump/start
-```
+## Recomendaciones — `/recommendations`
 
-Caso de uso:
-
-```text
-StartPump
-```
-
-### Apagar
-
-```http
-POST /api/v1/actuators/:actuatorId/pump/stop
-```
-
-Caso de uso:
-
-```text
-StopPump
-```
-
----
-
-# 15. Estado de los actuadores
-
-```http
-GET /api/v1/actuators/:actuatorId/status
-```
-
-Caso de uso:
-
-```text
-GetActuatorStatus
-```
-
-El estado real deberá poder sincronizarse con el ESP32 mediante MQTT.
-
-Flujo:
-
-```text
-ESP32
-   ↓
-MQTT
-   ↓
-actuator-status.handler.js
-   ↓
-Backend
-   ↓
-Estado del actuador
-```
-
----
-
-# 16. Seguridad para actuadores
-
-Los endpoints de actuadores deben tener controles adicionales.
-
-No será suficiente con comprobar que el usuario esté autenticado.
-
-El backend deberá comprobar:
-
-```text
-Usuario autenticado
-        ↓
-Tiene acceso al hogar
-        ↓
-Tiene acceso al dispositivo
-        ↓
-Tiene permiso para controlar actuadores
-        ↓
-Comando permitido
-        ↓
-Enviar MQTT
-```
-
-Esto evita que un usuario pueda controlar una electroválvula o hidrobomba perteneciente a otro hogar.
-
-La seguridad y el aislamiento entre hogares son puntos importantes de la revisión actual de la BD.
-
----
-
-# 17. Flujo de un comando hacia el ESP32
-
-Ejemplo: abrir la electroválvula.
-
-```text
-Frontend
-   │
-   │ POST
-   ▼
-/api/v1/actuators/123/valve/open
-   │
-   ▼
-Route
-   │
-   ▼
-Authentication Middleware
-   │
-   ▼
-Authorization Middleware
-   │
-   ▼
-ActuatorController
-   │
-   ▼
-OpenValve
-   │
-   ▼
-IMqttService
-   │
-   ▼
-MQTT Publisher
-   │
-   ▼
-ESP32
-   │
-   ▼
-MOSFET
-   │
-   ▼
-Electroválvula 12 V
-```
-
----
-
-# 18. Respuesta de operaciones sobre actuadores
-
-Una respuesta inicial podría utilizar la siguiente estructura:
-
-```json
-{
-  "success": true,
-  "message": "Comando enviado correctamente",
-  "data": {
-    "actuatorId": "123",
-    "command": "OPEN"
-  }
-}
-```
-
-El estado físico final deberá confirmarse mediante la respuesta/telemetría del dispositivo cuando corresponda.
-
-Por lo tanto:
-
-```text
-Comando enviado
-        ≠
-Actuador físicamente confirmado
-```
-
-El backend debe distinguir ambos estados.
-
----
-
-# 19. Resumen de endpoints
-
-## Auth
-
-```text
-POST   /api/v1/auth/register
-POST   /api/v1/auth/login
-POST   /api/v1/auth/refresh
-POST   /api/v1/auth/logout
-```
-
-## Users
-
-```text
-GET    /api/v1/users/me
-PUT    /api/v1/users/me
-```
-
-## Homes
-
-```text
-POST   /api/v1/homes
-GET    /api/v1/homes
-GET    /api/v1/homes/:homeId
-PUT    /api/v1/homes/:homeId
-
-GET    /api/v1/homes/:homeId/members
-POST   /api/v1/homes/:homeId/members
-DELETE /api/v1/homes/:homeId/members/:memberUserId
-```
-
-## Devices
-
-```text
-POST   /api/v1/devices
-GET    /api/v1/devices
-GET    /api/v1/devices/:deviceId
-PUT    /api/v1/devices/:deviceId
-GET    /api/v1/devices/:deviceId/status
-PUT    /api/v1/devices/:deviceId/config
-PATCH  /api/v1/devices/:deviceId/status
-POST   /api/v1/devices/:deviceId/deactivate
-DELETE /api/v1/devices/:deviceId/home/:homeId
-```
-
-## Consumption
-
-```text
-GET    /api/v1/consumption/summary
-GET    /api/v1/consumption/daily
-GET    /api/v1/consumption/hourly
-GET    /api/v1/consumption/monthly
-GET    /api/v1/consumption/cost
-```
-
-## Alerts
-
-```text
-GET    /api/v1/alerts/home/:homeId/pending
-PATCH  /api/v1/alerts/:alertId/status
-POST   /api/v1/alerts/home/:homeId/rules
-GET    /api/v1/alerts/home/:homeId/rules
-PATCH  /api/v1/alerts/rules/:ruleId
-DELETE /api/v1/alerts/rules/:ruleId
-GET    /api/v1/alerts/home/:homeId/thresholds
-PUT    /api/v1/alerts/home/:homeId/thresholds
-DELETE /api/v1/alerts/home/:homeId/thresholds
-```
-
-## Tariffs
-
-```text
-GET    /api/v1/tariffs/home/:homeId
-```
-
-## Goals
-
-```text
-POST   /api/v1/goals
-GET    /api/v1/goals?homeId=:homeId
-GET    /api/v1/goals/:goalId
-GET    /api/v1/goals/:goalId/progress
-PUT    /api/v1/goals/:goalId
-DELETE /api/v1/goals/:goalId
-```
-
-## Vacation
-
-```text
-GET    /api/v1/vacation/home/:homeId
-PUT    /api/v1/vacation/home/:homeId
-DELETE /api/v1/vacation/home/:homeId
-```
-
-## Actuators
-
-```text
-POST   /api/v1/actuators/:actuatorId/valve/open
-POST   /api/v1/actuators/:actuatorId/valve/close
-
-POST   /api/v1/actuators/:actuatorId/pump/start
-POST   /api/v1/actuators/:actuatorId/pump/stop
-
-GET    /api/v1/actuators/:actuatorId/status
-```
-
----
-
-# 20. Relación Endpoint → Controller → Use Case
-
-| Módulo | Controller | Use Case |
+| Método | Ruta completa | Acceso |
 |---|---|---|
-| Auth | `AuthController.js` | `RegisterUser`, `LoginUser`, `AuthSessionService`, `ChangePassword`, `RequestPasswordReset`, `ResetPassword` |
-| User | `UserController.js` | `GetCurrentUser`, `UpdateCurrentUser` |
-| Home | `HomeController.js` | `CreateHome`, `GetHome`, `UpdateHome`, `ListUserHomes`, gestión de miembros y solicitudes |
-| Device | `DeviceController.js` | `RegisterDevice`, `UpdateDevice`, `GetDevice`, `UpdateDeviceStatus`, `DeactivateDevice`, `UnlinkDeviceFromHome`, `UpdateDeviceConfig` |
-| Consumption | `ConsumptionController.js` | `GetConsumptionSummary`, `GetDailyConsumption`, `GetHourlyConsumption`, `GetMonthlyConsumption`, `GetPeriodCost` |
-| Alert | `AlertController.js` | `GetPendingAlerts`, `UpdateAlertStatus`, reglas y umbrales |
-| Actuator | `actuator.controller.js` | `OpenValve`, `CloseValve`, `StartPump`, `StopPump`, `GetActuatorStatus` |
-| Tariff | `tariff.controller.js` | Casos de uso de tarifas |
-| Goal | `goal.controller.js` | Casos de uso de metas |
-| Vacation | `vacation.controller.js` | Casos de uso de modo vacaciones |
+| GET | `/api/v1/recommendations?homeId={uuid}&status={Pending|Read|Dismissed|Applied}` | `reports.read`; recomendaciones propias, filtradas por RLS |
+| GET | `/api/v1/recommendations/home/:homeId/summary` | `reports.read`; resumen del hogar autorizado |
+| PATCH | `/api/v1/recommendations/:userRecommendationId` | `reports.read`; actualiza `status` o `usefulness` de una recomendación propia |
 
----
+El listado admite `page`, `pageSize`, `sort`, `order` y `category`. El backend no permite devolver una recomendación de otro usuario: la consulta se ejecuta con el contexto de usuario de PostgreSQL y la política RLS de `analytics_support.user_recommendation`. El estado inicial `Pending` no se puede restaurar desde la API; `Read`, `Dismissed` y `Applied` actualizan el registro, y `Read` conserva `read_at`.
 
-# 21. Flujo general de un endpoint
+## Autorización de tickets de soporte
 
-Todos los endpoints protegidos seguirán aproximadamente este flujo:
+`POST /api/v1/support/tickets` requiere únicamente autenticación. La creación de tickets propios no requiere `homes.manage`.
 
-```text
-HTTP Request
-     ↓
-Route
-     ↓
-Rate Limit
-     ↓
-Authentication
-     ↓
-Authorization
-     ↓
-Validation
-     ↓
-Controller
-     ↓
-Use Case
-     ↓
-Domain
-     ↓
-Repository / Service
-     ↓
-Database / MQTT
-     ↓
-Response
+`POST /api/v1/support/tickets/:ticketId/responses` requiere autenticación y la autorización final de la fila se aplica mediante RLS. La administración de tickets (`PATCH`) sí requiere `tickets.manage`.
+
+## MQTT no es REST
+
+Actualmente no existe una ruta REST de ingesta de telemetría: la telemetría entra por Mosquitto y se procesa con `MqttSubscriber`, `message-parser` y los handlers descritos en `14-mqtt-protocol.md`. Los comandos de actuadores sí tienen API REST y se publican por `MqttPublisher`; la confirmación de estado se persiste en PostgreSQL.
+
+## Comprobación rápida
+
+```powershell
+Invoke-WebRequest http://localhost:3000/health
+
+# Con token obtenido en login:
+curl.exe -H "Authorization: Bearer <access_token>" http://localhost:3000/api/v1/users/me
 ```
 
----
+## AsociaciÃ³n de hardware IoT (2026-09-15)
 
-# 22. Regla importante
+| MÃ©todo | Ruta | Acceso |
+|---|---|---|
+| GET | `/api/v1/devices/hardware/:hardwareId` | autenticado; solo devuelve un dispositivo accesible |
+| POST | `/api/v1/devices/:deviceId/claim-hardware` | `devices.manage`; asocia un `hardwareId` Ãºnico |
 
-Los endpoints no deben contener la lógica principal del sistema.
+El cuerpo del `POST` es `{ "hardwareId": "HS-141F47470968" }`. La asociaciÃ³n
+se valida tambiÃ©n en `device.fn_claim_provisioned_device(...)`; un hardware ya
+asociado a otro dispositivo devuelve `409`. La contraseÃ±a Wi-Fi no forma parte
+de estas rutas.
 
-Incorrecto:
-
-```text
-Controller
-    ↓
-SQL directamente
-    ↓
-MQTT directamente
-```
-
-Correcto:
-
-```text
-Controller
-    ↓
-Use Case
-    ↓
-Port
-    ↓
-Infrastructure
-```
-
-Esto mantiene la API desacoplada y facilita las pruebas y el mantenimiento.
-
----
-
-# 23. Administración de roles funcionales
-
-Estas rutas requieren autenticación y el permiso global `roles.manage`. El middleware las restringe antes del controlador y las funciones controladas de PostgreSQL vuelven a comprobar el permiso.
-
-| Método | Ruta | Descripción |
-| --- | --- | --- |
-| GET | `/api/v1/roles/users/:userId` | Lista los roles funcionales activos de un usuario |
-| POST | `/api/v1/roles/users/:userId` | Asigna un rol; body: `{ "roleName": "Support" }` |
-| DELETE | `/api/v1/roles/users/:userId` | Retira un rol; body o query: `roleName` |
-
-La base de datos impide asignar roles inexistentes o usuarios inactivos y evita que el último `Administrator` se retire a sí mismo. La administración de permisos individuales no está expuesta todavía.
-
----
-
-# 24. Soporte y tickets
-
-| Método | Endpoint | Acceso |
-| --- | --- | --- |
-| GET | `/api/v1/support/tickets` | Usuario autenticado; Support ve los tickets permitidos por RLS |
-| GET | `/api/v1/support/tickets/:ticketId` | Ticket autorizado |
-| POST | `/api/v1/support/tickets` | `HomeUser` y `Administrator` |
-| PATCH | `/api/v1/support/tickets/:ticketId` | `Support` y `Administrator`; estado, prioridad y asignación |
-| POST | `/api/v1/support/tickets/:ticketId/responses` | `Support` y `Administrator` |
-| GET | `/api/v1/support/tickets/:ticketId/responses` | Historial autorizado |
-
-`Guest` conserva acceso de solo lectura y no puede crear ni gestionar tickets.
-
----
-
-# 25. Estado del documento
-
-## Actualización implementada 2026-09-03
-
-Se agregó el endpoint administrativo de auditoría:
-
-| Método | Endpoint | Acceso | Parámetros |
-| --- | --- | --- | --- |
-| GET | `/api/v1/audit/logs` | `Administrator` con `audit.read` | `action`, `tableName`, `from`, `to`, `page`, `pageSize` |
-
-La ruta exige `Bearer`, aplica autorización en el backend y consulta PostgreSQL mediante `user_account.fn_list_audit_logs(...)`. El rol de aplicación no consulta directamente `audit.audit_log`.
-
-Este documento representa la **propuesta inicial de endpoints** para Hidro Smart.
-
-Antes de considerar la API como definitiva se deberá comprobar cada endpoint contra:
-
-1. Modelo definitivo de PostgreSQL.
-2. Casos de uso.
-3. Reglas de negocio.
-4. Sistema de autenticación.
-5. Sistema de autorización.
-6. Comunicación MQTT.
-7. Integración con el ESP32.
-8. Requerimientos del frontend.
-
-Especialmente, los módulos de **tarifas, metas, vacaciones y actuadores** deberán revisarse junto con sus modelos definitivos antes de implementar todos sus endpoints.
+Las respuestas de `GET /api/v1/devices`, `GET /api/v1/devices/:deviceId` y
+`GET /api/v1/devices/:deviceId/status` pueden incluir `wifiSsid`, `lastIp` y
+`wifiRssiDbm`, recibidos del estado MQTT del ESP32. `wifiSsid` se limita a 32
+caracteres y `lastIp` a 45; ninguno contiene credenciales. El frontend usa
+estos campos para el apartado **Configuración** y mantiene la contraseña como
+un campo de reemplazo local enviado únicamente por BLE.

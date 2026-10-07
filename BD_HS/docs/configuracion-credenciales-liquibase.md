@@ -84,9 +84,13 @@ docker compose --env-file .env -p hidro_smart --profile tooling run --rm liquiba
 docker compose --env-file .env -p hidro_smart --profile tooling run --rm liquibase status --verbose
 ```
 
-Estado verificado el 2026-09-03: `validate` y `update` fueron exitosos y `status` indicó que no había cambios pendientes.
+Estado verificado el 2026-09-23: `validate`, `update` y `status --verbose`
+fueron exitosos y no hay changesets pendientes.
 
-## Actualización 2026-09-03
+El estado vigente conserva 245 changesets aplicados. La evidencia transversal
+está en `../../docs/estado-integral.md`.
+
+## Nota histórica — actualización 2026-09-03
 
 Después de la verificación anterior se aplicaron los changesets de auditoría administrativa. Ejecutar nuevamente `validate`, `status` y `update` después de recuperar una base local o cambiar de volumen. El backend continúa usando únicamente `hidro_smart_app`; la consulta de auditoría se realiza mediante una función autorizada y no mediante acceso directo a la tabla.
 
@@ -147,3 +151,8 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 - No uses `down -v` en una base que quieras conservar.
 - Rota las contraseñas temporales antes de producción.
 - Ejecuta `04_tcl` solo como operación manual revisada.
+## Nota sobre el Compose integrado (2026-09-04)
+
+Este documento describe el provisionamiento independiente de Liquibase y conserva `LIQUIBASE_PASSWORD` para ese flujo. En el Compose integrado de la raíz, el servicio `liquibase` usa directamente `POSTGRES_USER` y `POSTGRES_PASSWORD`; no se debe crear ni documentar una variable adicional solo para esa pila.
+
+La guía oficial del flujo integrado está en `BD_HS/docs/guia-ejecucion-liquibase.md`.

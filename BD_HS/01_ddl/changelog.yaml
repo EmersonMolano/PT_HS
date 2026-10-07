@@ -24,16 +24,16 @@
       labels: 03_tables
 
   - include:
-      file: 04_alter/0000changelog.yaml
-      relativeToChangelogFile: true
-      contextFilter: 01_ddl
-      labels: 04_alter
-
-  - include:
       file: 05_materialized_views/0000changelog.yaml
       relativeToChangelogFile: true
       contextFilter: 01_ddl
       labels: 05_materialized_views
+
+  - include:
+      file: 04_alter/0000changelog.yaml
+      relativeToChangelogFile: true
+      contextFilter: 01_ddl
+      labels: 04_alter
 
   - include:
       file: 06_functions/0000changelog.yaml

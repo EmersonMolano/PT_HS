@@ -8,7 +8,9 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "check": "node --check server.js && node --check src/app.js && node --check src/config/env.js && node --check src/infrastructure/db.js && node --check src/jobs/materializedViewsRefreshJob.js && node --check src/jobs/alertGenerationJob.js",
+    "lint": "npm run check",
+    "check": "node scripts/check-javascript.js",
+    "seed:integration": "node scripts/seed-integration-users.js",
     "test": "node --test tests/unit/**/*.test.js",
     "test:integration": "node --test tests/integration/**/*.test.js"
   },
@@ -20,6 +22,7 @@
     "express-rate-limit": "^8.7.0",
     "helmet": "^8.0.0",
     "jsonwebtoken": "^9.0.2",
+    "mqtt": "^5.15.2",
     "nodemailer": "^9.1.1",
     "pg": "^8.13.1"
   }

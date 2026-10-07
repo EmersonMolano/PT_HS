@@ -1,0 +1,17 @@
+#pragma once
+
+#define HIDROSMART_WIFI_SSID "CAMBIA_WIFI_SSID"
+#define HIDROSMART_WIFI_PASSWORD "CAMBIA_WIFI_PASSWORD"
+// Nombre DNS estable de la red local. Debe resolver hacia el PC/servidor que
+// publica Mosquitto; no uses "mosquitto", que solo existe dentro de Docker.
+#define HIDROSMART_MQTT_HOST "hidrosmart-broker.local"
+#define HIDROSMART_MQTT_PORT 1883
+// Vacio: usa el hardwareId HS-XXXXXX generado por el ESP32.
+#define HIDROSMART_DEVICE_CODE ""
+#define HIDROSMART_MQTT_USERNAME ""
+#define HIDROSMART_MQTT_PASSWORD ""
+#define HIDROSMART_FIRMWARE_VERSION "1.1.0"
+#define HIDROSMART_FLOW_PIN 27
+#define HIDROSMART_FLOW_FACTOR 7.5f
+#define HIDROSMART_SAMPLE_INTERVAL_MS 5000UL
+#define HIDROSMART_MQTT_KEEPALIVE_SECONDS 30

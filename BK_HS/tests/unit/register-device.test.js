@@ -20,12 +20,16 @@ test('registra el dispositivo asociado al hogar', async () => {
     homeId: validHomeId,
     code: 'ESP32-001',
     name: 'Medidor principal',
-    type: 'YF-S201'
+    type: 'YF-S201',
+    hardwareId: 'HS-141F47470968',
+    location: 'Baño principal'
   });
 
   assert.equal(received.userId, 'user-1');
   assert.equal(received.homeId, validHomeId);
   assert.equal(received.device.code, 'ESP32-001');
+  assert.equal(received.device.hardwareId, 'HS-141F47470968');
+  assert.equal(received.device.location, 'Baño principal');
 });
 
 test('rechaza un hogar inválido al registrar el dispositivo', async () => {
@@ -35,4 +39,28 @@ test('rechaza un hogar inválido al registrar el dispositivo', async () => {
     () => useCase.execute({ userId: 'user-1', homeId: 'invalid', code: 'ESP32-001', name: 'Medidor', type: 'YF-S201' }),
     (error) => error.status === 400 && error.message === 'homeId no es válido'
   );
+});
+
+test('genera el código lógico cuando el alta no lo recibe', async () => {
+  let registeredDevice;
+  const useCase = new RegisterDevice({
+    deviceRepository: {
+      register: async (device) => {
+        registeredDevice = device;
+        return device;
+      }
+    }
+  });
+
+  await useCase.execute({
+    userId: 'user-1',
+    homeId: validHomeId,
+    name: 'Medidor principal',
+    type: 'YF-S201',
+    hardwareId: 'HS-141F47470968',
+    alertThreshold: 10
+  });
+
+  assert.equal(registeredDevice.code, 'HS-141F47470968');
+  assert.equal(registeredDevice.hardwareId, 'HS-141F47470968');
 });

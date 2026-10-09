@@ -5,11 +5,12 @@ class UpdateHome {
     this.homeRepository = homeRepository;
   }
 
-  async execute({ userId, homeId, name, address, city, tier }) {
+  async execute({ userId, homeId, name, address, city, usageType, tier, altitudeMeters, peopleCount }) {
     if (!userId) this.badRequest('El usuario autenticado es obligatorio');
     if (!this.isUuid(homeId)) this.badRequest('homeId no es válido');
 
-    const home = new Home({ id: homeId, name, address, city, tier });
+    const home = new Home({ id: homeId, name, address, city, usageType, tier, altitudeMeters, peopleCount });
+    if (home.usageType === 'RESIDENTIAL' && home.tier === null) this.badRequest('El estrato es obligatorio para un hogar residencial');
     const updated = await this.homeRepository.updateForUser(home, userId);
     if (!updated) {
       const error = new Error('Hogar no encontrado');

@@ -6,8 +6,8 @@ class PostgresHomeRepository extends HomeRepository {
   async createWithOwner(home, userId) {
     const homeId = await withTransaction(userId, async (client) => {
       const result = await client.query(
-        `SELECT home.fn_create_home_with_owner($1::varchar, $2::varchar, $3::varchar, $4::smallint, $5::uuid) AS home_id`,
-        [home.name, home.address, home.city, home.tier, userId]
+        `SELECT home.fn_create_home_with_billing_profile($1::varchar, $2::varchar, $3::varchar, $4::smallint, $5::uuid, $6::varchar, $7::integer, $8::smallint) AS home_id`,
+        [home.name, home.address, home.city, home.tier, userId, home.usageType, home.altitudeMeters, home.peopleCount]
       );
       return result.rows[0].home_id;
     });
@@ -17,7 +17,8 @@ class PostgresHomeRepository extends HomeRepository {
 
   async findByUserId(userId) {
     const result = await withTransaction(userId, (client) => client.query(
-      `SELECT h.home_id, h.name, h.address, h.city, h.tier, h.status, h.created_at
+      `SELECT h.home_id, h.name, h.address, h.city, h.usage_type, h.tier, h.altitude_meters, h.people_count, h.status, h.created_at,
+              hu.home_role
          FROM home.home h
          JOIN home.home_user hu ON hu.home_id = h.home_id
         WHERE hu.user_account_id = $1::uuid
@@ -30,15 +31,20 @@ class PostgresHomeRepository extends HomeRepository {
       name: row.name,
       address: row.address,
       city: row.city,
+      usageType: row.usage_type,
       tier: row.tier,
+      altitudeMeters: row.altitude_meters,
+      peopleCount: row.people_count,
       status: row.status,
+      homeRole: row.home_role,
       createdAt: row.created_at
     }));
   }
 
   async findByIdForUser(homeId, userId) {
     const result = await withTransaction(userId, (client) => client.query(
-      `SELECT h.home_id, h.name, h.address, h.city, h.tier, h.status, h.created_at
+      `SELECT h.home_id, h.name, h.address, h.city, h.usage_type, h.tier, h.altitude_meters, h.people_count, h.status, h.created_at,
+              hu.home_role
          FROM home.home h
          JOIN home.home_user hu ON hu.home_id = h.home_id
         WHERE h.home_id = $1::uuid
@@ -53,24 +59,37 @@ class PostgresHomeRepository extends HomeRepository {
       name: row.name,
       address: row.address,
       city: row.city,
+      usageType: row.usage_type,
       tier: row.tier,
+      altitudeMeters: row.altitude_meters,
+      peopleCount: row.people_count,
       status: row.status,
+      homeRole: row.home_role,
       createdAt: row.created_at
     }) : null;
   }
 
   async updateForUser(home, userId) {
-    const result = await withTransaction(userId, (client) => client.query(
-      `UPDATE home.home
+    const result = await withTransaction(userId, async (client) => {
+      const updateResult = await client.query(
+        `UPDATE home.home
           SET name = $2::varchar,
               address = $3::varchar,
               city = $4::varchar,
-              tier = $5::smallint,
+              usage_type = $5::varchar,
+              tier = $6::smallint,
+              altitude_meters = $7::integer,
+              people_count = $8::smallint,
               updated_at = now()
         WHERE home_id = $1::uuid
-        RETURNING home_id, name, address, city, tier, status, created_at`,
-      [home.id, home.name, home.address, home.city, home.tier]
-    ));
+        RETURNING home_id, name, address, city, usage_type, tier, altitude_meters, people_count, status, created_at`,
+        [home.id, home.name, home.address, home.city, home.usageType, home.tier, home.altitudeMeters, home.peopleCount]
+      );
+      if (updateResult.rowCount) {
+        await client.query('SELECT home.fn_sync_home_reference_rate($1::uuid) AS synced', [home.id]);
+      }
+      return updateResult;
+    });
 
     const row = result.rows[0];
     return row ? new Home({
@@ -78,7 +97,10 @@ class PostgresHomeRepository extends HomeRepository {
       name: row.name,
       address: row.address,
       city: row.city,
+      usageType: row.usage_type,
       tier: row.tier,
+      altitudeMeters: row.altitude_meters,
+      peopleCount: row.people_count,
       status: row.status,
       createdAt: row.created_at
     }) : null;
@@ -97,19 +119,8 @@ class PostgresHomeRepository extends HomeRepository {
       if (!access.rowCount) return null;
 
       return client.query(
-        `SELECT ua.user_account_id AS user_id,
-                ua.username,
-                ua.email,
-                up.full_name,
-                hu.home_role,
-                hu.assigned_at
-           FROM home.home_user hu
-           JOIN user_account.user_account ua ON ua.user_account_id = hu.user_account_id
-           LEFT JOIN user_account.user_profile up ON up.user_account_id = ua.user_account_id
-          WHERE hu.home_id = $1::uuid
-            AND ua.deleted_at IS NULL
-          ORDER BY CASE hu.home_role WHEN 'Owner' THEN 1 WHEN 'Member' THEN 2 ELSE 3 END,
-                   hu.assigned_at`,
+        `SELECT user_id, username, full_name, home_role, assigned_at
+           FROM home.fn_list_home_members($1::uuid)`,
         [homeId]
       );
     });

@@ -26,6 +26,10 @@ function statusTopic(deviceId) {
   return deviceTopic(deviceId, 'status');
 }
 
+function deviceCommandsTopic(deviceId) {
+  return deviceTopic(deviceId, 'commands');
+}
+
 function configTopic(deviceId) {
   return deviceTopic(deviceId, 'config');
 }
@@ -70,6 +74,7 @@ module.exports = {
   TOPICS,
   telemetryTopic,
   statusTopic,
+  deviceCommandsTopic,
   configTopic,
   actuatorStatusTopic,
   actuatorCommandTopic,

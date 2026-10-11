@@ -1,15 +1,11 @@
-# HidroSmart Frontend
+# Frontend HidroSmart
 
-Web y Mobile comparten el proyecto único ubicado en `frontend`.
+El cliente web y el adaptador móvil viven en `frontend` y comparten la mayor
+parte de la interfaz, dependencias y configuración.
 
-- Web: Vite + React + TypeScript, con entrada en `frontend/index.html`.
-- Mobile: Expo + React Native + WebView, con entrada en `frontend/index.js`.
-- Fuente compartida: `frontend/src`.
-- Dependencias: `frontend/package.json` y `frontend/package-lock.json`.
+- Web: React, TypeScript y Vite.
+- Móvil: Expo SDK 54, React Native y WebView.
+- BLE móvil: `react-native-ble-plx` en un development build.
 
-La documentación operativa está en [`docs/README.md`](docs/README.md); el
-estado transversal del sistema está en
-[`../docs/estado-integral.md`](../docs/estado-integral.md).
-
-La bitácora de cambios verificados del 2026-09-14 está en
-[`../docs/cambios-2026-09-14.md`](../docs/cambios-2026-09-14.md).
+Consulta [docs/README.md](docs/README.md) para arquitectura y
+[frontend/README.md](frontend/README.md) para ejecutar web o Android.

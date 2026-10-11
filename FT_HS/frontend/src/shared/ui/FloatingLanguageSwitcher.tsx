@@ -9,18 +9,20 @@ import {
   DropdownMenuTrigger,
 } from '@shared/ui/dropdown-menu';
 import { languageOptions, normalizeLanguage } from '@shared/i18n/locale';
-import { sessionTokens, userApi } from '@shared/http/httpClient';
+import { userApi } from '@shared/http/httpClient';
+import { useAuth } from '@app/providers/AuthProvider';
 import { toast } from 'sonner';
 
 export function FloatingLanguageSwitcher() {
   const { i18n, t } = useTranslation();
+  const { isAuthenticated } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const currentCode = normalizeLanguage(i18n.resolvedLanguage || i18n.language);
   const currentLanguage =
     languageOptions.find((language) => language.code === currentCode) || languageOptions[0];
 
   const handleLanguageChange = async (code: string) => {
-    if (sessionTokens.accessToken) {
+    if (isAuthenticated) {
       const language = languageOptions.find((option) => option.code === code);
       if (language) {
         try {

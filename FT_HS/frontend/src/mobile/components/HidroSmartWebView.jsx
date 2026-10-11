@@ -75,8 +75,6 @@ export function HidroSmartWebView() {
       style={styles.webview}
       javaScriptEnabled
       domStorageEnabled
-      allowFileAccess
-      allowUniversalAccessFromFileURLs
       setSupportMultipleWindows={false}
       startInLoadingState
       onMessage={handleMessage}

@@ -228,6 +228,12 @@ body,
 @media (max-width: 640px) {
   html {
     font-size: 14px;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    overscroll-behavior-x: none;
   }
 
   .text-4xl {
@@ -437,11 +443,25 @@ body,
     font-size: 0.875rem !important;
   }
 
-  /* Scrolleable horizontal para tablas */
-  table {
-    display: block;
-    overflow-x: auto;
-    white-space: nowrap;
+  /* Las tablas mantienen su semántica; el contenedor gestiona el desplazamiento. */
+  [data-slot='table-container'],
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+  }
+
+  /* Evita que menús y selectores emergentes se salgan de la pantalla. */
+  [data-slot='popover-content'],
+  [data-slot='select-content'],
+  [data-slot='dropdown-menu-content'],
+  [data-slot='context-menu-content'] {
+    max-width: calc(100vw - 1rem) !important;
+  }
+
+  /* Los tooltips de gráficas quedan dentro del ancho disponible. */
+  .recharts-tooltip-wrapper {
+    max-width: calc(100% - 1rem) !important;
   }
 
   /* Mejorar visibilidad de iconos pequeños */

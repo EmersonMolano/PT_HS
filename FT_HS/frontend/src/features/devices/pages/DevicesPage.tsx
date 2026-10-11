@@ -257,7 +257,9 @@ export function DeviceManagement({
     try {
       const response = await devicesApi.link({
         homeId,
-        hardwareId: String(form.get('hardwareId') || '').trim(),
+        code: String(form.get('code') || '')
+          .trim()
+          .toUpperCase(),
       });
       toast.success(t('devices.deviceLinked'));
       setLinkOpen(false);
@@ -572,15 +574,19 @@ export function DeviceManagement({
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <p className="text-sm text-gray-600">{t('devices.linkNewSensor')}</p>
-                    <Input
-                      name="hardwareId"
-                      placeholder={t('devices.hardwareIdPlaceholder')}
-                      pattern="[A-Za-z0-9_-]{3,32}"
-                      title={t('devices.hardwareIdFormatHelp')}
-                      required
-                      autoCapitalize="characters"
-                      autoComplete="off"
-                    />
+                    <div className="space-y-2">
+                      <Label htmlFor="device-code">{t('devices.deviceId')}</Label>
+                      <Input
+                        id="device-code"
+                        name="code"
+                        placeholder={t('devices.deviceCodePlaceholder')}
+                        pattern="[A-Za-z0-9_-]{3,32}"
+                        title={t('devices.deviceCodeFormatHelp')}
+                        required
+                        autoCapitalize="characters"
+                        autoComplete="off"
+                      />
+                    </div>
                   </div>
                   <DialogFooter>
                     <Button type="submit">{t('devices.linkDevice')}</Button>
@@ -1095,14 +1101,14 @@ export function DeviceManagement({
                   </table>
                 </div>
                 {historyPagination.totalPages > 1 && (
-                  <div className="flex items-center justify-between gap-3 pt-2">
-                    <span className="text-sm text-gray-600">
+                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                    <span className="min-w-0 text-sm text-gray-600">
                       {t('devices.pageOf', {
                         page: historyPagination.page,
                         totalPages: historyPagination.totalPages,
                       })}
                     </span>
-                    <div className="flex gap-2">
+                    <div className="flex shrink-0 gap-2">
                       <Button
                         variant="outline"
                         disabled={historyPage <= 1 || historyLoading}

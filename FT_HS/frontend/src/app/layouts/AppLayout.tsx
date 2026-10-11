@@ -11,13 +11,11 @@ import {
   Users,
   LogOut,
   Menu,
-  PanelLeftClose,
   Shield,
   Wrench,
   Database,
   Activity,
   Headphones,
-  Lightbulb,
   Loader2,
 } from 'lucide-react';
 import logoImage from '@/imports/aaa-Photoroom-1.png';
@@ -95,13 +93,6 @@ const GoalsConfig = lazy(() =>
     default: component,
   }))
 );
-const RecommendationsPage = lazy(() =>
-  import('@features/recommendations/pages/RecommendationsPage').then(
-    ({ RecommendationsPage: component }) => ({
-      default: component,
-    })
-  )
-);
 const AdminPanel = lazy(() =>
   import('@features/admin/pages/AdminPage').then(({ AdminPanel: component }) => ({
     default: component,
@@ -134,7 +125,6 @@ const viewPaths: Record<string, string> = {
   consumption: '/app/consumption',
   reports: '/app/reports',
   goals: '/app/goals',
-  recommendations: '/app/recommendations',
   notifications: '/app/alerts',
   support: '/app/support',
   settings: '/app/settings',
@@ -268,13 +258,6 @@ export function DashboardLayout({ session, onLogout }: DashboardLayoutProps) {
         ariaLabel: t('nav.goals'),
       },
       {
-        id: 'recommendations',
-        label: t('nav.recommendations'),
-        icon: Lightbulb,
-        requiredPermission: 'reports.read',
-        ariaLabel: t('nav.recommendations'),
-      },
-      {
         id: 'support',
         label: t('nav.support'),
         icon: Headphones,
@@ -335,7 +318,6 @@ export function DashboardLayout({ session, onLogout }: DashboardLayoutProps) {
     consumption: 'consumption.read',
     reports: 'reports.read',
     goals: 'homes.manage',
-    recommendations: 'reports.read',
     notifications: 'alerts.manage',
   };
 
@@ -352,7 +334,6 @@ export function DashboardLayout({ session, onLogout }: DashboardLayoutProps) {
     consumption: ['HomeUser', 'Guest'],
     reports: ['HomeUser', 'Guest'],
     goals: ['HomeUser'],
-    recommendations: ['HomeUser', 'Guest'],
   };
 
   // RF3.4 - Función para cerrar sesión de manera segura
@@ -423,8 +404,6 @@ export function DashboardLayout({ session, onLogout }: DashboardLayoutProps) {
         return <ReportsAnalytics homeId={selectedHomeId} />;
       case 'goals':
         return <GoalsConfig homeId={selectedHomeId} />;
-      case 'recommendations':
-        return <RecommendationsPage homeId={selectedHomeId} />;
       case 'notifications':
         return <NotificationsPanel homeId={selectedHomeId} />;
       case 'settings':
@@ -527,9 +506,22 @@ export function DashboardLayout({ session, onLogout }: DashboardLayoutProps) {
       >
         <div className={`flex-1 overflow-y-auto ${sidebarCollapsed ? 'p-3' : 'p-6'}`}>
           <div className="flex items-center gap-3 mb-8">
-            <div className="bg-blue-600 p-2 rounded-lg">
-              <img src={logoImage} alt="HidroSmart Logo" className="h-12 w-auto" />
-            </div>
+            <button
+              type="button"
+              onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+              className="shrink-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-blue-900"
+              aria-label={t(
+                sidebarCollapsed ? 'common.expandNavigationMenu' : 'common.collapseNavigationMenu'
+              )}
+              aria-expanded={!sidebarCollapsed}
+              title={t(
+                sidebarCollapsed ? 'common.expandNavigationMenu' : 'common.collapseNavigationMenu'
+              )}
+            >
+              <span className="block bg-blue-600 p-2 rounded-lg transition-colors hover:bg-blue-500">
+                <img src={logoImage} alt="" className="h-12 w-auto" />
+              </span>
+            </button>
             <h1 className={`text-2xl hidrosmart-logo ${sidebarCollapsed ? 'hidden' : ''}`}>
               {t('app.name')}
             </h1>
@@ -608,23 +600,6 @@ export function DashboardLayout({ session, onLogout }: DashboardLayoutProps) {
         <header className="bg-white border-b border-gray-200 px-4 lg:px-6 py-4">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0 flex-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="hidden lg:inline-flex"
-                onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
-                aria-label={t(
-                  sidebarCollapsed ? 'common.expandNavigationMenu' : 'common.collapseNavigationMenu'
-                )}
-                aria-expanded={!sidebarCollapsed}
-              >
-                {sidebarCollapsed ? (
-                  <Menu className="size-5" aria-hidden="true" />
-                ) : (
-                  <PanelLeftClose className="size-5" aria-hidden="true" />
-                )}
-              </Button>
               <MobileNavigation />
               <div className="min-w-0">
                 <h1 className="truncate text-lg sm:text-xl lg:text-2xl text-gray-900">

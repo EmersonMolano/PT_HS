@@ -1,6 +1,10 @@
 # Guía de dispositivos IoT
 
-Fecha de actualización: 2026-09-23.
+Fecha de actualización: 2026-10-13.
+
+Para el estado del control físico de válvulas y el cableado seguro, consulta la
+[guía de integración de una válvula con ESP32](./electrovalvula-esp32.md). El
+firmware documentado aquí todavía no acciona válvulas.
 
 Esta guía explica cómo registrar, vincular, editar y comprobar un dispositivo
 IoT en HidroSmart. El flujo es el mismo para un ESP32 con caudalímetro u otro

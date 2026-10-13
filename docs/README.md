@@ -12,6 +12,8 @@ conservan el detalle técnico de cada proyecto.
 
 - [MQTT del ESP32 en la red local](./mqtt-esp32-red-local.md)
 
+- [Guía de integración de una válvula DC de 12 V con el ESP32](./electrovalvula-esp32.md)
+
 - [Vinculacion del ESP32 por hardwareId y broker sin IP manual](./iot/vinculacion-por-hardware-id.md)
 
 - [Integración ESP32, BD, backend y frontend](./integracion-esp32-bd-backend-front.md)

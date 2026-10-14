@@ -66,6 +66,7 @@ Android.
 El índice actualizado está en [docs/README.md](docs/README.md). Empieza por:
 
 - [Arquitectura](docs/arquitectura.md)
+- [Instalación de dependencias](docs/instalacion-dependencias.md)
 - [Operación local](docs/operacion-local.md)
 - [Flujo IoT](docs/iot.md)
 - [Seguridad](docs/seguridad.md)

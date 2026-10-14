@@ -9,6 +9,7 @@ para evitar que compitan con el código actual; el historial permanece en Git.
 | Documento | Uso |
 | --- | --- |
 | [Arquitectura](arquitectura.md) | Componentes, límites y flujos de datos. |
+| [Instalación de dependencias](instalacion-dependencias.md) | Qué descargar en Windows y cómo preparar web, ESP32 y Android. |
 | [Operación local](operacion-local.md) | Levantar, detener y diagnosticar la pila Docker. |
 | [IoT](iot.md) | Vinculación, BLE, Wi-Fi, MQTT y pruebas físicas del ESP32. |
 | [Válvula de 12 V](electrovalvula-esp32.md) | Integración eléctrica segura y límites actuales del control físico. |

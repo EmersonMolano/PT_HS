@@ -11,6 +11,7 @@ para evitar que compitan con el código actual; el historial permanece en Git.
 | [Arquitectura](arquitectura.md) | Componentes, límites y flujos de datos. |
 | [Operación local](operacion-local.md) | Levantar, detener y diagnosticar la pila Docker. |
 | [IoT](iot.md) | Vinculación, BLE, Wi-Fi, MQTT y pruebas físicas del ESP32. |
+| [Válvula de 12 V](electrovalvula-esp32.md) | Integración eléctrica segura y límites actuales del control físico. |
 | [Seguridad](seguridad.md) | Sesión, CSRF, secretos y límites del entorno local. |
 | [Pruebas](pruebas.md) | Calidad, integración, roles, simulación IoT y móvil. |
 | [Respaldo PostgreSQL](respaldo-postgresql.md) | Backup, restauración y verificación. |

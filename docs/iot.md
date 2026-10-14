@@ -1,5 +1,9 @@
 # Dispositivos IoT y ESP32
 
+> El firmware actual mide y publica telemetría; aún no controla una válvula.
+> Antes de añadir esa función, sigue la [guía de integración segura de una
+> válvula de 12 V](electrovalvula-esp32.md).
+
 ## Identidades
 
 Cada placa conserva un `hardwareId` inmutable derivado del eFuse, con formato

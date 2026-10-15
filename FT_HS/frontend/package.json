@@ -13,7 +13,7 @@
     "mobile:prepare": "node scripts/prepare-mobile-bundle.mjs",
     "mobile:doctor": "npx expo-doctor",
     "mobile:prebuild": "expo prebuild --platform android",
-    "mobile:start": "npm run mobile:prepare && expo start --dev-client",
+    "mobile:start": "node scripts/start-expo-go.mjs",
     "mobile:android": "npm run mobile:prepare && npm run mobile:prebuild && node scripts/run-android.mjs",
     "mobile:ios": "npm run mobile:prepare && expo run:ios",
     "mobile:web": "npm run mobile:prepare && expo start --web",

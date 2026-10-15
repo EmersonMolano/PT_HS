@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Globe } from 'lucide-react';
 import { Button } from '@shared/ui/button';
@@ -15,11 +16,13 @@ import { toast } from 'sonner';
 
 export function FloatingLanguageSwitcher() {
   const { i18n, t } = useTranslation();
+  const { pathname } = useLocation();
   const { isAuthenticated } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const currentCode = normalizeLanguage(i18n.resolvedLanguage || i18n.language);
   const currentLanguage =
     languageOptions.find((language) => language.code === currentCode) || languageOptions[0];
+  const isAuthScreen = ['/login', '/register', '/privacy'].includes(pathname);
 
   const handleLanguageChange = async (code: string) => {
     if (isAuthenticated) {
@@ -36,6 +39,8 @@ export function FloatingLanguageSwitcher() {
     await i18n.changeLanguage(code);
     setIsOpen(false);
   };
+
+  if (!isAuthenticated || isAuthScreen) return null;
 
   return (
     <div className="floating-language-switcher fixed z-[70]">

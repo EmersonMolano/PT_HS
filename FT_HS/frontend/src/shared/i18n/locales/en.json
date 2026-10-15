@@ -347,6 +347,7 @@
       "online": "Online",
       "offline": "Offline",
       "degraded": "Degraded signal",
+      "error": "Error",
       "unknown": "No connection recorded"
     },
     "title": "IoT Device Management",
@@ -469,6 +470,7 @@
     "total": "Total",
     "online": "Online",
     "offline": "Offline",
+    "otherStates": "Other states",
     "actuators": "Actuators",
     "realtimeState": "Reported state",
     "valve": "Valve",

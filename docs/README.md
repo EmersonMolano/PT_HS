@@ -18,6 +18,11 @@ para evitar que compitan con el código actual; el historial permanece en Git.
 | [Respaldo PostgreSQL](respaldo-postgresql.md) | Backup, restauración y verificación. |
 | [Estado actual](estado-actual.md) | Capacidades verificadas y trabajo pendiente. |
 
+## Guías IoT complementarias
+
+- [Guía operativa de dispositivos](dispositivos-iot.md): identidad, vinculación, traslado entre hogares y desvinculación.
+- [Host MQTT del ESP32](mqtt-esp32-red-local.md): `.env`, DNS local y comprobación del broker.
+
 ## Documentación por componente
 
 - [Base de datos](../BD_HS/docs/README.md)

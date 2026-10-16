@@ -13,20 +13,38 @@
 - Docker local para PostgreSQL, migraciones Liquibase, Mosquitto, backend y
   frontend.
 
-## Verificado recientemente
+## Verificación local (15 de octubre de 2026)
 
-- Pruebas unitarias del backend, validaciones estáticas, typecheck y build web.
-- Restauración PostgreSQL mediante el script de verificación.
-- Build e instalación Android en emulador con Expo SDK 54.
-- Configuración Docker local validada mediante `docker compose config`.
+- Backend: 180 pruebas unitarias aprobadas, revisión sintáctica de 217 archivos
+  y `npm audit --omit=dev` sin vulnerabilidades.
+- Frontend web: lint, typecheck y build aprobados.
+- Móvil: dependencias alineadas con Expo SDK 57; `expo install --check` y
+  exportación Android con Metro aprobadas. No se instaló en un teléfono ni se
+  ejecutó una compilación nativa en esta verificación.
+- Expo Doctor: 20/21 comprobaciones. La advertencia restante corresponde a
+  `@expo/config-plugins`, requerido por el plugin de configuración BLE.
+- Frontend: `npm test` termina correctamente, pero todavía no descubre pruebas.
+  El audit muestra 15 hallazgos altos que se agrupan en `braces` y `node-forge`;
+  al día de esta revisión sus avisos públicos no declaran versiones corregidas.
+- La restauración PostgreSQL y `docker compose config` constan como verificadas
+  en la revisión anterior; no se repitieron en esta ejecución.
 
 ## Pendiente antes de producción
 
-1. Ejecutar E2E visual completo con cuentas de Owner, Guest y Administrator.
-2. Ejecutar la prueba física continua del ESP32 con caudalímetro calibrado.
-3. Definir infraestructura de Internet: DNS, HTTPS, MQTT con TLS, ACL y
-   credenciales por dispositivo.
-4. Resolver los avisos transitivos del árbol Expo/React Native mediante una
-   actualización mayor planificada, no mediante `npm audit fix --force`.
-5. Estabilizar la experiencia móvil en dispositivo físico después de validar la
-   web y el flujo físico IoT.
+1. Completar pruebas E2E de navegador con Owner, Guest y Administrator:
+   permisos, hogares, vincular/desvincular, consumo, reportes, alertas y soporte.
+   La integración del backend en CI no sustituye esta validación visual.
+2. Ampliar las pruebas del frontend: hoy `npm test` no ejecuta ningún caso.
+3. Ejecutar una prueba de carga reproducible con varios usuarios y telemetría
+   simultánea, midiendo latencia, errores, conexiones y consumo de recursos.
+4. Completar la prueba física del ESP32: aprovisionamiento, MQTT seguro,
+   lecturas cada cinco segundos, actualización del dashboard y desvinculación.
+   Calibrar el caudalímetro y confirmar que BLE vuelve a anunciarse al final.
+5. Preparar despliegue a Internet: DNS, HTTPS, reverse proxy, firewall y
+   variables de producción; no publicar PostgreSQL ni el backend directamente.
+   Configurar MQTT con TLS, ACL y credenciales individuales por dispositivo.
+6. Probar la experiencia Expo SDK 57 en teléfono físico. Expo Go no incluye BLE;
+   el aprovisionamiento BLE completo requiere una compilación nativa compatible.
+7. Mantener seguimiento de `braces` y `node-forge`. No forzar un downgrade de
+   Expo para limpiar el audit; reevaluar cuando existan parches o cuando se
+   decida migrar a un SDK compatible con la versión de Expo Go disponible.

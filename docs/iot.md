@@ -1,5 +1,10 @@
 # Dispositivos IoT y ESP32
 
+Para el ciclo detallado de vincular, cambiar de hogar, desvincular y verificar
+un equipo, consulta la [guía operativa de dispositivos](dispositivos-iot.md).
+La configuración del host que el frontend envía por BLE está en
+[MQTT del ESP32 en la red local](mqtt-esp32-red-local.md).
+
 > El firmware actual mide y publica telemetría; aún no controla una válvula.
 > Antes de añadir esa función, sigue la [guía de integración segura de una
 > válvula de 12 V](electrovalvula-esp32.md).

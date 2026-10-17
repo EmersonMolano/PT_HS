@@ -29,7 +29,7 @@ const authRateLimiter = createAuthRateLimiter({
   limit: env.authRateLimitMax
 });
 const notificationService = new NotificationService({
-  sender: new SmtpEmailSender({ smtp: env.smtp }),
+  sender: new SmtpEmailSender({ smtp: env.smtp, resend: env.resend }),
   frontendUrl: env.frontendUrl,
   passwordResetUrl: env.passwordResetUrl
 });

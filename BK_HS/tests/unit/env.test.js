@@ -6,6 +6,8 @@ const envKeys = [
   'NODE_ENV',
   'DB_SSL',
   'DATABASE_URL',
+  'RESEND_API_KEY',
+  'RESEND_FROM',
   'DB_HOST',
   'DB_PORT',
   'DB_NAME',
@@ -98,6 +100,21 @@ test('acepta el sslmode=require habitual de Neon', () => {
     },
     () => {
       assert.deepEqual(getEnv().db.ssl, { rejectUnauthorized: true });
+    }
+  );
+});
+
+test('expone las variables opcionales del proveedor Resend', () => {
+  withEnv(
+    {
+      RESEND_API_KEY: 're_test_key',
+      RESEND_FROM: 'HidroSmart <onboarding@resend.dev>'
+    },
+    () => {
+      assert.deepEqual(getEnv().resend, {
+        apiKey: 're_test_key',
+        from: 'HidroSmart <onboarding@resend.dev>'
+      });
     }
   );
 });

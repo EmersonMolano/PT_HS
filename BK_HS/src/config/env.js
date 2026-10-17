@@ -146,6 +146,11 @@ function getEnv() {
     frontendUrl:
       process.env.FRONTEND_URL || 'http://localhost:5173',
 
+    resend: {
+      apiKey: process.env.RESEND_API_KEY,
+      from: process.env.RESEND_FROM
+    },
+
     smtp: {
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: Number(process.env.SMTP_PORT || 587),

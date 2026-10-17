@@ -73,6 +73,7 @@ services:
       ACTUATOR_COMMAND_TIMEOUT_BATCH_SIZE: ${ACTUATOR_COMMAND_TIMEOUT_BATCH_SIZE:-100}
       APP_TIMEZONE: ${APP_TIMEZONE:-America/Bogota}
       DB_HOST: postgres
+      DB_SSL: ${DB_SSL:-false}
       DB_PORT: 5432
       DB_NAME: ${POSTGRES_DB:-hidro_smart}
       DB_USER: ${DB_USER:-hidro_smart_app}

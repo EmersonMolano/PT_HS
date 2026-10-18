@@ -6,6 +6,9 @@ const envKeys = [
   'NODE_ENV',
   'DB_SSL',
   'DATABASE_URL',
+  'BREVO_API_KEY',
+  'BREVO_FROM_EMAIL',
+  'BREVO_FROM_NAME',
   'RESEND_API_KEY',
   'RESEND_FROM',
   'DB_HOST',
@@ -117,4 +120,27 @@ test('expone las variables opcionales del proveedor Resend', () => {
       });
     }
   );
+});
+
+test('expone la configuración opcional del proveedor Brevo', () => {
+  withEnv(
+    {
+      BREVO_API_KEY: 'xkeysib-test-key',
+      BREVO_FROM_EMAIL: 'notificaciones@example.com',
+      BREVO_FROM_NAME: 'HidroSmart QA'
+    },
+    () => {
+      assert.deepEqual(getEnv().brevo, {
+        apiKey: 'xkeysib-test-key',
+        fromEmail: 'notificaciones@example.com',
+        fromName: 'HidroSmart QA'
+      });
+    }
+  );
+});
+
+test('usa HidroSmart como nombre remitente predeterminado de Brevo', () => {
+  withEnv({ BREVO_FROM_EMAIL: 'notificaciones@example.com' }, () => {
+    assert.equal(getEnv().brevo.fromName, 'HidroSmart');
+  });
 });

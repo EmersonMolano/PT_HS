@@ -146,6 +146,12 @@ function getEnv() {
     frontendUrl:
       process.env.FRONTEND_URL || 'http://localhost:5173',
 
+    brevo: {
+      apiKey: process.env.BREVO_API_KEY,
+      fromEmail: process.env.BREVO_FROM_EMAIL,
+      fromName: process.env.BREVO_FROM_NAME || 'HidroSmart'
+    },
+
     resend: {
       apiKey: process.env.RESEND_API_KEY,
       from: process.env.RESEND_FROM

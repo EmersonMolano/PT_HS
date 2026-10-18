@@ -2,18 +2,19 @@ const nodemailer = require('nodemailer');
 
 class SmtpEmailSender {
   constructor({
-    smtp,
+    smtp = {},
+    brevo = {},
     resend = {},
     transportFactory = nodemailer.createTransport,
     fetchImpl = globalThis.fetch
   }) {
     this.smtp = smtp;
+    this.brevo = brevo;
     this.resend = resend;
     this.fetchImpl = fetchImpl;
+    this.provider = brevo.apiKey ? 'brevo' : resend.apiKey ? 'resend' : 'smtp';
 
-    if (this.resend.apiKey) {
-      this.transporter = null;
-    } else {
+    if (this.provider === 'smtp') {
       const transportOptions = {
         host: smtp.host,
         port: smtp.port,
@@ -29,7 +30,10 @@ class SmtpEmailSender {
   }
 
   isConfigured() {
-    if (this.resend.apiKey) return Boolean(this.resend.from);
+    if (this.provider === 'brevo') {
+      return Boolean(this.brevo.apiKey && this.brevo.fromEmail);
+    }
+    if (this.provider === 'resend') return Boolean(this.resend.from);
 
     const hasPartialAuth = Boolean(this.smtp.user) !== Boolean(this.smtp.password);
     return Boolean(this.smtp.host && this.smtp.port && this.smtp.from && !hasPartialAuth);
@@ -37,7 +41,7 @@ class SmtpEmailSender {
 
   async verifyConfiguration() {
     if (!this.isConfigured()) return false;
-    if (this.resend.apiKey) return true;
+    if (this.provider !== 'smtp') return true;
 
     await this.transporter.verify();
     return true;
@@ -45,7 +49,7 @@ class SmtpEmailSender {
 
   async send({ recipient, subject, text, html }) {
     if (!this.isConfigured()) {
-      const error = new Error('SMTP no está configurado para enviar correos');
+      const error = new Error('No hay un proveedor de correo configurado correctamente');
       error.status = 503;
       throw error;
     }
@@ -55,12 +59,71 @@ class SmtpEmailSender {
       throw error;
     }
 
-    if (this.resend.apiKey) {
+    if (this.provider === 'brevo') {
+      return this.sendWithBrevo({ recipient, subject, text, html });
+    }
+    if (this.provider === 'resend') {
       return this.sendWithResend({ recipient, subject, text, html });
     }
 
-    const result = await this.transporter.sendMail({ from: this.smtp.from, to: recipient.trim(), subject, text, html });
+    const result = await this.transporter.sendMail({
+      from: this.smtp.from,
+      to: recipient.trim(),
+      subject,
+      text,
+      html
+    });
     return { messageId: result.messageId, accepted: result.accepted, rejected: result.rejected };
+  }
+
+  async sendWithBrevo({ recipient, subject, text, html }) {
+    if (typeof this.fetchImpl !== 'function') {
+      throw new Error('Este runtime no tiene soporte para fetch HTTPS');
+    }
+
+    const normalizedRecipient = recipient.trim();
+    const response = await this.fetchImpl('https://api.brevo.com/v3/smtp/email', {
+      method: 'POST',
+      headers: {
+        'api-key': this.brevo.apiKey,
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body: JSON.stringify({
+        sender: {
+          name: this.brevo.fromName || 'HidroSmart',
+          email: this.brevo.fromEmail
+        },
+        to: [{ email: normalizedRecipient }],
+        subject,
+        textContent: text,
+        htmlContent: html
+      }),
+      signal: AbortSignal.timeout(15000)
+    });
+
+    const responseBody = await response.text();
+    let result = {};
+
+    try {
+      result = responseBody ? JSON.parse(responseBody) : {};
+    } catch {
+      // Se informa el estado HTTP sin exponer el cuerpo de respuesta sin validar.
+    }
+
+    if (!response.ok) {
+      const error = new Error(
+        `Brevo rechazó el envío (HTTP ${response.status}): ${result.message || 'Error de envío'}`
+      );
+      error.status = 502;
+      throw error;
+    }
+
+    return {
+      messageId: result.messageId,
+      accepted: [normalizedRecipient],
+      rejected: []
+    };
   }
 
   async sendWithResend({ recipient, subject, text, html }) {
@@ -91,13 +154,13 @@ class SmtpEmailSender {
     try {
       result = responseBody ? JSON.parse(responseBody) : {};
     } catch {
-      // Si Resend devolvio un cuerpo no JSON, se informa el estado HTTP sin filtrarlo.
+      // Se informa el estado HTTP sin exponer el cuerpo de respuesta sin validar.
     }
 
     if (!response.ok) {
       const error = new Error(
-        `Resend rechazo el envio (HTTP ${response.status}): ${
-          result.message || result.name || 'Error de envio'
+        `Resend rechazó el envío (HTTP ${response.status}): ${
+          result.message || result.name || 'Error de envío'
         }`
       );
       error.status = 502;

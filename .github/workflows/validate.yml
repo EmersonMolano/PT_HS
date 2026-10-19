@@ -44,7 +44,7 @@ jobs:
           npm ci --prefix BK_HS
           npm ci --prefix FT_HS/frontend
       - name: Start local stack
-        run: docker compose up -d postgres db-bootstrap mosquitto mailpit
+        run: docker compose up -d postgres db-bootstrap mosquitto
       - name: Validate and update database
         run: |
           docker compose --profile tooling run --rm liquibase validate

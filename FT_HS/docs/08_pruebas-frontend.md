@@ -2,10 +2,13 @@
 
 ## Estado actual
 
-El script `npm test` ejecuta `node --test`, pero al 15 de octubre de 2026 no
-descubre pruebas del frontend. Por eso su salida exitosa no demuestra cobertura.
-La CI sí ejecuta lint, typecheck, `npm test`, build y preparación del bundle
-móvil.
+El script `npm test` ejecuta `node --test`. Al 18 de octubre de 2026 pasan
+22 pruebas distribuidas entre `apiClient.test.mjs`, `frontendRules.test.mjs` y
+`deviceProvisioning.test.mjs`. Cubren cookies/CSRF, renovación y concurrencia
+de sesión, errores HTTP, descargas PDF/Excel, contratos de vinculación IoT,
+roles y permisos, validaciones, fechas y el puente BLE nativo simulado. No
+prueban la interfaz visual ni un ESP32 físico. La CI ejecuta lint, typecheck,
+test, build y preparación del bundle móvil.
 
 ## Comandos locales
 
@@ -16,17 +19,17 @@ npm.cmd --prefix FT_HS/frontend run lint
 npm.cmd --prefix FT_HS/frontend run typecheck
 npm.cmd --prefix FT_HS/frontend test
 npm.cmd --prefix FT_HS/frontend run build
+npm.cmd --prefix FT_HS/frontend run mobile:doctor
 npm.cmd --prefix FT_HS/frontend run mobile:prepare
 ```
 
 ## Cobertura que debe incorporarse
 
-1. **Lógica pura:** normalización de permisos, validaciones de formularios,
-   rangos de fechas y formato de consumo.
+1. **Lógica pura:** ampliar a rangos de fechas, cálculos y formato de consumo.
 2. **Componentes:** estados de carga/vacío/error, validaciones y acciones
    visibles para cada permiso.
-3. **Integración de API:** éxito, 401 con refresh, error CSRF, 403, pérdida de
-   conexión y descarga PDF/Excel.
+3. **Integración de API:** login/restauración de sesión en componentes y
+   descargas mediante navegador, no solo respuestas simuladas del cliente HTTP.
 4. **Rutas:** sesión restaurada, sesión expirada, deep link protegido y regreso
    después del login.
 5. **Responsive:** navegación inferior móvil, formularios y gráficos en los
@@ -36,7 +39,8 @@ npm.cmd --prefix FT_HS/frontend run mobile:prepare
 
 ## Criterios para agregar una prueba
 
-- Colocarla junto al módulo probado o bajo una carpeta `__tests__` del módulo.
+- Colocarla junto al módulo probado, bajo `frontend/tests` o en una carpeta
+  `__tests__` del módulo.
 - Probar comportamiento observable, no detalles internos de implementación.
 - No guardar tokens reales ni depender de servicios externos en una prueba
   unitaria.

@@ -19,6 +19,14 @@ function getBoolean(value, fallback) {
   throw new Error('Las variables booleanas deben ser true o false');
 }
 
+function getPositiveInteger(value, name, fallback) {
+  const parsed = Number(value === undefined || value === '' ? fallback : value);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    throw new Error(`${name} debe ser un entero positivo`);
+  }
+  return parsed;
+}
+
 function getCookieSameSite(value) {
   const normalized = (value || 'lax').toLowerCase();
 
@@ -109,7 +117,7 @@ function getEnv() {
   );
 
   const cookieSameSite = getCookieSameSite(
-    process.env.AUTH_COOKIE_SAME_SITE
+    process.env.AUTH_COOKIE_SAME_SITE || (nodeEnv === 'production' ? 'none' : 'lax')
   );
 
   if (cookieSameSite === 'none' && !cookieSecure) {
@@ -199,12 +207,16 @@ function getEnv() {
       process.env.ACTUATOR_COMMAND_TIMEOUT_BATCH_SIZE || 100
     ),
 
-    authRateLimitWindowMs: Number(
-      process.env.AUTH_RATE_LIMIT_WINDOW_MS || 900000
+    authRateLimitWindowMs: getPositiveInteger(
+      process.env.AUTH_RATE_LIMIT_WINDOW_MS, 'AUTH_RATE_LIMIT_WINDOW_MS', 900000
     ),
 
-    authRateLimitMax: Number(
-      process.env.AUTH_RATE_LIMIT_MAX || 20
+    authRateLimitMax: getPositiveInteger(
+      process.env.AUTH_RATE_LIMIT_MAX, 'AUTH_RATE_LIMIT_MAX', 20
+    ),
+
+    authRateLimitIpMax: getPositiveInteger(
+      process.env.AUTH_RATE_LIMIT_IP_MAX, 'AUTH_RATE_LIMIT_IP_MAX', 1000
     ),
 
     authCookies: {

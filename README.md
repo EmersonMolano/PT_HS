@@ -4,9 +4,10 @@ HidroSmart es una plataforma para monitorear el consumo de agua por hogar. Se
 compone de una aplicación web, API REST, PostgreSQL, broker MQTT y firmware
 para ESP32.
 
-> Alcance actual: desarrollo local integrado. La configuración de dominio,
-> HTTPS y MQTT/TLS para Internet se preparará cuando exista la infraestructura
-> de despliegue definitiva.
+> Alcance verificado: desarrollo local y pruebas automáticas aisladas. Los
+> despliegues de prueba en Cloudflare Pages y Render aún requieren validación
+> de cookies, CSRF y flujos E2E en navegador. MQTT/TLS para Internet sigue
+> pendiente.
 
 ## Componentes
 
@@ -55,7 +56,9 @@ npm.cmd --prefix BK_HS test
 # Frontend web
 npm.cmd --prefix FT_HS/frontend run lint
 npm.cmd --prefix FT_HS/frontend run typecheck
+npm.cmd --prefix FT_HS/frontend test
 npm.cmd --prefix FT_HS/frontend run build
+npm.cmd --prefix FT_HS/frontend run mobile:doctor
 ```
 
 Consulta [docs/pruebas.md](docs/pruebas.md) para integración, simulación IoT y
@@ -71,6 +74,7 @@ El índice actualizado está en [docs/README.md](docs/README.md). Empieza por:
 - [Flujo IoT](docs/iot.md)
 - [Seguridad](docs/seguridad.md)
 - [Estado actual y pendientes](docs/estado-actual.md)
+- [Documentación pendiente y evidencias](docs/pendientes-documentacion.md)
 
 ## Estado técnico
 

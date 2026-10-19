@@ -4,6 +4,8 @@ const { getEnv } = require('../../src/config/env');
 
 const envKeys = [
   'NODE_ENV',
+  'AUTH_COOKIE_SECURE',
+  'AUTH_COOKIE_SAME_SITE',
   'DB_SSL',
   'DATABASE_URL',
   'BREVO_API_KEY',
@@ -19,7 +21,10 @@ const envKeys = [
   'JWT_SECRET',
   'AUTH_COOKIE_SECURE',
   'AUTH_COOKIE_SAME_SITE',
-  'JWT_REFRESH_EXPIRES_IN'
+  'JWT_REFRESH_EXPIRES_IN',
+  'AUTH_RATE_LIMIT_MAX',
+  'AUTH_RATE_LIMIT_WINDOW_MS',
+  'AUTH_RATE_LIMIT_IP_MAX'
 ];
 
 function withEnv(overrides, callback) {
@@ -52,12 +57,28 @@ function withEnv(overrides, callback) {
 test('activa SSL con validacion de certificado por defecto en produccion', () => {
   withEnv({ NODE_ENV: 'production' }, () => {
     assert.deepEqual(getEnv().db.ssl, { rejectUnauthorized: true });
+    assert.equal(getEnv().authCookies.secure, true);
+    assert.equal(getEnv().authCookies.sameSite, 'none');
   });
 });
 
 test('mantiene SSL desactivado por defecto en desarrollo y Docker local', () => {
   withEnv({ NODE_ENV: 'development' }, () => {
     assert.equal(getEnv().db.ssl, false);
+    assert.equal(getEnv().authCookies.sameSite, 'lax');
+  });
+});
+
+test('separa la cuota amplia por IP de la cuota por cuenta', () => {
+  withEnv({}, () => {
+    assert.equal(getEnv().authRateLimitMax, 20);
+    assert.equal(getEnv().authRateLimitIpMax, 1000);
+  });
+  withEnv({ AUTH_RATE_LIMIT_IP_MAX: '1500' }, () => {
+    assert.equal(getEnv().authRateLimitIpMax, 1500);
+  });
+  withEnv({ AUTH_RATE_LIMIT_IP_MAX: '0' }, () => {
+    assert.throws(() => getEnv(), /AUTH_RATE_LIMIT_IP_MAX debe ser un entero positivo/);
   });
 });
 

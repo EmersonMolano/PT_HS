@@ -39,6 +39,7 @@ services:
       JWT_AUDIENCE: ${JWT_AUDIENCE:-hidro-smart-web}
       AUTH_RATE_LIMIT_WINDOW_MS: ${AUTH_RATE_LIMIT_WINDOW_MS:-900000}
       AUTH_RATE_LIMIT_MAX: ${AUTH_RATE_LIMIT_MAX:-20}
+      AUTH_RATE_LIMIT_IP_MAX: ${AUTH_RATE_LIMIT_IP_MAX:-1000}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
       PASSWORD_RESET_URL: ${PASSWORD_RESET_URL:-http://localhost:5173/login}
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}

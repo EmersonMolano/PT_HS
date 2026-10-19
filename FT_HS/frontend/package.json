@@ -8,7 +8,7 @@
     "build": "vite build --configLoader runner",
     "typecheck": "tsc --noEmit",
     "test": "node --test",
-    "lint": "prettier --check src",
+    "lint": "prettier --check src tests",
     "dev": "vite",
     "mobile:prepare": "node scripts/prepare-mobile-bundle.mjs",
     "mobile:doctor": "npx expo-doctor",
@@ -92,11 +92,11 @@
     "vaul": "1.1.2"
   },
   "devDependencies": {
-    "@expo/config-plugins": "~57.0.10",
     "@tailwindcss/vite": "4.1.12",
     "@types/react": "~19.2.4",
     "@types/react-dom": "~19.2.3",
     "@vitejs/plugin-react": "4.7.0",
+    "esbuild": "0.25.12",
     "hermes-compiler": "250829098.0.4",
     "prettier": "3.5.3",
     "tailwindcss": "4.1.12",

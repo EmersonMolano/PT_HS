@@ -17,6 +17,7 @@ para evitar que compitan con el código actual; el historial permanece en Git.
 | [Pruebas](pruebas.md) | Calidad, integración, roles, simulación IoT y móvil. |
 | [Respaldo PostgreSQL](respaldo-postgresql.md) | Backup, restauración y verificación. |
 | [Estado actual](estado-actual.md) | Capacidades verificadas y trabajo pendiente. |
+| [Documentación pendiente](pendientes-documentacion.md) | Evidencias y guías que faltan antes de producción. |
 
 ## Guías IoT complementarias
 

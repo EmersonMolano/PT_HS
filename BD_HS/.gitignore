@@ -3,3 +3,5 @@
 .env.shared
 liquibase.properties
 docs/credenciales-locales.md
+liquibase.neon.properties
+liquibase.neon.test.properties

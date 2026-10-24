@@ -16,23 +16,24 @@ export function LanguageSelector() {
   // RF33.2 - Cambio de idioma
   const handleLanguageChange = async (lang: string) => {
     const language = languageOptions.find((option) => option.code === lang);
-    await i18n.changeLanguage(lang);
     if (language) {
       try {
         await userApi.updatePreferences({ language: lang, currency: language.defaultCurrency });
       } catch {
         toast.error('No fue posible guardar la preferencia de idioma');
+        return;
       }
     }
+    await i18n.changeLanguage(lang);
     toast.success(t('settings.changesSaved'), {
-      description: `${t('settings.language')}: ${t(`languages.${lang}`)}`
+      description: `${t('settings.language')}: ${t(`languages.${lang}`)}`,
     });
   };
 
   const handleThemeChange = (newTheme: string) => {
     setTheme(newTheme as 'default' | 'dark' | 'green' | 'ocean');
     toast.success(t('settings.changesSaved'), {
-      description: `${t('settings.theme')}: ${t(`themes.${newTheme}`)}`
+      description: `${t('settings.theme')}: ${t(`themes.${newTheme}`)}`,
     });
   };
 
@@ -50,18 +51,23 @@ export function LanguageSelector() {
         <CardContent>
           <div className="space-y-2">
             <Label htmlFor="language">{t('settings.language')}</Label>
-            <Select value={normalizeLanguage(i18n.resolvedLanguage || i18n.language)} onValueChange={handleLanguageChange}>
+            <Select
+              value={normalizeLanguage(i18n.resolvedLanguage || i18n.language)}
+              onValueChange={handleLanguageChange}
+            >
               <SelectTrigger id="language" className="w-full">
                 <SelectValue placeholder={t('settings.selectLanguage')} />
               </SelectTrigger>
-              <SelectContent>{languageOptions.map((language) => (
-                <SelectItem key={language.code} value={language.code}>
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{language.flag}</span>
-                    <span>{t(`languages.${language.code}`)}</span>
-                  </div>
-                </SelectItem>
-              ))}</SelectContent>
+              <SelectContent>
+                {languageOptions.map((language) => (
+                  <SelectItem key={language.code} value={language.code}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{language.flag}</span>
+                      <span>{t(`languages.${language.code}`)}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
             </Select>
           </div>
         </CardContent>
@@ -116,7 +122,9 @@ export function LanguageSelector() {
               <button
                 onClick={() => handleThemeChange('default')}
                 className={`p-4 rounded-lg border-2 transition-all ${
-                  theme === 'default' ? 'border-blue-600 ring-2 ring-blue-600 ring-offset-2' : 'border-gray-200 hover:border-blue-300'
+                  theme === 'default'
+                    ? 'border-blue-600 ring-2 ring-blue-600 ring-offset-2'
+                    : 'border-gray-200 hover:border-blue-300'
                 }`}
                 aria-label={t('themes.default')}
               >
@@ -133,7 +141,9 @@ export function LanguageSelector() {
               <button
                 onClick={() => handleThemeChange('dark')}
                 className={`p-4 rounded-lg border-2 transition-all ${
-                  theme === 'dark' ? 'border-slate-600 ring-2 ring-slate-600 ring-offset-2' : 'border-gray-200 hover:border-slate-300'
+                  theme === 'dark'
+                    ? 'border-slate-600 ring-2 ring-slate-600 ring-offset-2'
+                    : 'border-gray-200 hover:border-slate-300'
                 }`}
                 aria-label={t('themes.dark')}
               >
@@ -150,7 +160,9 @@ export function LanguageSelector() {
               <button
                 onClick={() => handleThemeChange('green')}
                 className={`p-4 rounded-lg border-2 transition-all ${
-                  theme === 'green' ? 'border-green-600 ring-2 ring-green-600 ring-offset-2' : 'border-gray-200 hover:border-green-300'
+                  theme === 'green'
+                    ? 'border-green-600 ring-2 ring-green-600 ring-offset-2'
+                    : 'border-gray-200 hover:border-green-300'
                 }`}
                 aria-label={t('themes.green')}
               >
@@ -167,7 +179,9 @@ export function LanguageSelector() {
               <button
                 onClick={() => handleThemeChange('ocean')}
                 className={`p-4 rounded-lg border-2 transition-all ${
-                  theme === 'ocean' ? 'border-cyan-600 ring-2 ring-cyan-600 ring-offset-2' : 'border-gray-200 hover:border-cyan-300'
+                  theme === 'ocean'
+                    ? 'border-cyan-600 ring-2 ring-cyan-600 ring-offset-2'
+                    : 'border-gray-200 hover:border-cyan-300'
                 }`}
                 aria-label={t('themes.ocean')}
               >

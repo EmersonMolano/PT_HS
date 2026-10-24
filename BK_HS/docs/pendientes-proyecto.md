@@ -1,423 +1,134 @@
-# Pendientes del proyecto Hidro Smart
-
-Documento consolidado del trabajo pendiente en backend, base de datos, IoT, seguridad e infraestructura.
-
-## Estado general
-
-La arquitectura base, PostgreSQL, Liquibase, RLS, RBAC básico, autenticación inicial y operaciones principales de hogares y dispositivos ya están implementadas.
-
-El backend está conectado a PostgreSQL local y el flujo principal de dispositivos fue validado contra la base de datos real.
-
-## 1. Autenticación y usuarios
-
-- [x] Implementar refresh tokens persistentes.
-- [x] Crear endpoint para renovar sesión mediante `POST /api/v1/auth/refresh`.
-- [x] Implementar logout.
-- [x] Implementar revocación de tokens y sesiones.
-- [x] Implementar recuperación de contraseña mediante token de un solo uso.
-- [x] Implementar cambio de contraseña autenticado.
-- [ ] Implementar verificación de correo.
-- [x] Retirar MFA del frontend y del alcance funcional actual.
-- [ ] Implementar desactivación o eliminación de cuenta.
-- [x] Exponer consulta administrativa paginada de auditoría mediante `audit.read`.
-- [ ] Auditar cambios de usuario en todas las operaciones críticas.
-- [x] Administrar roles funcionales mediante endpoints protegidos por `roles.manage`.
-- [ ] Administrar permisos desde perfiles de administrador.
-- [ ] Crear panel interno de `Administrator` para desarrolladores y dueños del proyecto.
-- [x] Implementar módulo de tickets para `Support` y creación para `HomeUser`.
-- [x] Garantizar que `Guest` sea estrictamente de solo lectura en metas, vacaciones, alertas y demás módulos.
-
-## 2. Hogares
-
-- [x] Actualizar información del hogar mediante `PUT /api/v1/homes/:homeId`.
-- [ ] Eliminar o desactivar hogares.
-- [ ] Configurar preferencias del hogar.
-- [ ] Configurar idioma, moneda y tema.
-- [ ] Validar permisos de cada tipo de usuario.
-- [ ] Agregar paginación y filtros para miembros.
-- [ ] Agregar paginación y filtros para solicitudes.
-
-## 3. Dispositivos
-
-### Ya implementado
-
-- [x] Registrar dispositivos.
-- [x] Asociar dispositivos a un hogar.
-- [x] Listar dispositivos.
-- [x] Consultar un dispositivo.
-- [x] Actualizar información del dispositivo.
-- [x] Configurar calibración.
-- [x] Consultar estado.
-- [x] Cambiar estado.
-- [x] Registrar cambios de estado en `device.device_history`.
-
-### Pendiente
-
-- [x] Desvincular un dispositivo del hogar mediante `DELETE /api/v1/devices/:deviceId/home/:homeId`.
-- [x] Desactivar dispositivos mediante `POST /api/v1/devices/:deviceId/deactivate` usando baja lógica `Suspended`.
-- [ ] Reasignar dispositivos entre hogares.
-- [ ] Sincronizar firmware.
-- [ ] Registrar última telemetría real.
-- [ ] Registrar conexión y desconexión real.
-- [ ] Actualizar estados automáticamente mediante MQTT.
-- [ ] Completar el histórico de telemetría.
-- [ ] Probar dispositivos físicos reales.
-
-## 4. MQTT e IoT
-
-- [ ] Configurar broker MQTT.
-- [ ] Configurar conexión MQTT segura con TLS.
-- [ ] Implementar autenticación de dispositivos.
-- [ ] Definir topics oficiales.
-- [ ] Implementar parser de mensajes del ESP32.
-- [ ] Validar payloads recibidos.
-- [ ] Registrar lecturas en `sensor_reading`.
-- [ ] Validar la relación dispositivo-hogar antes de insertar lecturas.
-- [ ] Rechazar mensajes inválidos.
-- [ ] Manejar mensajes duplicados.
-- [ ] Manejar dispositivos desconectados.
-- [ ] Implementar reintentos.
-- [ ] Implementar tolerancia a fallos.
-- [ ] Sincronizar estado físico y estado lógico.
-- [ ] Integrar firmware del ESP32.
-
-## 5. Consumo
-
-### Ya implementado
-
-- [x] Consultar resumen de consumo por hogar y rango de fechas.
-- [x] Validar fechas y UUIDs.
-
-### Pendiente
-
-- [ ] Consultar consumo actual en tiempo real.
-- [x] Consultar historial diario mediante `GET /api/v1/consumption/daily`.
-- [x] Consultar historial horario mediante `GET /api/v1/consumption/hourly`.
-- [x] Consultar historial mensual mediante `GET /api/v1/consumption/monthly`.
-- [ ] Comparar periodos.
-- [ ] Consultar consumo por dispositivo.
-- [ ] Implementar proyecciones de consumo.
-- [ ] Implementar predicciones mediante `consumption_prediction`.
-- [ ] Completar cálculo de costos.
-- [ ] Integrar tarifas por estrato.
-- [ ] Agregar paginación y filtros.
-- [ ] Actualizar automáticamente los resúmenes.
-
-## 6. Alertas
-
-- [x] Crear reglas de alerta por hogar.
-- [x] Actualizar reglas.
-- [x] Eliminar reglas.
-- [x] Configurar umbrales diarios y mensuales por hogar.
-- [x] Consultar resumen de alertas pendientes por hogar.
-- [x] Marcar alertas como leídas.
-- [x] Descartar alertas.
-- [x] Detectar fugas mediante trigger de lecturas y regla `leak_detected`.
-- [x] Detectar consumo excesivo mediante job periódico y regla `excessive_consumption`.
-- [x] Detectar dispositivos sin lecturas mediante reglas `no_reading` y el job periódico.
-- [x] Evaluar reglas activas y generar eventos automáticamente mediante PostgreSQL y el job del backend.
-- [x] Implementar notificaciones por correo mediante Gmail SMTP.
-- [x] Retirar canales push y SMS del alcance actual; se conserva únicamente Gmail SMTP.
-- [x] Consultar historial de alertas con filtros y paginación.
-
-## 7. Tarifas
-
-- [x] Consultar tarifa vigente mediante `GET /api/v1/tariffs/home/:homeId`.
-- [ ] Crear tarifas.
-- [ ] Actualizar tarifas.
-- [ ] Administrar tarifas por estrato.
-- [ ] Configurar cargo fijo.
-- [ ] Configurar rangos de consumo.
-- [x] Aplicar tarifas automáticamente al cálculo mediante las funciones de costos existentes en PostgreSQL.
-- [x] Consultar el costo total de un periodo mediante `GET /api/v1/consumption/cost`.
-- [ ] Versionar tarifas por fecha.
-- [x] Validar vigencia de tarifas al consultar y calcular costos.
-
-## 8. Metas de ahorro
-
-- [x] Crear metas.
-- [x] Actualizar metas.
-- [x] Eliminar metas.
-- [x] Consultar progreso.
-- [ ] Comparar consumo real contra la meta.
-- [ ] Generar recomendaciones.
-- [ ] Marcar recomendaciones como aplicadas.
-- [ ] Consultar historial de metas.
-- [ ] Notificar avances o incumplimientos.
-
-## 9. Modo vacaciones
-
-- [x] Activar modo vacaciones.
-- [x] Desactivar modo vacaciones.
-- [x] Consultar estado.
-- [x] Configurar fecha inicial y final.
-- [ ] Aplicar comportamiento especial a las alertas.
-- [ ] Aplicar comportamiento especial a los actuadores.
-- [ ] Validar fechas y zona horaria.
-
-## 10. Actuadores
-
-- [ ] Modelar electroválvulas.
-- [ ] Modelar hidrobombas.
-- [ ] Asociar actuadores a hogares.
-- [ ] Asociar actuadores a dispositivos.
-- [ ] Registrar actuadores.
-- [ ] Consultar actuadores.
-- [ ] Actualizar actuadores.
-- [ ] Activar y desactivar actuadores.
-- [ ] Abrir y cerrar electroválvulas.
-- [ ] Encender y apagar hidrobombas.
-- [ ] Confirmar ejecución física.
-- [ ] Manejar comandos pendientes.
-- [ ] Manejar errores del ESP32.
-- [ ] Registrar historial de comandos.
-- [ ] Implementar comandos mediante MQTT.
-- [ ] Aplicar permisos especiales para actuadores.
-- [ ] Implementar medidas contra activaciones peligrosas.
-
-## 11. Reportes y analítica
-
-- [ ] Generar reportes.
-- [ ] Consultar reportes generados.
-- [ ] Descargar reportes.
-- [ ] Exportar PDF.
-- [ ] Exportar Excel.
-- [ ] Exportar CSV.
-- [ ] Crear reportes de consumo.
-- [ ] Crear reportes de costos.
-- [ ] Crear reportes de alertas.
-- [ ] Crear reportes de ahorro.
-- [ ] Generar recomendaciones automáticas.
-- [ ] Actualizar vistas materializadas.
-- [ ] Crear jobs programados para reportes.
-
-## 12. Soporte y tickets
-
-La base de datos y el backend ya exponen el flujo inicial de tickets; quedan pendientes capacidades avanzadas.
-
-- [x] Crear tickets.
-- [x] Consultar tickets.
-- [x] Actualizar estado de tickets.
-- [x] Responder tickets.
-- [x] Cambiar prioridad.
-- [x] Cambiar estado.
-- [x] Asignar tickets a soporte.
-- [ ] Consultar categorías.
-- [x] Consultar historial de respuestas autorizado.
-- [x] Aplicar permisos para soporte y administradores.
-
-## 13. Privacidad y cumplimiento
-
-- [ ] Gestionar consentimientos.
-- [ ] Crear solicitudes ARCO.
-- [ ] Exportar datos personales.
-- [ ] Corregir datos personales.
-- [ ] Eliminar datos personales.
-- [ ] Anonimizar datos.
-- [ ] Consultar historial de solicitudes.
-- [ ] Verificar identidad del solicitante.
-- [ ] Definir políticas de retención.
-- [x] Retirar campos y pantallas MFA del alcance funcional actual.
-- [ ] Definir cifrado gestionado por backend o KMS.
-
-## 14. Auditoría
-
-- [ ] Implementar auditoría general de operaciones.
-- [ ] Auditar cambios de usuarios.
-- [ ] Auditar cambios de hogares.
-- [ ] Auditar cambios de dispositivos.
-- [ ] Auditar configuraciones.
-- [ ] Auditar alertas.
-- [ ] Auditar actuadores.
-- [ ] Auditar accesos.
-- [ ] Centralizar errores.
-- [ ] Completar la trazabilidad de operaciones críticas.
-
-## 15. Calidad técnica
-
-- [x] Crear pruebas de integración HTTP.
-- [x] Crear pruebas de integración con PostgreSQL.
-- [x] Validar RLS para un `HomeUser` existente sobre hogares, membresías y dispositivos.
-- [ ] Probar RLS con cada rol.
-- [ ] Crear pruebas negativas de autorización.
-- [ ] Crear pruebas MQTT.
-- [ ] Probar con datos reales del ESP32.
-- [ ] Ejecutar pruebas de carga.
-- [ ] Ejecutar pruebas de concurrencia.
-- [ ] Publicar documentación OpenAPI/Swagger.
-- [x] Uniformar respuestas de error con `error.code`, `error.message` y `meta.requestId`.
-- [x] Agregar paginación compatible (`data` + `pagination`) donde corresponde.
-- [x] Agregar filtros y ordenamiento seguro por campos permitidos.
-- [x] Agregar rate limiting para las rutas de autenticacion.
-- [ ] Proteger la API contra abuso.
-- [ ] Completar la validación de payloads.
-- [ ] Implementar logs estructurados.
-- [ ] Implementar métricas.
-- [ ] Implementar monitoreo.
-- [ ] Crear health check de MQTT.
-- [ ] Crear health check de Redis, si se incorpora.
-
-## 16. Infraestructura y producción
-
-- [ ] Separar ambientes de desarrollo, pruebas y producción.
-- [ ] Rotar las contraseñas temporales.
-- [ ] Configurar gestión segura de secretos.
-- [ ] Configurar HTTPS.
-- [ ] Configurar dominio.
-- [ ] Crear pipeline CI/CD.
-- [ ] Configurar backups automáticos de PostgreSQL.
-- [ ] Probar restauración de backups.
-- [ ] Definir migraciones controladas en producción.
-- [ ] Incorporar Redis/Bull para trabajos asíncronos, si aplica.
-- [ ] Implementar sistema de colas.
-- [ ] Preparar escalamiento del backend.
-- [ ] Monitorear contenedores.
-- [ ] Configurar alertas operativas.
-- [ ] Definir recuperación ante desastres.
-
-## Resumen por área
-
-| Área | Estado |
-|---|---|
-| Arquitectura base | Implementada |
-| PostgreSQL y Liquibase | Implementados y funcionando |
-| RLS y RBAC base | Implementados parcialmente |
-| Autenticación básica | Implementada |
-| Usuarios | Parcial |
-| Hogares | Parcial |
-| Dispositivos | Funcional en operaciones principales |
-| Consumo | Parcial; históricos, costos por periodo y tarifa vigente implementados |
-| MQTT y ESP32 | Pendiente |
-| Alertas | Reglas, umbrales y generación automática de eventos implementados; notificaciones y telemetría avanzada pendientes |
-| Tarifas | Consulta vigente y cálculo de costos implementados |
-| Metas de ahorro | CRUD y progreso implementados; recomendaciones pendientes |
-| Modo vacaciones | Configuración, estado y activación implementados; integración con alertas/actuadores pendiente |
-| Actuadores | Pendiente |
-| Reportes | Pendiente |
-| Tickets | Flujo inicial implementado; asignación, prioridad, historial y catálogo implementados |
-| Privacidad ARCO | Pendiente |
-| Pruebas de integración | Implementadas para conexión, salud HTTP, rutas protegidas y RLS de `HomeUser`; otros roles pendientes |
-| Producción | Pendiente |
-
-## Orden recomendado para completar el MVP
-
-1. Probar RLS con cada rol funcional; `HomeUser` ya está validado.
-2. Completar detección avanzada de alertas.
-3. Implementar notificaciones de alertas.
-4. Completar recomendaciones de ahorro e integración de vacaciones con alertas/actuadores.
-5. Definir MQTT y telemetría real.
-6. Implementar actuadores.
-7. Implementar reportes.
-8. Completar seguridad y despliegue productivo.
-
-## Priorización de ejecución
-
-Esta es la secuencia recomendada considerando lo que ya existe en `BK_HS` y `BD_HS`.
-
-### Fase 0 — Se puede hacer inmediatamente
-
-Estas tareas no dependen de MQTT ni de hardware externo:
-
-- [x] Actualizar hogares mediante `PUT /api/v1/homes/:homeId`.
-- [x] Desvincular dispositivos mediante `DELETE /api/v1/devices/:deviceId/home/:homeId`.
-- [x] Desactivar dispositivos mediante `POST /api/v1/devices/:deviceId/deactivate`.
-- [x] Completar cambio y recuperación de contraseña.
-- [x] Implementar refresh tokens, logout y revocación de sesiones.
-- [x] Completar endpoints de consumo diario, horario y mensual.
-- [x] Implementar consulta de tarifas vigente y cálculo de costos.
-- [x] Implementar metas de ahorro y progreso.
-- [x] Implementar modo vacaciones y estado.
-- [x] Crear endpoints básicos de alertas, reglas y umbrales.
-- [x] Crear pruebas de integración HTTP y PostgreSQL.
-- [x] Probar autorización con los roles funcionales `Administrator`, `Support`, `HomeUser` y `Guest`.
-- [x] Uniformar respuestas de error.
-- [x] Agregar paginación, filtros y ordenamiento donde sea necesario.
-- [x] Actualizar la documentación que indicaba que la integración local estaba pendiente.
-
-### Fase 1 — Siguiente bloque recomendado
-
-Después de cerrar la Fase 0:
-
-- [x] Generar eventos automáticamente a partir de reglas activas y lecturas disponibles.
-- [ ] Detectar fugas y consumo excesivo.
-- [x] Completar cálculo de costos con tarifas por hogar y estrato.
-- [ ] Completar recomendaciones de ahorro automáticas.
-- [ ] Crear reportes de consumo, costos y alertas.
-- [ ] Exportar reportes a CSV, PDF y Excel.
-- [ ] Completar auditoría general.
-- [ ] Implementar logs estructurados y métricas.
-- [ ] Publicar documentación OpenAPI/Swagger.
-
-### Fase 2 — Requiere definir MQTT y el dispositivo
-
-Estas tareas pueden prepararse en código, pero no se pueden validar completamente sin broker, protocolo y ESP32:
-
-- [ ] Elegir y configurar broker MQTT.
-- [ ] Definir topics y formato oficial de mensajes.
-- [ ] Implementar autenticación MQTT.
-- [ ] Implementar TLS.
-- [ ] Implementar parser de telemetría.
-- [ ] Insertar lecturas reales en `sensor_reading`.
-- [ ] Manejar duplicados, reintentos y desconexiones.
-- [ ] Actualizar estados automáticamente.
-- [ ] Sincronizar el firmware del ESP32.
-- [ ] Validar la comunicación con un dispositivo físico.
-
-### Fase 3 — Actuadores y control físico
-
-No conviene cerrar esta fase antes de definir el hardware y las reglas de seguridad:
-
-- [ ] Definir electroválvulas e hidrobombas.
-- [ ] Modelar y registrar actuadores.
-- [ ] Crear comandos de apertura, cierre, encendido y apagado.
-- [ ] Enviar comandos mediante MQTT.
-- [ ] Confirmar la ejecución física.
-- [ ] Manejar comandos pendientes y errores.
-- [ ] Crear apagado de emergencia.
-- [ ] Registrar auditoría de cada comando.
-- [ ] Probar con hardware real.
-
-### Fase 4 — Producción
-
-Estas tareas deben hacerse antes de publicar el sistema:
-
-- [ ] Separar desarrollo, pruebas y producción.
-- [ ] Rotar todas las credenciales temporales.
-- [ ] Configurar secretos seguros.
-- [ ] Configurar HTTPS y dominio.
-- [ ] Crear pipeline CI/CD.
-- [ ] Configurar backups de PostgreSQL.
-- [ ] Probar restauración de backups.
-- [ ] Definir recuperación ante desastres.
-- [ ] Configurar monitoreo y alertas operativas.
-- [ ] Ejecutar pruebas de carga y concurrencia.
-- [ ] Preparar escalamiento del backend.
-- [ ] Configurar Redis/Bull y colas si se necesitan jobs asíncronos.
-
-## Qué conviene hacer ahora
-
-El siguiente bloque de trabajo recomendado es:
-
-1. Completar detección avanzada de alertas y notificaciones.
-2. Completar recomendaciones de ahorro e integración de vacaciones con alertas/actuadores.
-3. Definir MQTT y telemetría real.
-
-## Qué no conviene empezar todavía
-
-- MQTT productivo, hasta definir broker, topics y formato del ESP32.
-- Actuadores, hasta definir hardware, confirmación física y apagado de emergencia.
-- Jobs con Redis, hasta tener procesos reales que necesiten ejecución asíncrona.
-- Escalamiento productivo, hasta cerrar pruebas de integración y seguridad.
-- Reportes PDF/Excel, hasta estabilizar los datos y cálculos de consumo.
-
-## Avances completados en la rectificación
-
-- [x] Refresh tokens persistentes con hash almacenado en PostgreSQL.
-- [x] Rotación de refresh tokens de un solo uso.
-- [x] Logout con revocación de sesión.
-- [x] Desactivación lógica de dispositivos.
-- [x] Actualización de hogares.
-- [x] Desvinculación de dispositivos de hogares.
-- [x] Cambio de contraseña autenticado.
-- [x] Recuperación de contraseña con token de un solo uso.
-- [x] Endpoints de consumo diario, horario y mensual.
+# Plan de trabajo y pendientes — HidroSmart
+
+Última revisión: 2026-09-06.
+
+Este documento es el mapa operativo del proyecto. Distingue lo construido de lo que falta integrar, probar o endurecer. Las reglas protegidas por PostgreSQL no deben duplicarse en Node.js.
+
+## Estado actual
+
+| Área | Estado | Nota |
+|---|---|---|
+| Base de datos | Operativa | Liquibase aplicado: 177 changesets; sin cambios pendientes |
+| Backend HTTP | Base funcional | Rutas, JWT, RLS y RBAC implementados |
+| Frontend web | Base funcional | Consume `/api/v1`; quedan pantallas por conectar |
+| MQTT | Transporte listo | Topics, parser y handlers reciben telemetría; falta persistencia |
+| IoT real | Pendiente | Falta contrato definitivo, ingesta y pruebas con PostgreSQL |
+| SMTP | Base lista | Gmail/Mailpit configurables; faltan eventos automáticos adicionales |
+| Pruebas | Unitarias aprobadas | Backend: 82/82; falta integración real y E2E |
+
+## Ya construido y verificado
+
+- [x] PostgreSQL, Liquibase, backend, frontend, Mailpit y Mosquitto en Docker Compose.
+- [x] Roles técnicos `hidro_smart_admin`, `hidro_smart_app`, `hidro_smart_ingest` y `hidro_smart_readonly`.
+- [x] Roles funcionales `Administrator`, `Support`, `HomeUser` y `Guest`.
+- [x] Grants, RLS, funciones controladas, triggers, índices, auditoría y alertas.
+- [x] Registro, login, JWT, refresh token, logout, cambio y recuperación de contraseña.
+- [x] Hogares, miembros, dispositivos, consumo histórico, tarifas, alertas, metas, vacaciones, tickets, roles y auditoría.
+- [x] Cliente HTTP del frontend y proxy Nginx hacia `/api/v1`.
+- [x] Cliente MQTT, topics `hidrosmart/devices/{deviceCode}/...`, parser y handlers.
+- [x] Contrato inicial compatible con ESP32: `deviceId`, `flowRateLpm`, `consumptionLiters`, `totalLiters`, `pulses`, `sampleIntervalSeconds`, `wifiRssiDbm` y `timestamp`.
+- [x] Prueba de humo MQTT con `HS_ESP32_001`: Mosquitto recibió el mensaje y el backend lo validó/normalizó.
+- [x] Backend compilable y 82 pruebas unitarias aprobadas.
+
+## Fase BK-01 — seguridad y contratos HTTP
+
+- [x] Impedir que `req.body` sobrescriba `userId`, `homeId`, `ruleId`, `goalId` o IDs de JWT/params.
+- [x] Alinear unidades de alertas con la BD: `m3_day`, `m3_month` y `minutes`.
+- [x] Separar el intervalo del job de alertas del refresco de vistas materializadas.
+- [x] Permitir tickets propios sin exigir `homes.manage`; reservar `tickets.manage` para administración.
+- [ ] Integrar `fn_get_my_authorization_context()` en `/me`, login o restauración de sesión.
+- [x] Corregir validación específica de actualización de metas sin exigir `homeId` innecesariamente.
+- [x] Hacer que recuperación de contraseña tenga respuesta indistinguible para correos existentes y no existentes.
+- [x] Vincular logout con `userId` y `sessionId`, no solo con un refresh token recibido.
+
+## Fase BK-02 — autorización, sesiones y cuenta
+
+- [ ] Listar, revocar una, revocar otras o revocar todas las sesiones.
+- [ ] Definir validación de `sid` activo para access tokens después del logout.
+- [ ] Confirmar o crear funciones SQL controladas para suspender, reactivar y eliminar cuentas.
+- [ ] Crear casos de uso administrativos sin `UPDATE` genérico de campos sensibles.
+- [ ] Conectar correos de bienvenida, cambio de contraseña y cambios de cuenta sin revertir el evento principal si SMTP falla.
+
+## Fase BK-03 — MQTT e ingesta PostgreSQL
+
+### Contrato del dispositivo
+
+- [x] Confirmar el formato del identificador MQTT como `device.code` (por ejemplo `HS_ESP32_001`), no MAC ni UUID.
+- [ ] Añadir `messageId` o `sequence` monotónico para soportar QoS 1 y mensajes repetidos.
+- [ ] Mantener `timestamp` en UTC ISO 8601; usar hora de recepción solo como fallback controlado.
+- [ ] Documentar que `consumptionLiters` es el consumo del intervalo y `totalLiters` solo diagnóstico.
+- [ ] Verificar que el GPIO del ESP32 no reciba directamente una señal de 5 V del YF-S201.
+
+### Backend y BD
+
+- [ ] Crear `IngestReading` y el puerto `TelemetryRepository`.
+- [ ] Crear `PostgresTelemetryRepository` separado del handler MQTT.
+- [ ] Crear pool de ingesta con `hidro_smart_ingest`, separado del pool HTTP `hidro_smart_app`.
+- [ ] Crear función SQL controlada para resolver `device.code → device_id → home_id`, validar estado y guardar la lectura.
+- [ ] Añadir a `sensor_reading` caudal, intervalo, pulsos y clave de mensaje si el modelo actual no los contiene.
+- [ ] Crear constraint/índice único por dispositivo y `messageId`.
+- [ ] Actualizar `last_seen` sin mezclarlo con el estado administrativo `Active/Inactive`.
+- [ ] Rechazar dispositivos inexistentes, inactivos, no asignados o mensajes fuera de rango.
+- [ ] Probar lectura válida, inválida, duplicada, timestamp inválido y dispositivo no autorizado.
+
+Flujo objetivo: `ESP32 → Mosquitto → subscriber → parser → IngestReading → función SQL → hidro_smart_ingest → sensor_reading`.
+
+## Fase BK-04 — alertas, consumo y tiempo real
+
+- [ ] Confirmar que el job llama únicamente a `alert_rate.fn_generate_alert_events(...)`.
+- [ ] No recalcular en Node límites diarios, mensuales, vacaciones, fugas ni deduplicación.
+- [ ] Probar los cinco tipos de alerta y su comportamiento durante vacaciones.
+- [ ] Conectar el frontend a lecturas persistidas, consumo reciente y estado del dispositivo.
+- [ ] Agregar tiempo real solo después de estabilizar la ingesta MQTT.
+
+## Fase BK-05 — soporte, privacidad y reportes
+
+- [ ] Separar casos de uso de tickets propios y administración de Support.
+- [ ] Crear módulo Privacy/ARCO: solicitudes propias, administración, respuesta y estado.
+- [ ] Implementar exportación de datos únicamente del usuario autenticado.
+- [ ] Crear reportes: generar, listar, consultar, completar/fallar y descargar primero CSV.
+- [ ] Probar RLS de tickets, respuestas, ARCO y `generated_report` con Usuario A vs Usuario B.
+
+## Fase BK-06 — dispositivos y actuadores
+
+- [ ] Definir provisioning físico y credenciales MQTT por dispositivo.
+- [ ] Persistir estados `ONLINE/OFFLINE` y `last_seen` reales.
+- [ ] Crear comandos de actuadores con permisos, `correlationId`, ACK, timeout y auditoría.
+- [ ] Antes de producción, agregar autenticación, ACL por topic y TLS en Mosquitto.
+
+## Operación y calidad
+
+- [ ] Agregar `auditCleanupJob` usando `audit.prc_clean_old_audit_logs(...)`.
+- [ ] Agregar readiness separado de liveness para PostgreSQL y MQTT.
+- [ ] Añadir `requestId` y logging estructurado sin secretos.
+- [ ] Limitar rangos de consumo, paginación, filtros y ordenamiento en consultas grandes.
+- [ ] Ejecutar integración con PostgreSQL real, E2E, backup y restore.
+- [ ] Reordenar carpetas solo después de estabilizar comportamiento y pruebas.
+
+## Rectificación frontend — 2026-09-07
+
+Estas observaciones ya fueron atendidas en `FT_HS/Web`:
+
+- [x] El hogar activo se centraliza en el layout autenticado y se comparte con dashboard, dispositivos, reportes, metas, alertas y vacaciones.
+- [x] Metas consulta `GET /api/v1/goals/:goalId/progress`; el porcentaje ya no se calcula con el consumo mensual del navegador.
+- [x] Alertas consulta pendientes, historial y umbrales desde el backend; los límites se muestran en m³.
+- [x] Configuración carga perfil, fecha de registro, hogares y dispositivos desde la API.
+- [x] Configuración dejó de mostrar sesiones, tokens, exportación, eliminación, foto y switches de privacidad ficticios, porque esas rutas todavía no existen en BK_HS.
+- [x] Reportes dejó de ofrecer exportación y administración de tarifas ficticias; mantiene únicamente consultas disponibles.
+- [x] Idioma y moneda se guardan juntos en `/users/me/preferences` antes de cambiar la interfaz.
+- [x] Se añadió corrección de textos históricos con codificación dañada para evitar mostrar `Ã`, `Â` o `â`.
+
+Pendientes que siguen siendo reales y no se marcaron como terminados: revocación de sesiones remotas, Privacy/ARCO, exportación de datos, reportes descargables, persistencia MQTT y tiempo real. No se deben volver a simular en el frontend hasta publicar sus endpoints.
+
+## Orden recomendado
+
+1. Contexto de autorización y sesiones.
+2. Recuperación de contraseña y logout seguro.
+3. Metas, alertas y tickets alineados con BD.
+4. Pruebas RLS/RBAC con usuarios reales.
+5. Contrato `messageId` y migración IoT.
+6. Ingesta MQTT con `hidro_smart_ingest`.
+7. Estados reales de dispositivos y consumo reciente.
+8. Privacy/ARCO, reportes y eventos SMTP.
+9. Actuadores y endurecimiento de Mosquitto.
+10. E2E, backup/restore y reorganización final.

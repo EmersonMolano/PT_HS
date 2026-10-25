@@ -51,7 +51,10 @@ jobs:
           docker compose --profile tooling run --rm liquibase update
       - name: Start API and web
         run: |
-          docker compose up -d backend frontend
+          docker compose up -d backend frontend || {
+            docker compose logs --no-color backend postgres db-bootstrap mosquitto
+            exit 1
+          }
           for attempt in {1..30}; do curl --fail --silent http://localhost:3000/health && break || sleep 2; done
           curl --fail --silent http://localhost:5173/ > /dev/null
       - name: Seed integration role users

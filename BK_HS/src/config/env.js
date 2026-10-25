@@ -58,7 +58,6 @@ function getEnv() {
       password: process.env.SMTP_PASSWORD,
       from: process.env.SMTP_FROM || process.env.SMTP_USER
     },
-
     passwordResetUrl:
       process.env.PASSWORD_RESET_URL ||
       process.env.FRONTEND_URL ||

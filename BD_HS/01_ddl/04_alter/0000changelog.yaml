@@ -388,3 +388,20 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: false
             stripComments: false
+  - changeSet:
+      id: 20260912-device-ingest-hardening
+      author: Hidro_Smarth
+      labels: "BD-01-dev,ddl,alter,device,consumption,iot,security"
+      comment: "Adds validated telemetry fields and enforces one active home assignment per device."
+      changes:
+        - sqlFile:
+            path: 022_device_ingest_hardening.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/04_alter/022_device_ingest_hardening.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false

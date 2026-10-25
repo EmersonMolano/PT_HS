@@ -264,7 +264,9 @@ export function RegisterScreen({
                 <Label htmlFor="name">Nombre completo *</Label>
                 <Input
                   id="name"
-                  className={fieldErrors.name ? 'h-8 border-red-500 focus-visible:ring-red-500' : 'h-8'}
+                  className={
+                    fieldErrors.name ? 'h-8 border-red-500 focus-visible:ring-red-500' : 'h-8'
+                  }
                   placeholder="Juan Pérez"
                   value={formData.name}
                   onChange={(e) => {
@@ -276,7 +278,11 @@ export function RegisterScreen({
                   aria-invalid={Boolean(fieldErrors.name)}
                   aria-describedby={fieldErrors.name ? 'name-error' : undefined}
                 />
-                {fieldErrors.name && <p id="name-error" className="text-xs text-red-600">{fieldErrors.name}</p>}
+                {fieldErrors.name && (
+                  <p id="name-error" className="text-xs text-red-600">
+                    {fieldErrors.name}
+                  </p>
+                )}
               </div>
 
               {/* RF1.1 - Tipo y número de documento (C.C/C.E) */}
@@ -285,18 +291,22 @@ export function RegisterScreen({
                   <Label htmlFor="docType">Tipo de documento *</Label>
                   <Select
                     value={formData.docType}
-                      onValueChange={(value) => {
-                        updateFormData('docType', value);
-                        clearFieldError('docType');
-                      }}
+                    onValueChange={(value) => {
+                      updateFormData('docType', value);
+                      clearFieldError('docType');
+                    }}
                   >
-                  <SelectTrigger
-                    id="docType"
-                    type="button"
-                    aria-required="true"
-                    aria-invalid={Boolean(fieldErrors.docType)}
-                    className={fieldErrors.docType ? 'h-8 border-red-500 focus-visible:ring-red-500' : 'h-8'}
-                  >
+                    <SelectTrigger
+                      id="docType"
+                      type="button"
+                      aria-required="true"
+                      aria-invalid={Boolean(fieldErrors.docType)}
+                      className={
+                        fieldErrors.docType
+                          ? 'h-8 border-red-500 focus-visible:ring-red-500'
+                          : 'h-8'
+                      }
+                    >
                       <SelectValue placeholder="Seleccionar" />
                     </SelectTrigger>
                     <SelectContent>
@@ -305,14 +315,20 @@ export function RegisterScreen({
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-gray-600">No se admiten menores de edad (T.I)</p>
-                  {fieldErrors.docType && <p className="text-xs text-red-600">{fieldErrors.docType}</p>}
+                  {fieldErrors.docType && (
+                    <p className="text-xs text-red-600">{fieldErrors.docType}</p>
+                  )}
                 </div>
 
                 <div className="space-y-1">
                   <Label htmlFor="docNumber">Número de documento *</Label>
                   <Input
                     id="docNumber"
-                    className={fieldErrors.docNumber ? 'h-8 border-red-500 focus-visible:ring-red-500' : 'h-8'}
+                    className={
+                      fieldErrors.docNumber
+                        ? 'h-8 border-red-500 focus-visible:ring-red-500'
+                        : 'h-8'
+                    }
                     placeholder="1234567890"
                     value={formData.docNumber}
                     onChange={(e) => {
@@ -335,7 +351,9 @@ export function RegisterScreen({
                 <Label htmlFor="email">Correo electrónico *</Label>
                 <Input
                   id="email"
-                  className={fieldErrors.email ? 'h-8 border-red-500 focus-visible:ring-red-500' : 'h-8'}
+                  className={
+                    fieldErrors.email ? 'h-8 border-red-500 focus-visible:ring-red-500' : 'h-8'
+                  }
                   type="email"
                   placeholder="usuario@ejemplo.com"
                   value={formData.email}
@@ -348,7 +366,11 @@ export function RegisterScreen({
                   aria-invalid={Boolean(fieldErrors.email)}
                   aria-describedby={fieldErrors.email ? 'email-error' : undefined}
                 />
-                {fieldErrors.email && <p id="email-error" className="text-xs text-red-600">{fieldErrors.email}</p>}
+                {fieldErrors.email && (
+                  <p id="email-error" className="text-xs text-red-600">
+                    {fieldErrors.email}
+                  </p>
+                )}
               </div>
 
               {/* RF1.2 - Contraseña con requisitos */}
@@ -357,7 +379,9 @@ export function RegisterScreen({
                 <div className="relative">
                   <Input
                     id="password"
-                    className={fieldErrors.password ? 'h-8 border-red-500 focus-visible:ring-red-500' : 'h-8'}
+                    className={
+                      fieldErrors.password ? 'h-8 border-red-500 focus-visible:ring-red-500' : 'h-8'
+                    }
                     type={showPassword ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={formData.password}
@@ -445,7 +469,11 @@ export function RegisterScreen({
                 <div className="relative">
                   <Input
                     id="confirmPassword"
-                    className={fieldErrors.confirmPassword ? 'h-8 border-red-500 focus-visible:ring-red-500' : 'h-8'}
+                    className={
+                      fieldErrors.confirmPassword
+                        ? 'h-8 border-red-500 focus-visible:ring-red-500'
+                        : 'h-8'
+                    }
                     type={showConfirmPassword ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={formData.confirmPassword}
@@ -454,7 +482,9 @@ export function RegisterScreen({
                       clearFieldError('confirmPassword');
                     }}
                     aria-invalid={Boolean(fieldErrors.confirmPassword)}
-                    aria-describedby={fieldErrors.confirmPassword ? 'confirmPassword-error' : undefined}
+                    aria-describedby={
+                      fieldErrors.confirmPassword ? 'confirmPassword-error' : undefined
+                    }
                   />
                   <button
                     type="button"
@@ -491,7 +521,9 @@ export function RegisterScreen({
                   id="reviewTerms"
                   type="button"
                   variant="outline"
-                  className={fieldErrors.legalConsent ? 'w-full border-red-500 text-red-600' : 'w-full'}
+                  className={
+                    fieldErrors.legalConsent ? 'w-full border-red-500 text-red-600' : 'w-full'
+                  }
                   onClick={() => {
                     clearFieldError('legalConsent');
                     onReviewTerms(formData);
@@ -510,8 +542,8 @@ export function RegisterScreen({
               <Alert className="py-2">
                 <AlertCircle className="size-4" />
                 <AlertDescription className="text-sm">
-                  Te enviaremos un enlace de verificación. La cuenta se activará únicamente
-                  cuando confirmes el correo electrónico.
+                  Te enviaremos un enlace de verificación. La cuenta se activará únicamente cuando
+                  confirmes el correo electrónico.
                 </AlertDescription>
               </Alert>
             </CardContent>
@@ -519,7 +551,11 @@ export function RegisterScreen({
               <Button type="button" variant="outline" onClick={onBack} className="h-8 flex-1">
                 Volver
               </Button>
-              <Button type="submit" className="h-8 flex-1" disabled={isSubmitting || !acceptedLegal}>
+              <Button
+                type="submit"
+                className="h-8 flex-1"
+                disabled={isSubmitting || !acceptedLegal}
+              >
                 {isSubmitting ? 'Creando cuenta...' : 'Crear Cuenta'}
               </Button>
             </CardFooter>

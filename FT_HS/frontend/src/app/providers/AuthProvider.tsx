@@ -1,12 +1,15 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import {
-  authApi,
-  SESSION_EXPIRED_EVENT,
-  sessionTokens,
-  userApi,
-} from '@shared/http/apiClient';
+import { authApi, SESSION_EXPIRED_EVENT, sessionTokens, userApi } from '@shared/http/apiClient';
 import {
   can as hasPermission,
   normalizePermissions,
@@ -90,12 +93,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [refreshSession]
   );
 
-  const register = useCallback(
-    async (payload: RegistrationPayload) => {
-      await authApi.register(payload);
-    },
-    []
-  );
+  const register = useCallback(async (payload: RegistrationPayload) => {
+    await authApi.register(payload);
+  }, []);
 
   const logout = useCallback(async () => {
     const refreshToken = sessionTokens.refreshToken;

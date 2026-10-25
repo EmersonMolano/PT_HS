@@ -18,12 +18,20 @@ const rolePriority: SystemRole[] = ['Administrator', 'Support', 'HomeUser', 'Gue
 
 export function normalizeRoles(roles: unknown): SystemRole[] {
   if (!Array.isArray(roles)) return [];
-  return [...new Set(roles.filter((role): role is SystemRole => SYSTEM_ROLES.includes(role as SystemRole)))];
+  return [
+    ...new Set(
+      roles.filter((role): role is SystemRole => SYSTEM_ROLES.includes(role as SystemRole))
+    ),
+  ];
 }
 
 export function normalizePermissions(permissions: unknown): string[] {
   if (!Array.isArray(permissions)) return [];
-  return [...new Set(permissions.filter((permission): permission is string => typeof permission === 'string'))];
+  return [
+    ...new Set(
+      permissions.filter((permission): permission is string => typeof permission === 'string')
+    ),
+  ];
 }
 
 export function can(permissions: readonly string[] | undefined, permission: string): boolean {

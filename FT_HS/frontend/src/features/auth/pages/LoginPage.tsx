@@ -256,7 +256,9 @@ export function LoginScreen({
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       onInvalid={(event) =>
-                        event.currentTarget.setCustomValidity('Ingresa tu correo electrónico para continuar')
+                        event.currentTarget.setCustomValidity(
+                          'Ingresa tu correo electrónico para continuar'
+                        )
                       }
                       onInput={(event) => event.currentTarget.setCustomValidity('')}
                       required
@@ -273,7 +275,9 @@ export function LoginScreen({
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         onInvalid={(event) =>
-                          event.currentTarget.setCustomValidity('Ingresa tu contraseña para continuar')
+                          event.currentTarget.setCustomValidity(
+                            'Ingresa tu contraseña para continuar'
+                          )
                         }
                         onInput={(event) => event.currentTarget.setCustomValidity('')}
                         className="pr-10"
@@ -328,7 +332,8 @@ export function LoginScreen({
                                 aria-describedby="reset-email-help"
                               />
                               <p id="reset-email-help" className="text-xs text-muted-foreground">
-                                Este correo corresponde a la cuenta que solicitó el restablecimiento.
+                                Este correo corresponde a la cuenta que solicitó el
+                                restablecimiento.
                               </p>
                             </div>
                             <div className="space-y-2">
@@ -346,9 +351,15 @@ export function LoginScreen({
                                   type="button"
                                   onClick={() => setShowResetPassword((visible) => !visible)}
                                   className="absolute right-3 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-gray-500 hover:text-gray-700"
-                                  aria-label={showResetPassword ? t('common.hide') : t('common.show')}
+                                  aria-label={
+                                    showResetPassword ? t('common.hide') : t('common.show')
+                                  }
                                 >
-                                  {showResetPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                                  {showResetPassword ? (
+                                    <EyeOff className="size-4" />
+                                  ) : (
+                                    <Eye className="size-4" />
+                                  )}
                                 </button>
                               </div>
                             </div>
@@ -367,11 +378,21 @@ export function LoginScreen({
                                 />
                                 <button
                                   type="button"
-                                  onClick={() => setShowResetPasswordConfirmation((visible) => !visible)}
+                                  onClick={() =>
+                                    setShowResetPasswordConfirmation((visible) => !visible)
+                                  }
                                   className="absolute right-3 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-gray-500 hover:text-gray-700"
-                                  aria-label={showResetPasswordConfirmation ? t('common.hide') : t('common.show')}
+                                  aria-label={
+                                    showResetPasswordConfirmation
+                                      ? t('common.hide')
+                                      : t('common.show')
+                                  }
                                 >
-                                  {showResetPasswordConfirmation ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                                  {showResetPasswordConfirmation ? (
+                                    <EyeOff className="size-4" />
+                                  ) : (
+                                    <Eye className="size-4" />
+                                  )}
                                 </button>
                               </div>
                             </div>

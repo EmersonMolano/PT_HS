@@ -377,3 +377,14 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: false
+  - changeSet:
+      id: 20261025-reconcile-sensor-reading-materialized-views
+      author: Hidro_Smarth
+      labels: "BD-01-dev,ddl,alter,consumption,materialized-views"
+      comment: "Removes views recreated by the ingest migration only on databases where the baseline view changesets have not run yet."
+      changes:
+        - sqlFile:
+            path: 025_reconcile_sensor_reading_materialized_views.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false

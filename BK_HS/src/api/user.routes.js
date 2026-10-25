@@ -1,6 +1,8 @@
 const router = require('express').Router();
 const { asyncHandler } = require('../shared/http');
 const { authenticate } = require('./middleware/auth');
+const { createRequirePermission } = require('./middleware/requirePermission');
+const { PostgresPermissionChecker } = require('../core/infrastructure/security/PostgresPermissionChecker');
 const { GetCurrentUser } = require('../core/application/use-cases/user/GetCurrentUser');
 const { UpdateCurrentUser } = require('../core/application/use-cases/user/UpdateCurrentUser');
 const { GetUserPreferences } = require('../core/application/use-cases/user/GetUserPreferences');

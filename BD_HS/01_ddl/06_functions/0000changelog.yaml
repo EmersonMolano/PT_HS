@@ -528,6 +528,12 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/06_functions/031_fn_timezone_policy_alignment.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
   - changeSet:
       id: 20260901-fn-active-password-policy
       author: Hidro_Smarth
@@ -544,12 +550,6 @@ databaseChangeLog:
             path: ../../05_rollbacks/01_ddl/06_functions/032_fn_active_password_policy.rollback.sql
             relativeToChangelogFile: true
             splitStatements: false
-            stripComments: false
-      rollback:
-        - sqlFile:
-            path: ../../05_rollbacks/01_ddl/06_functions/031_fn_timezone_policy_alignment.rollback.sql
-            relativeToChangelogFile: true
-            splitStatements: true
             stripComments: false
 
   - changeSet:
@@ -663,3 +663,20 @@ databaseChangeLog:
             stripComments: false
       rollback:
         - sql: DROP FUNCTION IF EXISTS user_account.fn_bootstrap_first_administrator(UUID);
+  - changeSet:
+      id: 20260909-fn-resolve-ingest-device
+      author: Hidro_Smarth
+      labels: "BD-01-dev,ddl,function,device,ingest,mqtt"
+      comment: "Resolves an active MQTT device code to its active device and home identifiers."
+      changes:
+        - sqlFile:
+            path: 040_fn_resolve_ingest_device.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/06_functions/040_fn_resolve_ingest_device.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false

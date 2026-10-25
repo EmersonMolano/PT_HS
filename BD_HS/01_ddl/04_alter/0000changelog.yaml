@@ -311,4 +311,20 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: false
             stripComments: false
-
+  - changeSet:
+      id: 20260909-iot-sensor-reading-ingest
+      author: Hidro_Smarth
+      labels: "BD-01-dev,ddl,alter,consumption,iot,mqtt"
+      comment: "Adds IoT ingestion fields and precision for MQTT sensor readings."
+      changes:
+        - sqlFile:
+            path: 021_iot_sensor_reading_ingest.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/04_alter/021_iot_sensor_reading_ingest.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false

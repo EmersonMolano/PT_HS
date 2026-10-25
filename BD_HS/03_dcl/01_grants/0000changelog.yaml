@@ -587,3 +587,17 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: false
+
+  - changeSet:
+      id: 20260909-ingest-mqtt-resolve-device-grant
+      author: Hidro_Smarth
+      labels: "BD-01-dev,dcl,grants,ingest,mqtt,device"
+      comment: "Allows the ingest role to resolve MQTT device codes before inserting sensor readings."
+      changes:
+        - sqlFile:
+            path: 033_ingest_mqtt_resolve_device.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+      rollback:
+        - sql: REVOKE EXECUTE ON FUNCTION device.fn_resolve_ingest_device(VARCHAR) FROM hidro_smart_ingest;

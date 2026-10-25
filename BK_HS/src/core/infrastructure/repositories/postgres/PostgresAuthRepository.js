@@ -79,22 +79,11 @@ class PostgresAuthRepository extends AuthRepository {
   }
 
   async revokeRefreshSession({ refreshTokenHash, userId, sessionId }) {
-    const result = await withTransaction(userId, async (client) => {
-      const owned = await client.query(
-        `SELECT 1 FROM user_account.token t
-           JOIN user_account.session s ON s.token_id = t.token_id
-          WHERE t.token_hash = $1::text AND t.type = 'refresh'
-            AND t.status = 'Active' AND s.status = 'Active'
-            AND s.session_id = $2::uuid AND s.user_account_id = $3::uuid
-          LIMIT 1`, [refreshTokenHash, sessionId, userId]
-      );
-      if (!owned.rowCount) return false;
-      const revoked = await client.query(
-        `SELECT user_account.fn_revoke_refresh_session($1::text) AS revoked`, [refreshTokenHash]
-      );
-      return revoked.rows[0]?.revoked === true;
-    });
-    return result;
+    const result = await withTransaction(userId, (client) => client.query(
+      `SELECT user_account.fn_revoke_owned_refresh_session($1::text, $2::uuid, $3::uuid) AS revoked`,
+      [refreshTokenHash, userId, sessionId]
+    ));
+    return result.rows[0]?.revoked === true;
   }
 
   async isSessionActive({ userId, sessionId }) {

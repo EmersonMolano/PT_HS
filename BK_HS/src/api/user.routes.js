@@ -9,6 +9,7 @@ const { GetUserPreferences } = require('../core/application/use-cases/user/GetUs
 const { UpdateUserPreferences } = require('../core/application/use-cases/user/UpdateUserPreferences');
 const { PostgresUserRepository } = require('../core/infrastructure/repositories/postgres/PostgresUserRepository');
 const { GetAuthorizationContext } = require('../core/application/use-cases/user/GetAuthorizationContext');
+const { AccountAdminService } = require('../core/application/services/user/AccountAdminService');
 const { UserController } = require('./controllers/UserController');
 const { NotificationService } = require('../core/application/services/notifications/NotificationService');
 const { SmtpEmailSender } = require('../core/infrastructure/notifications/SmtpEmailSender');
@@ -21,7 +22,8 @@ const userController = new UserController({
   updateCurrentUser: new UpdateCurrentUser({ userRepository, notificationService }),
   getUserPreferences: new GetUserPreferences({ userRepository }),
   updateUserPreferences: new UpdateUserPreferences({ userRepository }),
-  getAuthorizationContext: new GetAuthorizationContext({ userRepository })
+  getAuthorizationContext: new GetAuthorizationContext({ userRepository }),
+  accountAdminService: new AccountAdminService({ userRepository, notificationService })
 });
 const requireUsersManage = createRequirePermission({ permissionChecker: new PostgresPermissionChecker() })('users.manage');
 router.use(authenticate);

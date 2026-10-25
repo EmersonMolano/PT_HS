@@ -1,6 +1,6 @@
 # Documentación del backend HidroSmart
 
-Fecha de revisión: 2026-09-14.
+Fecha de revisión: 2026-09-07.
 
 La documentación se mantiene alineada con el código que realmente está montado. Para una lectura rápida empieza por:
 
@@ -24,11 +24,7 @@ Los documentos `01` a `12` conservan decisiones de arquitectura, dominio, seguri
 - `00-ambiente-local.md`, `14-seguridad-backend.md`: operación y seguridad.
 - `00-roles-y-permisos.md`, `endpoints-por-rol.md`, `frontend-endpoints-por-rol.md`: autorización.
 
-La persistencia de telemetría MQTT está conectada mediante `device.fn_ingest_sensor_reading`, con métricas validadas e idempotencia por `mqttMessageId`. El dominio de recomendaciones está expuesto en `/api/v1/recommendations` y protegido por `reports.read` más RLS. El dominio de actuadores está expuesto en `/api/v1/actuators`, con comandos publicados por MQTT, estados persistidos y ACK por `correlationId`.
-
-El último corte comprobado tiene 131 pruebas unitarias backend aprobadas. Las
-pruebas autenticadas/RLS de integración se omiten cuando no se configuran
-usuarios funcionales de prueba.
+La persistencia de telemetría MQTT todavía está pendiente. El subscriber valida y normaliza mensajes, pero no inserta lecturas en PostgreSQL.
 
 ## Verificación local
 
@@ -49,14 +45,11 @@ directamente desde Windows.
 
 - PostgreSQL: conectado mediante repositorios y funciones versionadas.
 - JWT: access token, refresh token, logout, cambio y recuperación de contraseña.
-- SMTP: Nodemailer integrado para Gmail y Mailpit; envía eventos de autenticación, perfil y ciclo de cuenta; requiere configurar las variables
+- SMTP: Nodemailer preparado para Gmail; requiere configurar las variables
   `SMTP_*` y una clave de aplicación.
-- MQTT: conexión, suscripción, parseo, publicación y persistencia de lecturas
-  mediante función SQL protegida.
-- Privacy/ARCO: consentimientos, solicitudes propias, gestión administrativa y
-  exportación JSON propia disponibles en `/api/v1/privacy`; el resumen de consumo está disponible en PDF y Excel desde `/api/v1/reports`.
-- Actuadores: rutas REST, permisos, tablas/RLS, publicación MQTT y persistencia de estados implementados; falta validación con placa real y seguridad de broker para producción.
+- MQTT: conexión, suscripción, parseo y publicación preparados; persistencia de
+  lecturas aún pendiente.
+- Actuadores: publisher preparado, pero no hay rutas REST montadas.
 
 Cuando una documentación conceptual contradiga una ruta inexistente, prevalecen
 `src/app.js` y `03-endpoints.md`.
-- Bitácora transversal de cambios del 2026-09-14: `../../docs/cambios-2026-09-14.md`.

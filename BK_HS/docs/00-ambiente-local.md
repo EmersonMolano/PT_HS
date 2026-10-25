@@ -1,6 +1,6 @@
 # Ambiente local
 
-Fecha de revisión: 2026-09-14.
+Fecha de revisión: 2026-09-07.
 
 La pila oficial de desarrollo se ejecuta desde el `docker-compose.yml` de la raíz. Los Compose individuales de BD y backend se conservan solo por compatibilidad.
 

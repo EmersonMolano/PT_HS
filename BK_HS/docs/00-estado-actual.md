@@ -1,12 +1,12 @@
 # Estado actual del sistema
 
-Fecha de revisión: 2026-09-14.
+Fecha de revisión: 2026-09-07.
 
 Este documento es el resumen operativo del backend y debe leerse junto con la documentación de BD y frontend. Distingue las funciones comprobadas de las que todavía requieren integración.
 
 ## Resumen
 
-- PostgreSQL y Liquibase fueron verificados en Docker con 206 changesets aplicados. Si Docker Desktop está detenido, la verificación debe repetirse.
+- PostgreSQL y Liquibase fueron verificados en Docker con 177 changesets aplicados. Si Docker Desktop está detenido, la verificación debe repetirse.
 - El backend Node.js/Express está disponible en `http://localhost:3000` y usa el rol de aplicación `hidro_smart_app`.
 - La API REST se monta bajo `/api/v1`; el health público está en `GET /health`.
 - La operación expone `GET /health/live` para liveness y `GET /health/ready` para readiness de PostgreSQL y MQTT.
@@ -101,7 +101,7 @@ Advertencia de precisión: `consumption.sensor_reading.consumption_liters` es ac
 - Frontend: formato y build aprobados.
 - Liquibase: `validate` y `status --verbose` aprobados.
 - Docker: la pila integrada quedó validada en la última ejecución; requiere Docker Desktop activo para repetirla.
-- MQTT: una telemetría de prueba fue recibida, normalizada y persistida por el backend.
+- MQTT: una telemetría de prueba fue recibida y normalizada por el backend.
 - Pruebas de integración externas: quedan omitidas cuando no están configuradas sus credenciales.
 
 ## No confundir con pendiente

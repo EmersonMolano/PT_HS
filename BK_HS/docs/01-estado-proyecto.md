@@ -1,13 +1,13 @@
 # Estado del proyecto HidroSmart
 
-Fecha de revisión: 2026-09-14.
+Fecha de revisión: 2026-09-07.
 
 ## Estado actual
 
 | Área | Estado |
 |---|---|
 | Docker integrado | Compose configurado; requiere Docker Desktop activo para ejecutar |
-| PostgreSQL/Liquibase | 206 changesets aplicados; `validate/update/status` exitosos en la última verificación |
+| PostgreSQL/Liquibase | 177 changesets aplicados; `validate/update/status` exitosos en la última verificación |
 | Autenticación y sesiones | Implementado |
 | Hogares y miembros | Rutas implementadas; validar cada pantalla |
 | Dispositivos | Rutas implementadas y vinculadas al modelo BD |

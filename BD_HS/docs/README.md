@@ -1,8 +1,6 @@
 # Documentacion de la base de datos - Hidro Smart
 
-Fecha de revision: 2026-09-14.
-
-El resumen transversal del sistema esta en [`../../docs/estado-integral.md`](../../docs/estado-integral.md).
+Fecha de revision: 2026-09-07.
 
 Esta carpeta documenta el modelo PostgreSQL, las migraciones Liquibase, los
 roles tecnicos, RLS y la integracion con el backend. La fuente de verdad del
@@ -12,17 +10,12 @@ una migracion.
 ## Estado actual
 
 - PostgreSQL 16 y Liquibase 5.0.2 estan definidos en `BD_HS/docker-compose.yml`.
-- El changelog contiene 206 changesets aplicados en el último estado verificado.
+- El changelog contiene 177 changesets aplicados en el ultimo estado verificado.
 - El backend usa el rol tecnico `hidro_smart_app`.
 - La ingesta IoT esta separada en `hidro_smart_ingest`.
 - RLS y RBAC funcional estan implementados para los dominios protegidos.
-- La persistencia MQTT ya esta conectada mediante una funcion SQL controlada,
-  `mqtt_message_id` e ingesta sobre `consumption.sensor_reading`.
-- Los reportes resumidos no requieren una tabla nueva: el backend reutiliza las
-  funciones seguras de consumo para generar reportes PDF/Excel del hogar autorizado.
-- El dominio de actuadores persiste estados y comandos en `device` con RLS,
-  permiso `actuators.manage` y una función SQL controlada para confirmar ACKs
-  MQTT.
+- La persistencia del mensaje MQTT normalizado aun debe conectarse al caso de
+  uso de ingesta y a `consumption.sensor_reading`.
 
 ## Schemas funcionales
 
@@ -85,9 +78,9 @@ Revisar `guia-ejecucion-liquibase.md` antes de aplicar cambios.
 El backend consulta la base mediante `hidro_smart_app`, invoca funciones de
 negocio para operaciones sensibles y usa transacciones con contexto de usuario.
 Las lecturas de consumo que llegan por API se consultan desde los agregados de
-PostgreSQL. MQTT no es una ruta REST: su persistencia se realiza mediante una
-funcion SQL controlada con validacion de `device.code`, asociacion activa
-hogar-dispositivo e idempotencia por `mqtt_message_id`.
+PostgreSQL. MQTT no es una ruta REST: su persistencia sigue pendiente de cerrar
+con validacion de `device.code`, asociacion activa hogar-dispositivo,
+idempotencia y precision suficiente para muestras pequenas.
 
 ## Documentos de referencia
 
@@ -97,4 +90,3 @@ hogar-dispositivo e idempotencia por `mqtt_message_id`.
 - `diagnostico-actual.md`: estado comprobado y brechas conocidas.
 - `configuracion-credenciales-liquibase.md`: variables locales sin secretos.
 - `sql-layer-architecture.md`: arquitectura por capas SQL.
-- Bitácora transversal de cambios del 2026-09-14: `../../docs/cambios-2026-09-14.md`.

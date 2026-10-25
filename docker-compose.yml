@@ -1,6 +1,7 @@
 name: hidro_smart_full
 
 services:
+
   postgres:
     image: postgres:16-alpine
     environment:
@@ -17,6 +18,7 @@ services:
       timeout: 5s
       retries: 10
     restart: unless-stopped
+
 
   db-bootstrap:
     image: postgres:16-alpine
@@ -45,12 +47,14 @@ services:
         psql -v ON_ERROR_STOP=1 -c "ALTER ROLE hidro_smart_ingest LOGIN PASSWORD '$${INGEST_PASSWORD}';"
     restart: "no"
 
+
   mailpit:
     image: axllent/mailpit:v1.21
     ports:
       - "${MAILPIT_SMTP_PORT:-1025}:1025"
       - "${MAILPIT_UI_PORT:-8025}:8025"
     restart: unless-stopped
+
 
   mosquitto:
     image: eclipse-mosquitto:2.0.21
@@ -60,6 +64,7 @@ services:
       - ./BK_HS/docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - hidro_smart_mosquitto_data:/mosquitto/data
     restart: unless-stopped
+
 
   backend:
     build:
@@ -130,6 +135,7 @@ services:
       - hidro_smart_report_data:/app/storage/reports
     restart: unless-stopped
 
+
   frontend:
     build:
       context: ./FT_HS/frontend
@@ -142,6 +148,7 @@ services:
       backend:
         condition: service_healthy
     restart: unless-stopped
+
 
   liquibase:
     build:

@@ -85,7 +85,7 @@ function RegisterRoute() {
     <RegisterScreen
       onRegister={async (payload) => {
         await register(payload);
-        navigate('/app', { replace: true });
+        navigate('/login', { replace: true });
       }}
       onBack={() => navigate('/login')}
       initialFormData={state.draft || null}

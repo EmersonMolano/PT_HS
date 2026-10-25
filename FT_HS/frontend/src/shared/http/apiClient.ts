@@ -179,9 +179,7 @@ export const authApi = {
     privacyPolicyVersion: string;
     termsVersion: string;
   }) =>
-    apiClient.post<{
-      data: { userId: string; sessionId: string; accessToken: string; refreshToken: string };
-    }>('/auth/register', payload, { skipAuth: true }),
+    apiClient.post<{ data: { message: string } }>('/auth/register', payload, { skipAuth: true }),
   refresh: (refreshToken: string) =>
     apiClient.post<{ data: { sessionId: string; accessToken: string; refreshToken?: string } }>(
       '/auth/refresh',

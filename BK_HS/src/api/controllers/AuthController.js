@@ -6,7 +6,7 @@ const { RequestPasswordResetRequest } = require('../../core/application/dtos/req
 const { ResetPasswordRequest } = require('../../core/application/dtos/requests/ResetPasswordRequest');
 
 class AuthController {
-  constructor({ registerUser, loginUser, sessionService, changePassword, requestPasswordReset, resetPassword, getPasswordResetContext, resendEmailVerification, verifyEmail, notificationService, logger = console }) {
+  constructor({ registerUser, loginUser, sessionService, changePassword, requestPasswordReset, resetPassword, getPasswordResetContext }) {
     this.registerUser = registerUser;
     this.loginUser = loginUser;
     this.sessionService = sessionService;
@@ -14,23 +14,12 @@ class AuthController {
     this.requestPasswordReset = requestPasswordReset;
     this.resetPassword = resetPassword;
     this.getPasswordResetContext = getPasswordResetContext;
-    this.resendEmailVerification = resendEmailVerification;
-    this.verifyEmail = verifyEmail;
-    this.notificationService = notificationService;
-    this.logger = logger;
   }
 
   async register(req, res) {
     const input = RegisterUserRequest.fromRequest(req.body);
-    const userId = await this.registerUser.execute({ ...input, sourceIp: req.ip, userAgent: req.get('user-agent') || null });
-    const session = await this.sessionService.create(userId, this.meta(req));
-    void this.resendEmailVerification.execute({ email: input.email }).catch((error) => {
-      console.error('[AUTH] No se pudo preparar el correo de verificación:', error.message);
-    });
-    void this.notifyWelcome({ recipient: input.email, name: input.fullName || input.username }).catch((error) => {
-      this.logger.error('[AUTH] No se pudo enviar el correo de bienvenida:', error.message);
-    });
-    res.status(201).json({ data: AuthResponse.fromSession(session) });
+    await this.registerUser.execute(input);
+    res.status(202).json({ data: { message: 'Revisa tu correo para activar la cuenta.' } });
   }
 
   async login(req, res) {
@@ -96,13 +85,14 @@ class AuthController {
   }
 
   async passwordResetContext(req, res) {
-    const data = await this.getPasswordResetContext.execute({ resetToken: req.query?.resetToken });
+    const data = await this.getPasswordResetContext.execute({ resetToken: req.query.resetToken });
     res.json({ data });
   }
 
-  async notifyWelcome(profile) {
-    if (!this.notificationService?.isConfigured?.()) return;
-    await this.notificationService.sendWelcome(profile);
+  async verifyEmail(req, res) {
+    const userId = await this.registerUser.verifyEmail(req.body?.token);
+    if (!userId) { const error = new Error('El enlace de verificación no es válido o expiró'); error.status = 401; throw error; }
+    res.status(204).send();
   }
 
   meta(req) {

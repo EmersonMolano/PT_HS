@@ -1,15 +1,12 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { authApi, SESSION_EXPIRED_EVENT, sessionTokens, userApi } from '@shared/http/apiClient';
+import {
+  authApi,
+  SESSION_EXPIRED_EVENT,
+  sessionTokens,
+  userApi,
+} from '@shared/http/apiClient';
 import {
   can as hasPermission,
   normalizePermissions,
@@ -19,9 +16,9 @@ import {
 
 export type AuthSession = AuthorizationContext & {
   userId?: string;
-  sessionId?: string;
   fullName?: string;
   email?: string;
+  avatarDataUrl?: string | null;
   preferences?: { language?: string; currency?: string };
 };
 
@@ -47,11 +44,12 @@ type AuthContextValue = {
   can: (permission: string) => boolean;
   refreshSession: () => Promise<AuthSession>;
   login: (credentials: LoginCredentials) => Promise<AuthSession>;
-  register: (payload: RegistrationPayload) => Promise<AuthSession>;
+  register: (payload: RegistrationPayload) => Promise<void>;
   logout: () => Promise<void>;
   requestPasswordReset: (email: string) => ReturnType<typeof authApi.requestPasswordReset>;
   passwordResetContext: (token: string) => ReturnType<typeof authApi.passwordResetContext>;
   resetPassword: (payload: { token: string; password: string }) => Promise<void>;
+  verifyEmail: (token: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -73,7 +71,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const data = response.data as Partial<AuthSession>;
     const nextSession: AuthSession = {
       ...data,
-      sessionId: sessionTokens.sessionId || data.sessionId,
       roles: normalizeRoles(data.roles),
       permissions: normalizePermissions(data.permissions),
     };
@@ -95,20 +92,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(
     async (payload: RegistrationPayload) => {
-      const response = await authApi.register(payload);
-      sessionTokens.save(response.data);
-      return refreshSession();
+      await authApi.register(payload);
     },
-    [refreshSession]
+    []
   );
 
   const logout = useCallback(async () => {
     const refreshToken = sessionTokens.refreshToken;
     try {
       if (refreshToken) await authApi.logout(refreshToken);
-    } catch {
-      // La sesión puede haber sido revocada desde otro dispositivo; en ambos
-      // casos la salida local debe completarse y no dejar tokens reutilizables.
     } finally {
       clearLocalSession();
     }
@@ -158,6 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       resetPassword: async ({ token, password }) => {
         await authApi.resetPassword(token, password);
       },
+      verifyEmail: authApi.verifyEmail,
     }),
     [isInitializing, login, logout, refreshSession, register, session]
   );

@@ -1,6 +1,6 @@
 # Endpoints reales de la API — HidroSmart
 
-Fecha de revisión: 2026-09-14.
+Fecha de revisión: 2026-09-07.
 
 Este documento refleja las rutas montadas actualmente en `BK_HS/src/app.js`. La URL base pública es `http://localhost:3000/api/v1` en desarrollo directo y `/api/v1` desde el frontend servido por Nginx.
 
@@ -176,42 +176,6 @@ Estas rutas consultan agregados de PostgreSQL. No son un endpoint de entrada MQT
 | GET | `/api/v1/audit/logs` | `audit.read` |
 
 Parámetros de consulta disponibles para auditoría: `action`, `tableName`, `from`, `to`, `page` y `pageSize`.
-
-## Privacy/ARCO — `/privacy`
-
-| Método | Ruta completa | Acceso |
-|---|---|---|
-| GET | `/api/v1/privacy/consents` | autenticado; consentimientos propios |
-| GET | `/api/v1/privacy/export` | autenticado; exportación JSON propia sin secretos |
-| POST | `/api/v1/privacy/consents` | autenticado; agrega un consentimiento aceptado |
-| POST | `/api/v1/privacy/requests` | autenticado; crea una solicitud propia |
-| GET | `/api/v1/privacy/requests` | autenticado; solicitudes propias, paginadas |
-| GET | `/api/v1/privacy/requests/:requestId` | autenticado; solicitud propia o autorizada por RLS |
-| GET | `/api/v1/privacy/requests/manage` | `users.manage`; bandeja administrativa paginada |
-| PATCH | `/api/v1/privacy/requests/:requestId` | `users.manage`; estado y respuesta |
-
-Los consentimientos son append-only desde la aplicación. Las solicitudes ARCO nuevas reciben una fecha límite de 15 días y solo la administración puede modificar su estado, respuesta y trazabilidad; PostgreSQL/RLS aplica el alcance final.
-
-## Reports — `/reports`
-
-| Método | Ruta completa | Acceso |
-|---|---|---|
-| GET | `/api/v1/reports/history?homeId={uuid}&type={pdf|excel}&status={Generating|Ready|Error}&page={n}&pageSize={n}` | `reports.read`; historial propio paginado y filtrable |
-| GET | `/api/v1/reports/:reportId/download` | `reports.read`; descarga un reporte propio con estado `Ready` |
-| GET | `/api/v1/reports/consumption.pdf?homeId={uuid}&from=YYYY-MM-DD&to=YYYY-MM-DD` | `reports.read`; PDF resumido del hogar autorizado; máximo 366 días |
-| GET | `/api/v1/reports/consumption.xlsx?homeId={uuid}&from=YYYY-MM-DD&to=YYYY-MM-DD` | `reports.read`; Excel resumido del hogar autorizado; máximo 366 días |
-
-Las descargas reutilizan `consumption.fn_calculate_consumption(...)`, no exponen hashes, tokens ni lecturas de otros hogares y generan el archivo a partir de datos autorizados. Cada archivo se registra en `analytics_support.generated_report`, se almacena en el volumen privado de reportes y puede consultarse o descargarse después mediante las dos rutas de historial.
-
-## Recomendaciones — `/recommendations`
-
-| Método | Ruta completa | Acceso |
-|---|---|---|
-| GET | `/api/v1/recommendations?homeId={uuid}&status={Pending|Read|Dismissed|Applied}` | `reports.read`; recomendaciones propias, filtradas por RLS |
-| GET | `/api/v1/recommendations/home/:homeId/summary` | `reports.read`; resumen del hogar autorizado |
-| PATCH | `/api/v1/recommendations/:userRecommendationId` | `reports.read`; actualiza `status` o `usefulness` de una recomendación propia |
-
-El listado admite `page`, `pageSize`, `sort`, `order` y `category`. El backend no permite devolver una recomendación de otro usuario: la consulta se ejecuta con el contexto de usuario de PostgreSQL y la política RLS de `analytics_support.user_recommendation`. El estado inicial `Pending` no se puede restaurar desde la API; `Read`, `Dismissed` y `Applied` actualizan el registro, y `Read` conserva `read_at`.
 
 ## Corrección de permisos de Support
 

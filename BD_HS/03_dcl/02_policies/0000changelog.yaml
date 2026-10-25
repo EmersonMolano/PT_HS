@@ -238,7 +238,6 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: false
             stripComments: false
-
   - changeSet:
       id: 20260913-actuator-command-rls
       author: Hidro_Smarth

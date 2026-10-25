@@ -95,11 +95,7 @@ export function DashboardHome({ homeId }: DashboardHomeProps) {
         new URLSearchParams({ homeId, from: iso(yesterday), to: iso(yesterday) }).toString()
       ),
       consumptionApi.summary(
-        new URLSearchParams({
-          homeId,
-          from: iso(previousWeekStart),
-          to: iso(previousWeekEnd),
-        }).toString()
+        new URLSearchParams({ homeId, from: iso(previousWeekStart), to: iso(previousWeekEnd) }).toString()
       ),
       consumptionApi.hourly(new URLSearchParams({ homeId }).toString()),
       devicesApi.list(homeId),
@@ -131,64 +127,64 @@ export function DashboardHome({ homeId }: DashboardHomeProps) {
           const previousWeekTotal = getTotal(previousWeekResponse);
           const percentageChange = (current: number, previous: number) =>
             previous > 0 ? ((current - previous) / previous) * 100 : null;
-          const hourData =
-            (hourly.data as { points?: Array<{ hour: number; averageConsumptionM3: number }> })
-              .points || [];
-          setHourlyPoints(hourData);
-          setCurrentConsumption({
-            today: todayTotal,
-            week: weekTotal,
-            month: monthTotal,
-            realTime: Number(hourData.at(-1)?.averageConsumptionM3 || 0),
-          });
-          setComparisons({
-            today: percentageChange(todayTotal, yesterdayTotal),
-            week: percentageChange(weekTotal, previousWeekTotal),
-          });
-          setMonthlyProjection(
-            elapsedMonthDays > 0 ? (monthTotal / elapsedMonthDays) * monthDays : null
-          );
-          setWeeklyPoints(
-            dailyResponses.map((response, index) => ({
-              day: days[index].toLocaleDateString(undefined, { weekday: 'short' }),
-              consumption:
-                Number((response.data as { consumptionLiters?: number }).consumptionLiters || 0) /
-                1000,
-            }))
-          );
-          setDevices(
-            (
-              (deviceResponse.data as Array<{
-                deviceId: string;
-                name: string;
-                status: string;
-                lastConnectionAt?: string;
-              }>) || []
-            ).map((device) => ({
-              id: device.deviceId,
-              name: device.name,
-              status: device.status === 'Active' ? 'online' : 'offline',
-              lastConnectionAt: device.lastConnectionAt,
-            }))
-          );
-          const pending = alertResponse.data as {
-            pendingCount?: number;
-            lastAlertAt?: string | null;
-          };
-          const count = Number(pending.pendingCount || 0);
-          setPendingAlertCount(count);
-          setAlerts(
-            count > 0
-              ? [
-                  {
-                    id: `pending-${homeId}`,
-                    type: 'warning',
-                    message: `${count} ${t('dashboard.activeAlerts')}`,
-                    time: pending.lastAlertAt ? new Date(pending.lastAlertAt).toLocaleString() : '',
-                  },
-                ]
-              : []
-          );
+        const hourData =
+          (hourly.data as { points?: Array<{ hour: number; averageConsumptionM3: number }> })
+            .points || [];
+        setHourlyPoints(hourData);
+        setCurrentConsumption({
+          today: todayTotal,
+          week: weekTotal,
+          month: monthTotal,
+          realTime: Number(hourData.at(-1)?.averageConsumptionM3 || 0),
+        });
+        setComparisons({
+          today: percentageChange(todayTotal, yesterdayTotal),
+          week: percentageChange(weekTotal, previousWeekTotal),
+        });
+        setMonthlyProjection(
+          elapsedMonthDays > 0 ? (monthTotal / elapsedMonthDays) * monthDays : null
+        );
+        setWeeklyPoints(
+          dailyResponses.map((response, index) => ({
+            day: days[index].toLocaleDateString(undefined, { weekday: 'short' }),
+            consumption:
+              Number((response.data as { consumptionLiters?: number }).consumptionLiters || 0) /
+              1000,
+          }))
+        );
+        setDevices(
+          (
+            (deviceResponse.data as Array<{
+              deviceId: string;
+              name: string;
+              status: string;
+              lastConnectionAt?: string;
+            }>) || []
+          ).map((device) => ({
+            id: device.deviceId,
+            name: device.name,
+            status: device.status === 'Active' ? 'online' : 'offline',
+            lastConnectionAt: device.lastConnectionAt,
+          }))
+        );
+        const pending = alertResponse.data as {
+          pendingCount?: number;
+          lastAlertAt?: string | null;
+        };
+        const count = Number(pending.pendingCount || 0);
+        setPendingAlertCount(count);
+        setAlerts(
+          count > 0
+            ? [
+                {
+                  id: `pending-${homeId}`,
+                  type: 'warning',
+                  message: `${count} ${t('dashboard.activeAlerts')}`,
+                  time: pending.lastAlertAt ? new Date(pending.lastAlertAt).toLocaleString() : '',
+                },
+              ]
+            : []
+        );
         }
       )
       .catch(() => {
@@ -234,9 +230,7 @@ export function DashboardHome({ homeId }: DashboardHomeProps) {
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <CardDescription>{t('dashboard.todayConsumption')}</CardDescription>
-            <CardTitle className="text-2xl lg:text-3xl">
-              <MetricValue value={currentConsumption.today} />
-            </CardTitle>
+            <CardTitle className="text-2xl lg:text-3xl"><MetricValue value={currentConsumption.today} /></CardTitle>
           </CardHeader>
           <CardContent>
             <Comparison value={comparisons.today} />
@@ -246,9 +240,7 @@ export function DashboardHome({ homeId }: DashboardHomeProps) {
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <CardDescription>{t('dashboard.weekConsumption')}</CardDescription>
-            <CardTitle className="text-2xl lg:text-3xl">
-              <MetricValue value={currentConsumption.week} />
-            </CardTitle>
+            <CardTitle className="text-2xl lg:text-3xl"><MetricValue value={currentConsumption.week} /></CardTitle>
           </CardHeader>
           <CardContent>
             <Comparison value={comparisons.week} />
@@ -258,9 +250,7 @@ export function DashboardHome({ homeId }: DashboardHomeProps) {
         <Card className="hover:shadow-lg transition-shadow">
           <CardHeader className="pb-3">
             <CardDescription>{t('dashboard.monthConsumption')}</CardDescription>
-            <CardTitle className="text-2xl lg:text-3xl">
-              <MetricValue value={currentConsumption.month} />
-            </CardTitle>
+            <CardTitle className="text-2xl lg:text-3xl"><MetricValue value={currentConsumption.month} /></CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-sm text-gray-600">
@@ -428,6 +418,7 @@ export function DashboardHome({ homeId }: DashboardHomeProps) {
           </div>
         </CardContent>
       </Card>
+
     </div>
   );
 }

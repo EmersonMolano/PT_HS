@@ -79,11 +79,22 @@ class PostgresAuthRepository extends AuthRepository {
   }
 
   async revokeRefreshSession({ refreshTokenHash, userId, sessionId }) {
-    const result = await withTransaction(userId, (client) => client.query(
-      `SELECT user_account.fn_revoke_owned_refresh_session($1::text, $2::uuid, $3::uuid) AS revoked`,
-      [refreshTokenHash, userId, sessionId]
-    ));
-    return result.rows[0]?.revoked === true;
+    const result = await withTransaction(userId, async (client) => {
+      const owned = await client.query(
+        `SELECT 1 FROM user_account.token t
+           JOIN user_account.session s ON s.token_id = t.token_id
+          WHERE t.token_hash = $1::text AND t.type = 'refresh'
+            AND t.status = 'Active' AND s.status = 'Active'
+            AND s.session_id = $2::uuid AND s.user_account_id = $3::uuid
+          LIMIT 1`, [refreshTokenHash, sessionId, userId]
+      );
+      if (!owned.rowCount) return false;
+      const revoked = await client.query(
+        `SELECT user_account.fn_revoke_refresh_session($1::text) AS revoked`, [refreshTokenHash]
+      );
+      return revoked.rows[0]?.revoked === true;
+    });
+    return result;
   }
 
   async isSessionActive({ userId, sessionId }) {
@@ -174,12 +185,13 @@ class PostgresAuthRepository extends AuthRepository {
     return result.rows[0]?.reset_id || null;
   }
 
-  async findPasswordResetEmail({ tokenHash }) {
-    const result = await pool.query(
-      'SELECT user_account.fn_get_password_reset_email($1::text) AS email',
-      [tokenHash]
-    );
-    return result.rows[0]?.email || null;
+  async createEmailVerificationToken({ userId, tokenHash, expiresAt }) {
+    await pool.query('SELECT user_account.fn_create_email_verification_token($1::uuid, $2::text, $3::timestamptz)', [userId, tokenHash, expiresAt]);
+  }
+
+  async verifyEmail({ tokenHash }) {
+    const result = await pool.query('SELECT user_account.fn_verify_email($1::text) AS user_id', [tokenHash]);
+    return result.rows[0]?.user_id || null;
   }
 
   async consumePasswordReset({ tokenHash, passwordHash }) {
@@ -189,19 +201,12 @@ class PostgresAuthRepository extends AuthRepository {
     return result.rows[0]?.user_id || null;
   }
 
-  async createEmailVerificationToken({ login, tokenHash, expiresAt }) {
-    const result = await withTransaction(null, (client) => client.query(
-      `SELECT user_account.fn_create_email_verification_token($1::varchar, $2::text, $3::timestamptz) AS verification_id`,
-      [login, tokenHash, expiresAt]
-    ));
-    return result.rows[0]?.verification_id || null;
-  }
-
-  async consumeEmailVerification({ tokenHash }) {
-    const result = await withTransaction(null, (client) => client.query(
-      `SELECT user_account.fn_consume_email_verification($1::text) AS user_id`, [tokenHash]
-    ));
-    return result.rows[0]?.user_id || null;
+  async findPasswordResetEmail({ tokenHash }) {
+    const result = await pool.query(
+      'SELECT user_account.fn_get_password_reset_email($1::text) AS email',
+      [tokenHash]
+    );
+    return result.rows[0]?.email || null;
   }
 }
 

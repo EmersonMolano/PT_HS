@@ -3,13 +3,13 @@ const { withTransaction } = require('../../../../infrastructure/db');
 const { UserRepository } = require('../../../application/ports/repositories/UserRepository');
 class PostgresUserRepository extends UserRepository {
   async findById(userId) {
-    const result = await withTransaction(userId, (client) => client.query(`SELECT ua.user_account_id, ua.username, ua.email, ua.status, ua.created_at, up.full_name, up.document_type, up.document_number, up.phone, up.city FROM user_account.user_account ua LEFT JOIN user_account.user_profile up ON up.user_account_id = ua.user_account_id WHERE ua.user_account_id = $1::uuid AND ua.deleted_at IS NULL`, [userId]));
+    const result = await withTransaction(userId, (client) => client.query(`SELECT ua.user_account_id, ua.username, ua.email, ua.status, ua.created_at, up.full_name, up.document_type, up.document_number, up.phone, up.city, up.avatar_data_url FROM user_account.user_account ua LEFT JOIN user_account.user_profile up ON up.user_account_id = ua.user_account_id WHERE ua.user_account_id = $1::uuid AND ua.deleted_at IS NULL`, [userId]));
     return result.rows[0] ? this.toEntity(result.rows[0]) : null;
   }
-  async updateProfile({ userId, fullName, phone, city }) {
+  async updateProfile({ userId, fullName, phone, city, avatarDataUrl }) {
     const result = await withTransaction(userId, async (client) => {
-      await client.query(`INSERT INTO user_account.user_profile (user_account_id, full_name, phone, city) VALUES ($1::uuid, $2::varchar, $3::varchar, $4::varchar) ON CONFLICT (user_account_id) DO UPDATE SET full_name = EXCLUDED.full_name, phone = EXCLUDED.phone, city = EXCLUDED.city`, [userId, fullName, phone, city]);
-      return client.query(`SELECT ua.user_account_id, ua.username, ua.email, ua.status, ua.created_at, up.full_name, up.document_type, up.document_number, up.phone, up.city FROM user_account.user_account ua JOIN user_account.user_profile up ON up.user_account_id = ua.user_account_id WHERE ua.user_account_id = $1::uuid AND ua.deleted_at IS NULL`, [userId]);
+      await client.query(`UPDATE user_account.user_profile SET full_name = $2::varchar, phone = $3::varchar, city = $4::varchar, avatar_data_url = $5::text WHERE user_account_id = $1::uuid`, [userId, fullName, phone, city, avatarDataUrl]);
+      return client.query(`SELECT ua.user_account_id, ua.username, ua.email, ua.status, ua.created_at, up.full_name, up.document_type, up.document_number, up.phone, up.city, up.avatar_data_url FROM user_account.user_account ua JOIN user_account.user_profile up ON up.user_account_id = ua.user_account_id WHERE ua.user_account_id = $1::uuid AND ua.deleted_at IS NULL`, [userId]);
     });
     return result.rows[0] ? this.toEntity(result.rows[0]) : null;
   }
@@ -57,52 +57,6 @@ class PostgresUserRepository extends UserRepository {
     ));
     return result.rows[0] || null;
   }
-  async changeAccountStatus({ actorId, targetUserId, status, reason }) {
-    const result = await withTransaction(actorId, (client) => client.query(
-      `SELECT user_account_id, status, suspension_reason, suspended_at, updated_at
-         FROM user_account.fn_change_account_status($1::uuid, $2::varchar, $3::varchar)`,
-      [targetUserId, status, reason]
-    ));
-    const row = result.rows[0];
-    return row ? {
-      userId: row.user_account_id,
-      status: row.status,
-      reason: row.suspension_reason,
-      suspendedAt: row.suspended_at,
-      updatedAt: row.updated_at
-    } : null;
-  }
-  async deleteAccount({ actorId, targetUserId }) {
-    const result = await withTransaction(actorId, (client) => client.query(
-      'SELECT user_account.fn_delete_user_account($1::uuid) AS deleted',
-      [targetUserId]
-    ));
-    return result.rows[0]?.deleted === true;
-  }
-  async listManagedUsers({ actorId, search, status, sort, order, limit, offset }) {
-    const result = await withTransaction(actorId, (client) => client.query(
-      `SELECT user_account_id, username, email, status, suspension_reason, created_at,
-              updated_at, full_name, document_type, document_number, roles, total_count
-         FROM user_account.fn_list_managed_users($1::varchar, $2::varchar, $3::varchar, $4::varchar, $5::integer, $6::integer)`,
-      [search, status, sort, order, limit, offset]
-    ));
-    return {
-      items: result.rows.map((row) => ({
-        userId: row.user_account_id,
-        username: row.username,
-        email: row.email,
-        status: row.status,
-        reason: row.suspension_reason,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-        fullName: row.full_name,
-        documentType: row.document_type,
-        documentNumber: row.document_number,
-        roles: row.roles ? row.roles.split(', ') : []
-      })),
-      total: Number(result.rows[0]?.total_count || 0)
-    };
-  }
-  toEntity(row) { return new User({ id: row.user_account_id, username: row.username, email: row.email, status: row.status, fullName: row.full_name, documentType: row.document_type, documentNumber: row.document_number, phone: row.phone, city: row.city, createdAt: row.created_at }); }
+  toEntity(row) { return new User({ id: row.user_account_id, username: row.username, email: row.email, status: row.status, fullName: row.full_name, documentType: row.document_type, documentNumber: row.document_number, phone: row.phone, city: row.city, avatarDataUrl: row.avatar_data_url, createdAt: row.created_at }); }
 }
 module.exports = { PostgresUserRepository };

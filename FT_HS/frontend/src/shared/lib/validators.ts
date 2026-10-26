@@ -2,7 +2,8 @@ const emailLocalPart = /^[A-Z0-9!#$%&'*+/=?^_{}|~-]+(?:\.[A-Z0-9!#$%&'*+/=?^_{}|
 const emailDomainPart = /^[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?$/i;
 
 // Acepta proveedores públicos e institucionales sin limitar la lista de dominios.
-export const emailPattern = /^[A-Z0-9!#$%&'*+/=?^_{}|~-]+(?:\.[A-Z0-9!#$%&'*+/=?^_{}|~-]+)*@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+$/i;
+export const emailPattern =
+  /^[A-Z0-9!#$%&'*+/=?^_{}|~-]+(?:\.[A-Z0-9!#$%&'*+/=?^_{}|~-]+)*@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+$/i;
 export const namePattern = /^[\p{L}\p{M}]+(?: +[\p{L}\p{M}]+)*$/u;
 export const documentNumberPattern = /^\d{1,10}$/;
 

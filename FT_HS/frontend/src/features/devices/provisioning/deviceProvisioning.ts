@@ -17,6 +17,7 @@ export type NativeBleStatus = {
   ip?: string;
   rssi?: number;
   message?: string;
+  networks?: Array<{ ssid: string; rssi?: number; secure?: boolean }>;
 };
 
 type NativeMessage = {
@@ -75,6 +76,10 @@ export const deviceProvisioning = {
     sendNative('BLE_PROVISION', payload);
   },
 
+  scanWifiNetworks() {
+    sendNative('BLE_SCAN_WIFI');
+  },
+
   disconnect() {
     sendNative('BLE_DISCONNECT');
   },
@@ -97,6 +102,7 @@ export const deviceProvisioning = {
 export type NativeBleProvisioningConnection = {
   deviceName: string;
   initialStatus: NativeBleStatus | null;
+  scanWifiNetworks: () => Promise<void>;
   write: (payload: {
     ssid: string;
     password: string;
@@ -139,6 +145,12 @@ export async function connectNativeBleProvisioning(
       resolve({
         deviceName: name || 'HidroSmart',
         initialStatus: latestStatus,
+        scanWifiNetworks: async () => {
+          if (!connected) {
+            throw new Error('El ESP32 no está conectado.');
+          }
+          deviceProvisioning.scanWifiNetworks();
+        },
         write: (payload) =>
           new Promise<void>((resolveWrite, rejectWrite) => {
             if (!connected) {

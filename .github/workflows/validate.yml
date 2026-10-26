@@ -15,7 +15,6 @@ jobs:
       DB_PASSWORD: ci_app_password
       DB_INGEST_USER: hidro_smart_ingest
       DB_INGEST_PASSWORD: ci_ingest_password
-      MQTT_DEVICE_HOST: mosquitto
       JWT_SECRET: ci-only-jwt-secret-change-me
       RUN_INTEGRATION: '1'
       INTEGRATION_DATABASE_URL: postgresql://hidro_smart_app:ci_app_password@localhost:5433/hidro_smart

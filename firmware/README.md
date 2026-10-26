@@ -7,18 +7,17 @@ usa PlatformIO y separa Wi-Fi, MQTT, sensores, actuadores, OTA y almacenamiento.
 
 ## Ciclo BLE segun la asociacion
 
-El ESP32 anuncia BLE mientras no esta asociado a un hogar, aunque ya tenga una
-red Wi-Fi guardada. La configuracion recibida por BLE guarda la red y, si MQTT
-queda disponible, publica el estado de provisionamiento; por si sola no apaga
-BLE. El backend envia `confirm_link` solamente despues de asociar el dispositivo
-a un hogar. Ese comando guarda el bloqueo en NVS, desconecta el cliente BLE y
-detiene el anuncio. La red Wi-Fi permanece guardada en NVS.
+El ESP32 anuncia BLE mientras no este asociado a un hogar. La configuracion
+recibida por BLE guarda la red y envia el estado de provisionamiento por MQTT.
+Cuando el backend confirma la asociacion, publica `confirm_link`; el firmware
+guarda el bloqueo en NVS, cierra conexiones GATT activas y detiene el anuncio.
+La red Wi-Fi permanece guardada en NVS.
 
 Al desvincular el dispositivo, el backend publica
 `{"command":"unlink"}` en `hidrosmart/devices/{deviceCode}/commands`.
-El ESP32 lo recibe por MQTT, reactiva BLE y queda disponible para vincularlo
-otra vez. Si MQTT no esta disponible, mantener BOOT presionado durante cinco
-segundos reactiva BLE localmente.
+El ESP32 lo recibe por MQTT, elimina el estado de asociacion y vuelve a anunciar
+BLE para vincularlo otra vez. Si MQTT no esta disponible, mantener BOOT
+presionado durante cinco segundos fuerza BLE activo localmente.
 
 ```text
 firmware/
@@ -121,6 +120,7 @@ YF-S201 en GPIO 27 y sin redes guardadas al iniciar. El backend ya conserva
 lecturas asociadas a ese equipo, pero la última verificación lo encontró
 `OFFLINE`; queda ejecutar una transmisión continua con la placa y calibrar el
 caudalímetro.
+
 > Configuración vigente: el frontend envía `mqttHost` y `mqttPort` desde su
 > `.env` durante el provisionamiento BLE. La placa los guarda en NVS; el
 > usuario no escribe la IP. Consulta

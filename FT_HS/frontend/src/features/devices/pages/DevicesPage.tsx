@@ -41,7 +41,6 @@ import {
   isBleProvisioningSupported,
   type BleProvisioningConnection,
   type BleProvisioningStatus,
-  type BleWifiNetwork,
 } from '@shared/iot/bleProvisioning';
 
 type Device = {
@@ -111,8 +110,6 @@ export function DeviceManagement({
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [linkOpen, setLinkOpen] = useState(false);
-  const [linkName, setLinkName] = useState('');
-  const [bleDiscoveryRunning, setBleDiscoveryRunning] = useState(false);
   const [editName, setEditName] = useState('');
   const [editLocation, setEditLocation] = useState('');
   const [locationOption, setLocationOption] = useState('');
@@ -133,18 +130,13 @@ export function DeviceManagement({
   const [bleState, setBleState] = useState('');
   const [bleConnecting, setBleConnecting] = useState(false);
   const [bleWriting, setBleWriting] = useState(false);
-  const [bleWifiScanning, setBleWifiScanning] = useState(false);
-  const [bleNetworks, setBleNetworks] = useState<BleWifiNetwork[]>([]);
   const [bleSsid, setBleSsid] = useState('');
   const [blePassword, setBlePassword] = useState('');
   const [provisioningUnlinked, setProvisioningUnlinked] = useState(false);
   const claimingHardwareIdRef = useRef<string | null>(null);
-  const provisioningDeviceRef = useRef<Device | null>(null);
   const devicesRequestInFlightRef = useRef(false);
   const devicesViewKeyRef = useRef('');
   const selectedHome = homes.find((home) => home.homeId === homeId);
-  const selectedBleNetwork = bleNetworks.find((network) => network.ssid === bleSsid);
-  const blePasswordRequired = selectedBleNetwork?.secure !== false;
   const isHomeOwner = selectedHome?.homeRole === 'Owner';
   const canManageAssignedDevice =
     ['Owner', 'Member'].includes(selectedHome?.homeRole || '') &&
@@ -280,7 +272,6 @@ export function DeviceManagement({
   };
 
   const openProvisioning = (device: Device) => {
-    provisioningDeviceRef.current = device;
     const savedLocation = device.location?.trim() || '';
     const selectedLocation = DEVICE_LOCATION_OPTIONS.includes(savedLocation)
       ? savedLocation
@@ -295,7 +286,6 @@ export function DeviceManagement({
     setProvisioningHardwareId(device.hardwareId || '');
     setBleDeviceName('');
     setBleState('');
-    setBleNetworks([]);
     setBleSsid('');
     setBlePassword('');
     setProvisioningUnlinked(!device.homeId);
@@ -304,32 +294,28 @@ export function DeviceManagement({
   const closeProvisioning = () => {
     bleConnection?.disconnect();
     setBleConnection(null);
-    provisioningDeviceRef.current = null;
     setProvisioningDevice(null);
     setProvisioningUnlinked(false);
-    setBleNetworks([]);
     setBlePassword('');
   };
 
   const claimHardware = async (hardwareIdOverride?: string, showSuccess = true) => {
-    const currentDevice = provisioningDeviceRef.current || provisioningDevice;
-    if (!currentDevice) return null;
+    if (!provisioningDevice) return null;
     const hardwareId = (hardwareIdOverride || provisioningHardwareId).trim();
     if (!hardwareId) return null;
-    if (currentDevice.hardwareId === hardwareId) {
+    if (provisioningDevice.hardwareId === hardwareId) {
       return { hardwareId } as Partial<Device>;
     }
     if (claimingHardwareIdRef.current === hardwareId) return null;
 
     claimingHardwareIdRef.current = hardwareId;
     try {
-      const response = await devicesApi.claimHardware(currentDevice.deviceId, hardwareId);
+      const response = await devicesApi.claimHardware(provisioningDevice.deviceId, hardwareId);
       const updated = response.data as Partial<Device>;
       setProvisioningHardwareId(String(updated.hardwareId || hardwareId));
-      provisioningDeviceRef.current = { ...currentDevice, ...updated };
       setDevices((current) =>
         current.map((device) =>
-          device.deviceId === currentDevice.deviceId ? { ...device, ...updated } : device
+          device.deviceId === provisioningDevice.deviceId ? { ...device, ...updated } : device
         )
       );
       setProvisioningDevice((current) => (current ? { ...current, ...updated } : current));
@@ -356,27 +342,15 @@ export function DeviceManagement({
     setBleState(state || 'ready');
     if (status.hardwareId) setProvisioningHardwareId(status.hardwareId);
     if (status.ssid) setBleSsid(status.ssid);
-    if (Array.isArray(status.networks)) {
-      setBleNetworks(
-        status.networks
-          .filter((network) => typeof network?.ssid === 'string' && network.ssid.trim())
-          .map((network) => ({
-            ssid: network.ssid.trim(),
-            rssi: typeof network.rssi === 'number' ? network.rssi : undefined,
-            secure: network.secure !== false,
-          }))
-      );
-    }
 
     const nextStatus = state ? BLE_BACKEND_STATUS[state] : 'BLE_READY';
-    const currentDevice = provisioningDeviceRef.current || provisioningDevice;
-    if (!currentDevice) return;
-    let deviceForStatus = currentDevice;
+    if (!provisioningDevice) return;
+    let deviceForStatus = provisioningDevice;
     const reportedHardwareId = String(status.hardwareId || '').trim();
-    if (reportedHardwareId && reportedHardwareId !== currentDevice.hardwareId) {
+    if (reportedHardwareId && reportedHardwareId !== provisioningDevice.hardwareId) {
       const claimed = await claimHardware(reportedHardwareId, false);
       if (!claimed) return;
-      deviceForStatus = { ...currentDevice, ...claimed };
+      deviceForStatus = { ...provisioningDevice, ...claimed };
     }
     if (!nextStatus) return;
 
@@ -403,62 +377,6 @@ export function DeviceManagement({
     }
   };
 
-  const discoverAndRegister = async () => {
-    if (!homeId || bleDiscoveryRunning) return;
-    if (!isBleProvisioningSupported()) {
-      toast.error(t('devices.bleUnsupported'));
-      return;
-    }
-
-    setBleDiscoveryRunning(true);
-    let connection: BleProvisioningConnection | null = null;
-    const latestStatusRef: { current: BleProvisioningStatus | null } = { current: null };
-
-    try {
-      connection = await connectBleProvisioning((status) => {
-        latestStatusRef.current = status;
-        if (status.hardwareId) setProvisioningHardwareId(status.hardwareId);
-        if (status.ssid) setBleSsid(status.ssid);
-        setBleState(String(status.state || ''));
-        void applyBleStatus(status);
-      });
-
-      const discoveredStatus = latestStatusRef.current;
-      const hardwareId = String(
-        discoveredStatus?.hardwareId || connection.initialStatus?.hardwareId || ''
-      ).trim();
-      if (!hardwareId) throw new Error(t('devices.bleHardwareIdMissing'));
-
-      const response = await devicesApi.register({
-        homeId,
-        code: hardwareId,
-        name: linkName.trim() || `Sensor HidroSmart ${hardwareId.slice(-6)}`,
-        type: 'water_sensor',
-        hardwareId,
-      });
-      const registeredDevice = { ...(response.data as Device), homeId };
-
-      setLinkOpen(false);
-      setLinkName('');
-      setPage(1);
-      await loadDevices(homeId, 1);
-      openProvisioning(registeredDevice);
-      setBleConnection(connection);
-      setBleDeviceName(connection.deviceName);
-      setProvisioningHardwareId(hardwareId);
-      if (discoveredStatus?.ssid) setBleSsid(discoveredStatus.ssid);
-      if (discoveredStatus) await applyBleStatus(discoveredStatus);
-      void connection.scanWifiNetworks().catch(() => undefined);
-      toast.success(t('devices.bleDeviceDiscovered'));
-      connection = null;
-    } catch (error) {
-      connection?.disconnect();
-      toast.error(error instanceof Error ? error.message : t('devices.bleConnectionError'));
-    } finally {
-      setBleDiscoveryRunning(false);
-    }
-  };
-
   const connectBle = async () => {
     if (!isBleProvisioningSupported()) {
       toast.error(t('devices.bleUnsupported'));
@@ -472,33 +390,11 @@ export function DeviceManagement({
       setBleConnection(connection);
       setBleDeviceName(connection.deviceName);
       if (connection.initialStatus) await applyBleStatus(connection.initialStatus);
-      setBleWifiScanning(true);
-      try {
-        await connection.scanWifiNetworks();
-        setBleState('wifi_scanning');
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : t('devices.bleWifiScanError'));
-      } finally {
-        setBleWifiScanning(false);
-      }
       toast.success(t('devices.bleConnected'));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('devices.bleConnectionError'));
     } finally {
       setBleConnecting(false);
-    }
-  };
-
-  const scanWifiNetworks = async () => {
-    if (!bleConnection) return;
-    setBleWifiScanning(true);
-    try {
-      await bleConnection.scanWifiNetworks();
-      setBleState('wifi_scanning');
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : t('devices.bleWifiScanError'));
-    } finally {
-      setBleWifiScanning(false);
     }
   };
 
@@ -513,10 +409,6 @@ export function DeviceManagement({
     }
     if (!bleSsid.trim()) {
       toast.error(t('devices.bleInvalidConfiguration'));
-      return;
-    }
-    if (blePasswordRequired && !blePassword) {
-      toast.error(t('devices.wifiPasswordRequired'));
       return;
     }
     if (!env.mqttDeviceHost) {
@@ -680,54 +572,15 @@ export function DeviceManagement({
                   </DialogHeader>
                   <div className="space-y-4 py-4">
                     <p className="text-sm text-gray-600">{t('devices.linkNewSensor')}</p>
-                    <div className="space-y-2">
-                      <Label htmlFor="new-device-name">{t('devices.deviceName')}</Label>
-                      <Input
-                        id="new-device-name"
-                        value={linkName}
-                        onChange={(event) => setLinkName(event.target.value)}
-                        placeholder={t('devices.deviceNamePlaceholder')}
-                        maxLength={100}
-                      />
-                    </div>
-                    <div className="space-y-3 rounded-lg border border-blue-100 bg-blue-50/60 p-3">
-                      <div className="flex items-center gap-2">
-                        <Bluetooth className="size-4 text-blue-700" />
-                        <p className="text-sm font-medium text-blue-950">
-                          {t('devices.discoverBleDevice')}
-                        </p>
-                      </div>
-                      <p className="text-xs text-blue-900">{t('devices.claimHardwareHelp')}</p>
-                      <Button
-                        type="button"
-                        className="w-full"
-                        onClick={() => void discoverAndRegister()}
-                        disabled={bleDiscoveryRunning}
-                      >
-                        {bleDiscoveryRunning ? (
-                          <Loader2 className="mr-2 size-4 animate-spin" />
-                        ) : (
-                          <Bluetooth className="mr-2 size-4" />
-                        )}
-                        {bleDiscoveryRunning ? t('common.loading') : t('devices.discoverBleDevice')}
-                      </Button>
-                    </div>
-                    <div className="space-y-2 border-t pt-3">
-                      <Label htmlFor="hardware-id-manual">{t('devices.hardwareId')}</Label>
-                      <Input
-                        id="hardware-id-manual"
-                        name="hardwareId"
-                        placeholder={t('devices.hardwareIdPlaceholder')}
-                        pattern="[A-Za-z0-9_-]{3,32}"
-                        title={t('devices.hardwareIdFormatHelp')}
-                        required
-                        autoCapitalize="characters"
-                        autoComplete="off"
-                      />
-                      <p className="text-xs text-gray-500">
-                        {t('devices.registrationIdentityHelp')}
-                      </p>
-                    </div>
+                    <Input
+                      name="hardwareId"
+                      placeholder={t('devices.hardwareIdPlaceholder')}
+                      pattern="[A-Za-z0-9_-]{3,32}"
+                      title={t('devices.hardwareIdFormatHelp')}
+                      required
+                      autoCapitalize="characters"
+                      autoComplete="off"
+                    />
                   </div>
                   <DialogFooter>
                     <Button type="submit">{t('devices.linkDevice')}</Button>
@@ -1092,78 +945,52 @@ export function DeviceManagement({
                   </div>
                 </div>
 
-                <div className="space-y-3 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-medium text-blue-950">
-                        {t('devices.bleProvisioning')}
-                      </p>
-                      <p className="text-xs text-blue-800">
-                        {bleDeviceName || t('devices.bleNotConnected')}
-                        {bleState ? ` · ${bleState}` : ''}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => void connectBle()}
-                        disabled={bleConnecting}
-                      >
-                        {bleConnecting ? (
-                          <Loader2 className="mr-2 size-4 animate-spin" />
-                        ) : (
-                          <Bluetooth className="mr-2 size-4" />
-                        )}
-                        {bleConnection ? t('devices.bleConnected') : t('devices.connectBle')}
-                      </Button>
-                    </div>
-                  </div>
-                  {bleConnection && (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-1 sm:col-span-2">
-                        <Label htmlFor="ble-wifi-ssid">{t('devices.bleSsid')}</Label>
-                        <select
-                          id="ble-wifi-ssid"
-                          className="h-10 w-full rounded-md border bg-white px-3"
-                          value={bleSsid}
-                          onChange={(event) => setBleSsid(event.target.value)}
-                        >
-                          <option value="">{t('devices.selectWifiNetwork')}</option>
-                          {bleSsid && !bleNetworks.some((network) => network.ssid === bleSsid) && (
-                            <option value={bleSsid}>{bleSsid}</option>
-                          )}
-                          {bleNetworks.map((network) => (
-                            <option key={network.ssid} value={network.ssid}>
-                              {network.ssid}
-                              {typeof network.rssi === 'number' ? ` (${network.rssi} dBm)` : ''}
-                            </option>
-                          ))}
-                        </select>
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs text-blue-800">
-                            {bleNetworks.length
-                              ? t('devices.wifiNetworksFound', { count: bleNetworks.length })
-                              : t('devices.wifiNetworksEmpty')}
-                          </p>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => void scanWifiNetworks()}
-                            disabled={bleWifiScanning}
-                          >
-                            {bleWifiScanning ? (
-                              <Loader2 className="mr-2 size-4 animate-spin" />
-                            ) : (
-                              <RefreshCw className="mr-2 size-4" />
-                            )}
-                            {t('devices.scanWifiNetworks')}
-                          </Button>
-                        </div>
+                {(provisioningUnlinked ||
+                  (!provisioningDevice.provisionedAt &&
+                    String(provisioningDevice.provisioningStatus || '').toUpperCase() !==
+                      'COMPLETE' &&
+                    String(provisioningDevice.connectivityStatus || '').toUpperCase() !==
+                      'ONLINE')) && (
+                  <div className="space-y-3 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium text-blue-950">
+                          {t('devices.bleProvisioning')}
+                        </p>
+                        <p className="text-xs text-blue-800">
+                          {bleDeviceName || t('devices.bleNotConnected')}
+                          {bleState ? ` · ${bleState}` : ''}
+                        </p>
                       </div>
-                      {bleSsid && (
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void connectBle()}
+                          disabled={bleConnecting}
+                        >
+                          {bleConnecting ? (
+                            <Loader2 className="mr-2 size-4 animate-spin" />
+                          ) : (
+                            <Bluetooth className="mr-2 size-4" />
+                          )}
+                          {bleConnection ? t('devices.bleConnected') : t('devices.connectBle')}
+                        </Button>
+                      </div>
+                    </div>
+                    {bleConnection && (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1 sm:col-span-2">
+                          <Label htmlFor="ble-wifi-ssid">{t('devices.bleSsid')}</Label>
+                          <Input
+                            id="ble-wifi-ssid"
+                            value={bleSsid}
+                            onChange={(event) => setBleSsid(event.target.value)}
+                            maxLength={32}
+                            autoComplete="off"
+                          />
+                        </div>
                         <div className="space-y-1 sm:col-span-2">
                           <Label htmlFor="ble-wifi-password">{t('devices.blePassword')}</Label>
                           <Input
@@ -1173,24 +1000,23 @@ export function DeviceManagement({
                             onChange={(event) => setBlePassword(event.target.value)}
                             maxLength={63}
                             autoComplete="new-password"
-                            required={blePasswordRequired}
                           />
                           <p className="text-xs text-blue-800">
-                            {t('devices.wifiPasswordRequired')}
+                            {t('devices.wifiPasswordNotShown')}
                           </p>
                         </div>
-                      )}
-                      <Button
-                        type="button"
-                        className="sm:col-span-2"
-                        onClick={() => void sendBleConfiguration()}
-                        disabled={bleWriting || !bleSsid || (blePasswordRequired && !blePassword)}
-                      >
-                        {bleWriting ? t('common.loading') : t('devices.sendBleConfiguration')}
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                        <Button
+                          type="button"
+                          className="sm:col-span-2"
+                          onClick={() => void sendBleConfiguration()}
+                          disabled={bleWriting}
+                        >
+                          {bleWriting ? t('common.loading') : t('devices.sendBleConfiguration')}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 {canUnlinkDevice && (

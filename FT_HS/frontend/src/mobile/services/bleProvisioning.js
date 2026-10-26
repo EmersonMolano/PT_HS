@@ -140,16 +140,6 @@ class BleProvisioningService {
     );
   }
 
-  async scanWifiNetworks() {
-    if (!this.device) throw new Error('No hay ESP32 conectado.');
-
-    await this.device.writeCharacteristicWithResponseForService(
-      SERVICE_UUID,
-      CONFIG_UUID,
-      encode(JSON.stringify({ action: 'scan_wifi' }))
-    );
-  }
-
   async disconnect() {
     this.monitorSubscription?.remove();
     this.monitorSubscription = null;

@@ -73,6 +73,7 @@ services:
       ACTUATOR_COMMAND_TIMEOUT_BATCH_SIZE: ${ACTUATOR_COMMAND_TIMEOUT_BATCH_SIZE:-100}
       APP_TIMEZONE: ${APP_TIMEZONE:-America/Bogota}
       DB_HOST: postgres
+      DB_SSL: ${DB_SSL:-false}
       DB_PORT: 5432
       DB_NAME: ${POSTGRES_DB:-hidro_smart}
       DB_USER: ${DB_USER:-hidro_smart_app}
@@ -88,6 +89,7 @@ services:
       JWT_AUDIENCE: ${JWT_AUDIENCE:-hidro-smart-web}
       AUTH_RATE_LIMIT_WINDOW_MS: ${AUTH_RATE_LIMIT_WINDOW_MS:-900000}
       AUTH_RATE_LIMIT_MAX: ${AUTH_RATE_LIMIT_MAX:-20}
+      AUTH_RATE_LIMIT_IP_MAX: ${AUTH_RATE_LIMIT_IP_MAX:-1000}
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-false}
       AUTH_COOKIE_SAME_SITE: ${AUTH_COOKIE_SAME_SITE:-lax}
       AUTH_COOKIE_DOMAIN: ${AUTH_COOKIE_DOMAIN:-}
@@ -99,6 +101,11 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:-HidroSmart <no-reply@gmail.com>}
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
+      BREVO_FROM_EMAIL: ${BREVO_FROM_EMAIL:-}
+      BREVO_FROM_NAME: ${BREVO_FROM_NAME:-HidroSmart}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      RESEND_FROM: ${RESEND_FROM:-HidroSmart <onboarding@resend.dev>}
       REPORT_STORAGE_DIR: /app/storage/reports
       MQTT_BROKER_URL: ${MQTT_BROKER_URL:-mqtt://mosquitto:1883}
       MQTT_CLIENT_ID: ${MQTT_CLIENT_ID:-hidrosmart-backend}

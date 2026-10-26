@@ -21,17 +21,19 @@ autenticación por dispositivo. La pila local no debe publicarse directamente a
 Internet. Antes de una publicación real se requiere una infraestructura con
 HTTPS, DNS, certificados, firewall, MQTT autenticado, ACL por topic y TLS.
 
-## Cookies entre Cloudflare Pages y Render
+## Validación pendiente para Cloudflare Pages y Render
 
-El frontend no puede leer con `document.cookie` una cookie host-only del
-backend. Obtiene el token CSRF de `GET /api/v1/auth/csrf`, lo conserva en
-memoria y lo envía en `X-CSRF-Token`. El backend expone ese encabezado en CORS
-para sincronizar el token después de iniciar o renovar sesión.
+El cliente obtiene el token con `GET /api/v1/auth/csrf`. Si recibe `403` con
+código `CSRF_INVALID`, renueva el token y reintenta una sola vez. Los demás
+errores `403` no se reintentan.
 
-Como `pt-hs.pages.dev` y `pt-hs.onrender.com` son sitios distintos, Render debe
-usar `AUTH_COOKIE_SECURE=true` y `AUTH_COOKIE_SAME_SITE=none`; `CORS_ORIGIN`
-debe contener el origen exacto de Pages. Deja `AUTH_COOKIE_DOMAIN` sin definir:
-los dos servicios no comparten un dominio padre.
+`pt-hs.pages.dev` y `pt-hs.onrender.com` son sitios distintos. Aunque las
+cookies usen `Secure; SameSite=None` y CORS permita credenciales, el navegador
+puede bloquearlas como cookies de terceros. Las pruebas HTTP desde Node no
+detectan esa restricción. Antes del despliegue definitivo, probar en un
+navegador real login, refresh y logout, inspeccionando `Set-Cookie` y CSRF. Si
+se bloquean las cookies, usar un proxy API bajo el mismo sitio del frontend o
+dominios propios bajo un mismo sitio; no desactivar CSRF.
 
 ## Dependencias
 
@@ -39,10 +41,15 @@ El backend debe revisarse con:
 
 ```powershell
 npm.cmd --prefix BK_HS audit --omit=dev
+npm.cmd --prefix FT_HS/frontend audit --omit=dev
 ```
 
-El frontend debe actualizarse de forma controlada. No ejecutes
-`npm audit fix --force`: puede forzar saltos mayores de Expo y React Native.
+En la revisión del 18 de octubre de 2026 el backend reportó 0 hallazgos y el
+frontend 15 altos, concentrados en la cadena Expo/Metro/React Native. Un
+hallazgo de `npm audit` no demuestra por sí solo exposición en la web, pero
+requiere evaluación y seguimiento. El frontend debe actualizarse de forma
+controlada. No ejecutes `npm audit fix --force`: puede forzar saltos mayores de
+Expo y React Native incompatibles con la decisión de mantener SDK 57.
 Después de una actualización, ejecuta lint, typecheck, build, pruebas de
 backend y una compilación Android.
 
@@ -52,3 +59,5 @@ backend y una compilación Android.
 2. Cambia las claves de ejemplo antes de compartir una pila local.
 3. No reutilices la misma credencial MQTT ni el mismo `deviceCode` entre placas.
 4. Revisa permisos Owner, Guest y Administrator al cambiar una ruta o pantalla.
+5. Si una clave de API se publica en chat, capturas o logs, revócala y crea una
+   nueva; borrar el mensaje o el archivo local no invalida la clave expuesta.

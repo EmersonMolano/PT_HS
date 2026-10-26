@@ -6,7 +6,8 @@ ESP32 y la aplicación Android. Instala primero lo obligatorio y añade lo
 opcional solo cuando vayas a trabajar esa parte.
 
 > HidroSmart usa Node.js 22 en sus imágenes Docker. El frontend móvil usa Expo
-> SDK 54 y React Native 0.81; no instales ni actualices Expo globalmente.
+> SDK 57 y React Native 0.86.3; verifica las versiones exactas en
+> `FT_HS/frontend/package.json` y no actualices Expo globalmente.
 
 ## 1. Descargas obligatorias para la aplicación web
 
@@ -139,9 +140,16 @@ del dispositivo está en [IoT](iot.md) y el contrato de telemetría en
 
 ## 6. Solo si vas a trabajar Android/móvil
 
-El móvil sigue en estabilización; prepara primero la web y la pila Docker. Para
-una compilación nativa necesitas un *development build*, no Expo Go, porque
-HidroSmart utiliza `react-native-ble-plx` para Bluetooth.
+El móvil sigue en estabilización; prepara primero la web y la pila Docker.
+Para ver las pantallas en un teléfono Android con Expo Go no necesitas Android
+Studio: instala Expo Go compatible con SDK 57 y, desde `FT_HS/frontend`, usa
+`npm.cmd run mobile:start`. El PC y el teléfono deben estar en la misma red;
+el script prepara el bundle con la IP LAN y muestra el QR. Comprueba desde el
+teléfono `http://IP_DEL_PC:5173/health` antes de escanear.
+
+Expo Go no contiene `react-native-ble-plx`. Solo para probar aprovisionamiento
+BLE o compilar un APK propio hace falta un *development build* nativo y las
+herramientas siguientes.
 
 ### Descargas adicionales
 
@@ -189,23 +197,14 @@ npm.cmd run mobile:doctor
 npm.cmd run mobile:android
 ```
 
-Cuando el *development build* ya esté instalado, inicia Metro en otra terminal:
-
-```powershell
-Set-Location FT_HS/frontend
-npm.cmd run mobile:start -- --localhost
-```
-
 El emulador puede comunicarse con servicios locales mediante `adb reverse`,
 que ejecutan los scripts del proyecto. Un teléfono físico no puede usar
 `localhost`: deberá recibir una URL HTTPS o una dirección/nombre accesible en
 la LAN para la API.
 
-Las instrucciones oficiales para Android confirman el uso de Platform 36,
-`ANDROID_HOME`, Platform-Tools y `adb`: [guía Expo para Android
-Studio](https://docs.expo.dev/workflow/android-studio-emulator/). Consulta el
-[catálogo de Expo SDK 54](https://docs.expo.dev/versions/v54.0.0/) antes de
-modificar React Native, React o paquetes `expo-*`.
+Antes de modificar React Native, React o paquetes `expo-*`, consulta el
+`package.json` y ejecuta `npm.cmd run mobile:doctor`; conserva la compatibilidad
+con Expo SDK 57 mientras se use Expo Go para ese SDK.
 
 ## 7. Validación después de instalar
 
@@ -216,7 +215,9 @@ npm.cmd --prefix BK_HS run check
 npm.cmd --prefix BK_HS test
 npm.cmd --prefix FT_HS/frontend run lint
 npm.cmd --prefix FT_HS/frontend run typecheck
+npm.cmd --prefix FT_HS/frontend test
 npm.cmd --prefix FT_HS/frontend run build
+npm.cmd --prefix FT_HS/frontend run mobile:doctor
 ```
 
 Para los comandos diarios, diagnóstico de contenedores y pruebas de integración

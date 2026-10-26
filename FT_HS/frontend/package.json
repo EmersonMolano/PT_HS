@@ -8,7 +8,7 @@
     "build": "vite build --configLoader runner",
     "typecheck": "tsc --noEmit",
     "test": "node --test",
-    "lint": "prettier --check src",
+    "lint": "prettier --check src tests",
     "dev": "vite",
     "mobile:prepare": "node scripts/prepare-mobile-bundle.mjs",
     "mobile:doctor": "npx expo-doctor",
@@ -61,7 +61,7 @@
     "cmdk": "1.1.1",
     "date-fns": "3.6.0",
     "embla-carousel-react": "8.6.0",
-    "expo": "~57.0.9",
+    "expo": "~57.0.30",
     "expo-dev-client": "~57.0.20",
     "expo-navigation-bar": "~57.0.3",
     "expo-system-ui": "~57.0.4",
@@ -96,10 +96,14 @@
     "@types/react": "~19.2.4",
     "@types/react-dom": "~19.2.3",
     "@vitejs/plugin-react": "4.7.0",
+    "esbuild": "0.25.12",
     "hermes-compiler": "250829098.0.4",
     "prettier": "3.5.3",
     "tailwindcss": "4.1.12",
     "typescript": "~6.0.3",
     "vite": "6.4.4"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   }
 }

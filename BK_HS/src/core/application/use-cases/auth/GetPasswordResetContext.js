@@ -8,9 +8,11 @@ class GetPasswordResetContext {
     if (typeof resetToken !== 'string' || resetToken.length < 40 || resetToken.length > 200) {
       this.invalidToken();
     }
+
     const email = await this.authRepository.findPasswordResetEmail({
       tokenHash: this.tokenService.hash(resetToken)
     });
+
     if (!email) this.invalidToken();
     return { email };
   }

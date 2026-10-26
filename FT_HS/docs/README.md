@@ -1,34 +1,52 @@
-# Documentación del frontend — HidroSmart
+# Frontend y móvil
 
-Esta carpeta documenta el proyecto frontend único ubicado en `../frontend`.
-La aplicación Web y el adaptador Mobile comparten `src`, configuración,
-dependencias y lockfile.
+## Organización
 
-Para el estado transversal de base de datos, backend, frontend, MQTT, correo y
-pendientes globales consulta
-[`../../docs/estado-integral.md`](../../docs/estado-integral.md).
+| Ruta | Responsabilidad |
+| --- | --- |
+| `src/app` | Rutas, layout, proveedores y páginas de aplicación. |
+| `src/features` | Pantallas y lógica por dominio funcional. |
+| `src/shared` | Cliente HTTP, componentes comunes, i18n, almacenamiento y utilidades. |
+| `src/mobile` | Entrada Expo, WebView y puente nativo. |
+| `scripts` | Generación del bundle web y ejecución Android. |
 
-Fecha de revision: 2026-09-23.
+## Guías detalladas por capa
 
-## Documentos
+- [01_shell-routing: entrada, rutas y proveedores](01_shell-routing.md)
+- [02_features: módulos funcionales](02_features.md)
+- [03_shared: configuración, HTTP, i18n y UI](03_shared.md)
+- [04_mobile: Expo, WebView y BLE](04_mobile.md)
+- [05_runtime-styles: web, estilos y despliegue](05_runtime-styles.md)
 
-- [Estado y arquitectura](./arquitectura-frontend.md)
-- [Acceso local y paneles por rol](./acceso-local-y-roles.md)
-- [Rutas de pantalla e integración API](./rutas-y-api-frontend.md)
-- [Pendientes exclusivos del frontend](./pendientes-frontend.md)
-- [Auditoria vigente de integracion](./auditoria-frontend-integracion-2026-09-23.md)
-- [Guía de dispositivos IoT](../../docs/dispositivos-iot.md)
+## Sesión y API
 
-## Proyecto unificado
+El cliente HTTP usa `credentials: include`, por lo que el navegador recibe las
+cookies `HttpOnly` que entrega la API. Para operaciones mutables agrega
+automáticamente el token CSRF. El frontend no persiste tokens de sesión en
+`sessionStorage`.
 
-El cliente Web es una aplicación React + TypeScript + Vite y entra por
-`FT_HS/frontend/index.html`. El cliente Mobile es un adaptador Expo/React
-Native con entrada en `FT_HS/frontend/index.js`; carga el bundle web generado
-por `npm run mobile:prepare`.
+En Docker, Nginx envía `/api/v1` al backend. En desarrollo con Vite,
+`VITE_API_URL` debe apuntar a `http://localhost:3000/api/v1`.
 
-Ambos clientes usan el mismo `FT_HS/frontend/package.json`,
-`FT_HS/frontend/package-lock.json` y código de aplicación en
-`FT_HS/frontend/src`. No existen instalaciones ni manifests separados para
-Web y Mobile.
-- Bitácora transversal de cambios del 2026-09-14: `../../docs/cambios-2026-09-14.md`.
-- Estado verificado vigente: `../../docs/estado-verificado-2026-09-26.md`.
+## Roles
+
+- Owner/HomeUser puede gestionar hogares, miembros y dispositivos según sus
+  permisos.
+- Guest solo consulta recursos compartidos autorizados.
+- Administrator administra usuarios, roles y módulos administrativos.
+
+Los permisos finales se aplican en la API y PostgreSQL; la interfaz no es una
+barrera de seguridad.
+
+## Calidad
+
+```powershell
+Set-Location FT_HS/frontend
+npm.cmd run lint
+npm.cmd run typecheck
+npm.cmd run build
+npm.cmd run mobile:prepare
+```
+
+La guía completa de pruebas y Android está en
+[../../docs/pruebas.md](../../docs/pruebas.md).

@@ -8,14 +8,13 @@ equipo compatible con el contrato MQTT del proyecto.
 
 ### Ciclo de asociacion y BLE
 
-BLE permanece anunciado mientras el ESP32 no esta asociado a un hogar, incluso
-si ya tiene SSID y contrasena guardados en NVS. El frontend puede provisionar la
-red sin apagar BLE. Despues de que el backend confirma la asociacion al hogar,
-publica `confirm_link`; en ese momento el ESP32 guarda el bloqueo, desconecta
-BLE y detiene el anuncio.
+BLE permanece anunciado mientras el ESP32 no este asociado a un hogar. El
+frontend puede provisionar la red aunque el registro ya exista en el hogar;
+cuando el backend confirma la asociacion por MQTT, publica `confirm_link` y el
+firmware bloquea el acceso BLE. La red Wi-Fi permanece guardada en NVS.
 
 La accion **Desvincular dispositivo** elimina solo la relacion con el hogar y
-publica `unlink` por MQTT para que el equipo vuelva a anunciarse. La accion
+publica `unlink` por MQTT para que el ESP32 vuelva a anunciar BLE. La accion
 **Eliminar dispositivo** esta bloqueada mientras exista cualquier relacion en
 `home.home_device`; primero hay que desvincularlo. Al eliminarlo se borran en
 cascada sus datos historicos de PostgreSQL.
@@ -114,17 +113,14 @@ Go.
 El botón **Configurar** abre un único apartado para el dispositivo. Allí se
 pueden editar el nombre, la ubicación y el umbral; consultar el código lógico,
 el `hardwareId`, la red Wi-Fi, la última IP, el RSSI y el estado de conexión;
-abrir el historial de lecturas; y ejecutar el provisionamiento BLE cuando aún
-no existe una conexión Wi-Fi confirmada.
+abrir el historial de lecturas; y ejecutar el provisionamiento BLE aunque ya
+exista una conexión Wi-Fi confirmada.
 
 La contraseña Wi-Fi se muestra únicamente como un campo vacío para reemplazar
 la red. No se puede recuperar desde el ESP32, la API ni PostgreSQL, y nunca se
-devuelve en una respuesta. Cuando el estado BLE inicial o MQTT indica
-`wifiConnected: true`, `WIFI_CONNECTED`, `MQTT_CONNECTED`, `COMPLETE` o
-`ONLINE`, el botón **Conectar por Bluetooth** desaparece automáticamente. Si
-el ESP32 informa que Wi-Fi funciona pero Mosquitto no responde, también se
-considera que Wi-Fi ya está conectado y no se ofrece una conexión BLE nueva
-desde ese apartado.
+devuelve en una respuesta. El botón **Conectar por Bluetooth** permanece
+disponible para volver a enviar credenciales, cambiar el broker MQTT o recuperar
+el equipo sin borrar la red guardada.
 
 ## Requisitos previos
 
@@ -321,15 +317,15 @@ existe una muestra para ese dispositivo.
 
 ## Errores frecuentes
 
-| Síntoma | Causa probable | Qué revisar |
-|---|---|---|
-| `401 Unauthorized` | No hay sesión o el token expiró | Iniciar sesión y renovar la sesión |
-| `403 Forbidden` | Falta `devices.manage` o el usuario no es titular del hogar | Rol funcional, permiso y hogar seleccionado |
-| `404` al vincular | El código no existe, está inactivo o está escrito diferente | Comparar con `device.device.code` y con el topic MQTT |
-| Código duplicado al registrar | El equipo ya fue registrado | Usar **Vincular dispositivo** |
-| Se muestra ubicación `—` | El registro anterior no tenía ubicación | Abrir **Configurar** y guardarla |
-| No llegan lecturas | Topic, código, asociación o broker incorrectos | Suscribirse a Mosquitto y revisar logs del backend |
-| Lectura rechazada | Payload inválido, dispositivo inactivo o sin asociación activa | Revisar el contrato MQTT y la relación hogar-dispositivo |
+| Síntoma                       | Causa probable                                                 | Qué revisar                                              |
+| ----------------------------- | -------------------------------------------------------------- | -------------------------------------------------------- |
+| `401 Unauthorized`            | No hay sesión o el token expiró                                | Iniciar sesión y renovar la sesión                       |
+| `403 Forbidden`               | Falta `devices.manage` o el usuario no es titular del hogar    | Rol funcional, permiso y hogar seleccionado              |
+| `404` al vincular             | El código no existe, está inactivo o está escrito diferente    | Comparar con `device.device.code` y con el topic MQTT    |
+| Código duplicado al registrar | El equipo ya fue registrado                                    | Usar **Vincular dispositivo**                            |
+| Se muestra ubicación `—`      | El registro anterior no tenía ubicación                        | Abrir **Configurar** y guardarla                         |
+| No llegan lecturas            | Topic, código, asociación o broker incorrectos                 | Suscribirse a Mosquitto y revisar logs del backend       |
+| Lectura rechazada             | Payload inválido, dispositivo inactivo o sin asociación activa | Revisar el contrato MQTT y la relación hogar-dispositivo |
 
 ## Modelo de datos y archivos de referencia
 
@@ -355,6 +351,7 @@ persistidas porque las pruebas limpiaron los datos temporales; la prueba final
 pendiente es validar varios minutos de transmisión
 continua con el ESP32 y el caudalímetro físicos, además de endurecer MQTT antes
 de producción.
+
 > Actualización 2026-09-26: el host MQTT ya no se pide en la interfaz. El
 > frontend lo toma de `VITE_MQTT_DEVICE_HOST` y lo envía por BLE. La referencia
 > vigente es [`mqtt-esp32-red-local.md`](./mqtt-esp32-red-local.md).

@@ -51,6 +51,9 @@ export function HidroSmartWebView() {
           await bleProvisioning.provision(message.payload || {});
           sendToWeb('BLE_CONFIG_SENT');
           break;
+        case 'BLE_SCAN_WIFI':
+          await bleProvisioning.scanWifiNetworks();
+          break;
         case 'BLE_DISCONNECT':
           await bleProvisioning.disconnect();
           sendToWeb('BLE_DISCONNECTED');

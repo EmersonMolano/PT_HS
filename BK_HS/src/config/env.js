@@ -17,8 +17,8 @@ function getBoolean(value, fallback) {
   throw new Error('Las variables booleanas deben ser true o false');
 }
 
-function getCookieSameSite(value) {
-  const normalized = (value || 'lax').toLowerCase();
+function getCookieSameSite(value, fallback = 'lax') {
+  const normalized = (value || fallback).toLowerCase();
   if (!['lax', 'strict', 'none'].includes(normalized)) {
     throw new Error('AUTH_COOKIE_SAME_SITE debe ser lax, strict o none');
   }
@@ -44,7 +44,10 @@ function getEnv() {
 
   const nodeEnv = process.env.NODE_ENV || 'development';
   const cookieSecure = getBoolean(process.env.AUTH_COOKIE_SECURE, nodeEnv === 'production');
-  const cookieSameSite = getCookieSameSite(process.env.AUTH_COOKIE_SAME_SITE);
+  const cookieSameSite = getCookieSameSite(
+    process.env.AUTH_COOKIE_SAME_SITE,
+    nodeEnv === 'production' ? 'none' : 'lax'
+  );
   if (cookieSameSite === 'none' && !cookieSecure) {
     throw new Error('AUTH_COOKIE_SECURE debe ser true cuando AUTH_COOKIE_SAME_SITE=none');
   }

@@ -1015,69 +1015,78 @@ export function DeviceManagement({
                   </div>
                 </div>
 
-                <div className="space-y-3 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-medium text-blue-950">
-                        {t('devices.bleProvisioning')}
-                      </p>
-                      <p className="text-xs text-blue-800">
-                        {bleDeviceName || t('devices.bleNotConnected')}
-                        {bleState ? ` · ${bleState}` : ''}
-                      </p>
+                {(provisioningUnlinked ||
+                  (!provisioningDevice.provisionedAt &&
+                    String(provisioningDevice.provisioningStatus || '').toUpperCase() !==
+                      'COMPLETE' &&
+                    String(provisioningDevice.connectivityStatus || '').toUpperCase() !==
+                      'ONLINE')) && (
+                  <div className="space-y-3 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium text-blue-950">
+                          {t('devices.bleProvisioning')}
+                        </p>
+                        <p className="text-xs text-blue-800">
+                          {bleDeviceName || t('devices.bleNotConnected')}
+                          {bleState ? ` · ${bleState}` : ''}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => void connectBle()}
+                          disabled={bleConnecting}
+                        >
+                          {bleConnecting ? (
+                            <Loader2 className="mr-2 size-4 animate-spin" />
+                          ) : (
+                            <Bluetooth className="mr-2 size-4" />
+                          )}
+                          {bleConnection ? t('devices.bleConnected') : t('devices.connectBle')}
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => void connectBle()}
-                        disabled={bleConnecting}
-                      >
-                        {bleConnecting ? (
-                          <Loader2 className="mr-2 size-4 animate-spin" />
-                        ) : (
-                          <Bluetooth className="mr-2 size-4" />
-                        )}
-                        {bleConnection ? t('devices.bleConnected') : t('devices.connectBle')}
-                      </Button>
-                    </div>
+                    {bleConnection && (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1 sm:col-span-2">
+                          <Label htmlFor="ble-wifi-ssid">{t('devices.bleSsid')}</Label>
+                          <Input
+                            id="ble-wifi-ssid"
+                            value={bleSsid}
+                            onChange={(event) => setBleSsid(event.target.value)}
+                            maxLength={32}
+                            autoComplete="off"
+                          />
+                        </div>
+                        <div className="space-y-1 sm:col-span-2">
+                          <Label htmlFor="ble-wifi-password">{t('devices.blePassword')}</Label>
+                          <Input
+                            id="ble-wifi-password"
+                            type="password"
+                            value={blePassword}
+                            onChange={(event) => setBlePassword(event.target.value)}
+                            maxLength={63}
+                            autoComplete="new-password"
+                          />
+                          <p className="text-xs text-blue-800">
+                            {t('devices.wifiPasswordNotShown')}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          className="sm:col-span-2"
+                          onClick={() => void sendBleConfiguration()}
+                          disabled={bleWriting}
+                        >
+                          {bleWriting ? t('common.loading') : t('devices.sendBleConfiguration')}
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                  {bleConnection && (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-1 sm:col-span-2">
-                        <Label htmlFor="ble-wifi-ssid">{t('devices.bleSsid')}</Label>
-                        <Input
-                          id="ble-wifi-ssid"
-                          value={bleSsid}
-                          onChange={(event) => setBleSsid(event.target.value)}
-                          maxLength={32}
-                          autoComplete="off"
-                        />
-                      </div>
-                      <div className="space-y-1 sm:col-span-2">
-                        <Label htmlFor="ble-wifi-password">{t('devices.blePassword')}</Label>
-                        <Input
-                          id="ble-wifi-password"
-                          type="password"
-                          value={blePassword}
-                          onChange={(event) => setBlePassword(event.target.value)}
-                          maxLength={63}
-                          autoComplete="new-password"
-                        />
-                        <p className="text-xs text-blue-800">{t('devices.wifiPasswordNotShown')}</p>
-                      </div>
-                      <Button
-                        type="button"
-                        className="sm:col-span-2"
-                        onClick={() => void sendBleConfiguration()}
-                        disabled={bleWriting}
-                      >
-                        {bleWriting ? t('common.loading') : t('devices.sendBleConfiguration')}
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                )}
               </div>
               <DialogFooter>
                 {canUnlinkDevice && (

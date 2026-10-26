@@ -3,8 +3,9 @@ import { env } from '../config/env';
 const API_BASE_URL = env.apiBaseUrl;
 
 export const SESSION_EXPIRED_EVENT = 'hidrosmart:session-expired';
-const CSRF_COOKIE_NAME = 'hidrosmart_csrf';
+const CSRF_HEADER_NAME = 'X-CSRF-Token';
 let refreshPromise: Promise<void> | null = null;
+let csrfToken: string | null = null;
 
 type ApiOptions = RequestInit & { skipAuth?: boolean; responseType?: 'json' | 'blob' };
 
@@ -40,31 +41,28 @@ export const sessionTokens = {
   // Compatibilidad temporal para componentes antiguos. Las credenciales no se
   // leen ni escriben en JavaScript: la sesion vive en cookies HttpOnly.
   get accessToken() {
-    return readCookie(CSRF_COOKIE_NAME);
+    return null;
   },
   get refreshToken() {
-    return readCookie(CSRF_COOKIE_NAME);
+    return null;
   },
   get sessionId() {
     return null;
   },
   save(_data: { accessToken?: string; refreshToken?: string; sessionId?: string }) {},
   clear() {
+    csrfToken = null;
     // Elimina restos de versiones previas que guardaban tokens en sessionStorage.
-    sessionStorage.removeItem('hidrosmart_access_token');
-    sessionStorage.removeItem('hidrosmart_refresh_token');
-    sessionStorage.removeItem('hidrosmart_session_id');
-    sessionStorage.removeItem('hidrosmart_session');
-    sessionStorage.removeItem('hidrosmart_refresh');
-    sessionStorage.removeItem('hidrosmart_role');
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('hidrosmart_access_token');
+      sessionStorage.removeItem('hidrosmart_refresh_token');
+      sessionStorage.removeItem('hidrosmart_session_id');
+      sessionStorage.removeItem('hidrosmart_session');
+      sessionStorage.removeItem('hidrosmart_refresh');
+      sessionStorage.removeItem('hidrosmart_role');
+    }
   },
 };
-
-function readCookie(name: string) {
-  const prefix = `${encodeURIComponent(name)}=`;
-  const entry = document.cookie.split('; ').find((candidate) => candidate.startsWith(prefix));
-  return entry ? decodeURIComponent(entry.slice(prefix.length)) : null;
-}
 
 function isUnsafeMethod(method?: string) {
   return ['POST', 'PUT', 'PATCH', 'DELETE'].includes((method || 'GET').toUpperCase());
@@ -78,6 +76,19 @@ async function parseResponse(response: Response) {
   } catch {
     return text;
   }
+}
+
+async function ensureCsrfToken(): Promise<string> {
+  if (csrfToken) return csrfToken;
+  const response = await request<{ data?: { csrfToken?: string } }>(
+    '/auth/csrf',
+    { method: 'GET', skipAuth: true },
+    false
+  );
+  const token = response?.data?.csrfToken;
+  if (!token) throw new ApiError('No se pudo obtener el token CSRF.', 0);
+  csrfToken = token;
+  return token;
 }
 
 async function refreshAccessToken(): Promise<void> {
@@ -98,9 +109,8 @@ async function request<T>(path: string, options: ApiOptions = {}, retry = true):
   if (body && !requestHeaders.has('Content-Type'))
     requestHeaders.set('Content-Type', 'application/json');
 
-  if (isUnsafeMethod(requestOptions.method) && !requestHeaders.has('X-CSRF-Token')) {
-    const csrfToken = readCookie(CSRF_COOKIE_NAME);
-    if (csrfToken) requestHeaders.set('X-CSRF-Token', csrfToken);
+  if (isUnsafeMethod(requestOptions.method) && !requestHeaders.has(CSRF_HEADER_NAME)) {
+    requestHeaders.set(CSRF_HEADER_NAME, csrfToken || (await ensureCsrfToken()));
   }
 
   let response: Response;
@@ -119,7 +129,25 @@ async function request<T>(path: string, options: ApiOptions = {}, retry = true):
     throw new ApiError(message, 0, error);
   }
 
-  if (response.status === 401 && retry && path !== '/auth/refresh') {
+  const responseCsrfToken = response.headers.get(CSRF_HEADER_NAME);
+  if (responseCsrfToken) csrfToken = responseCsrfToken;
+
+  if (response.status === 403 && retry && isUnsafeMethod(requestOptions.method)) {
+    const errorData = await parseResponse(response.clone());
+    const errorMessage =
+      typeof errorData === 'object' && errorData && 'error' in errorData
+        ? String((errorData as { error?: { message?: unknown } }).error?.message || '')
+        : typeof errorData === 'object' && errorData && 'message' in errorData
+          ? String((errorData as { message?: unknown }).message || '')
+          : '';
+    if (/csrf/i.test(errorMessage)) {
+      csrfToken = null;
+      await ensureCsrfToken();
+      return request<T>(path, options, false);
+    }
+  }
+
+  if (response.status === 401 && retry && path !== '/auth/refresh' && !skipAuth) {
     try {
       await refreshAccessToken();
       return request<T>(path, options, false);

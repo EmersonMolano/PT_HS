@@ -21,6 +21,18 @@ autenticación por dispositivo. La pila local no debe publicarse directamente a
 Internet. Antes de una publicación real se requiere una infraestructura con
 HTTPS, DNS, certificados, firewall, MQTT autenticado, ACL por topic y TLS.
 
+## Cookies entre Cloudflare Pages y Render
+
+El frontend no puede leer con `document.cookie` una cookie host-only del
+backend. Obtiene el token CSRF de `GET /api/v1/auth/csrf`, lo conserva en
+memoria y lo envía en `X-CSRF-Token`. El backend expone ese encabezado en CORS
+para sincronizar el token después de iniciar o renovar sesión.
+
+Como `pt-hs.pages.dev` y `pt-hs.onrender.com` son sitios distintos, Render debe
+usar `AUTH_COOKIE_SECURE=true` y `AUTH_COOKIE_SAME_SITE=none`; `CORS_ORIGIN`
+debe contener el origen exacto de Pages. Deja `AUTH_COOKIE_DOMAIN` sin definir:
+los dos servicios no comparten un dominio padre.
+
 ## Dependencias
 
 El backend debe revisarse con:

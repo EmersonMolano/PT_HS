@@ -21,6 +21,15 @@ async function requestJson(path, options = {}) {
   return { response, body: text ? JSON.parse(text) : null };
 }
 
+async function csrfHeaders() {
+  const { response, body } = await requestJson('/api/v1/auth/csrf');
+  const cookies = response.headers.getSetCookie().map((cookie) => cookie.split(';', 1)[0]);
+  return {
+    cookie: cookies.join('; '),
+    'x-csrf-token': body?.data?.csrfToken
+  };
+}
+
 function sessionHeaders(response) {
   const cookies = response.headers.getSetCookie().map((cookie) => cookie.split(';', 1)[0]);
   const csrf = cookies.find((cookie) => cookie.startsWith('hidrosmart_csrf='))?.split('=', 2)[1];
@@ -58,8 +67,10 @@ test('rutas protegidas rechazan solicitudes sin sesion', { skip: !enabled }, asy
 });
 
 test('usuario de integración accede solo al flujo protegido de consulta', { skip: !authenticatedEnabled }, async () => {
+  const csrf = await csrfHeaders();
   const login = await requestJson('/api/v1/auth/login', {
     method: 'POST',
+    headers: csrf,
     body: JSON.stringify({ email: userEmail, password: userPassword })
   });
   assert.equal(login.response.status, 200);

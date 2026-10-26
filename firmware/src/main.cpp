@@ -98,6 +98,7 @@ volatile bool pendingBlePayloadReady = false;
 portMUX_TYPE blePayloadMux = portMUX_INITIALIZER_UNLOCKED;
 bool bleLocked = false;
 bool linkedToHome = false;
+int8_t activeKnownNetworkIndex = -1;
 bool configButtonPressed = false;
 bool configButtonHandled = false;
 unsigned long configButtonStartedAt = 0;
@@ -416,12 +417,14 @@ bool connectToWifi(const String& ssid, const String& password, unsigned long tim
 }
 
 bool connectKnownWifi() {
+  activeKnownNetworkIndex = -1;
   for (uint8_t index = 0; index < knownNetworkCount; index++) {
     if (connectToWifi(knownNetworks[index].ssid, knownNetworks[index].password, WIFI_TIMEOUT_MS)) {
       mqttHost = knownNetworks[index].mqttHost.isEmpty() ? String(HIDROSMART_MQTT_HOST) : knownNetworks[index].mqttHost;
       mqttPort = knownNetworks[index].mqttPort == 0 ? HIDROSMART_MQTT_PORT : knownNetworks[index].mqttPort;
       saveNetwork(knownNetworks[index].ssid, knownNetworks[index].password, mqttHost, mqttPort);
       saveMqttConfiguration(mqttHost, mqttPort);
+      activeKnownNetworkIndex = static_cast<int8_t>(index);
       return true;
     }
   }
@@ -515,28 +518,62 @@ void handleMqttCommand(char* topic, uint8_t* payload, unsigned int length) {
 bool connectMqtt() {
   if (WiFi.status() != WL_CONNECTED || mqttHost.isEmpty()) return false;
 
-  mqttClient.setServer(mqttHost.c_str(), mqttPort);
-  mqttClient.setCallback(handleMqttCommand);
   const String clientId = deviceCode + "-" + String(bootId);
   const String statusTopic = deviceTopic(STATUS_SUFFIX);
   const String offlinePayload = statusPayload("OFFLINE");
-  bool connected = false;
+  auto attemptConnect = [&]() -> bool {
+    mqttClient.disconnect();
+    mqttClient.setServer(mqttHost.c_str(), mqttPort);
+    mqttClient.setCallback(handleMqttCommand);
+    Serial.print("[MQTT] Intentando conectar a ");
+    Serial.print(mqttHost);
+    Serial.print(':');
+    Serial.println(mqttPort);
 
-  if (std::strlen(HIDROSMART_MQTT_USERNAME) > 0) {
-    connected = mqttClient.connect(
-      clientId.c_str(), HIDROSMART_MQTT_USERNAME, HIDROSMART_MQTT_PASSWORD,
-      statusTopic.c_str(), 1, true, offlinePayload.c_str()
-    );
-  } else {
-    connected = mqttClient.connect(
+    if (std::strlen(HIDROSMART_MQTT_USERNAME) > 0) {
+      return mqttClient.connect(
+        clientId.c_str(), HIDROSMART_MQTT_USERNAME, HIDROSMART_MQTT_PASSWORD,
+        statusTopic.c_str(), 1, true, offlinePayload.c_str()
+      );
+    }
+    return mqttClient.connect(
       clientId.c_str(), statusTopic.c_str(), 1, true, offlinePayload.c_str()
     );
-  }
+  };
 
-  if (!connected) {
+  if (!attemptConnect()) {
     Serial.print("[MQTT] Error de conexion, estado: ");
     Serial.println(mqttClient.state());
-    return false;
+
+    const String fallbackHost = String(HIDROSMART_MQTT_HOST);
+    const uint16_t fallbackPort = HIDROSMART_MQTT_PORT;
+    if (
+      isConfiguredText(HIDROSMART_MQTT_HOST) &&
+      (fallbackHost != mqttHost || fallbackPort != mqttPort)
+    ) {
+      const String previousHost = mqttHost;
+      const uint16_t previousPort = mqttPort;
+      mqttHost = fallbackHost;
+      mqttPort = fallbackPort;
+      Serial.println("[MQTT] Probando broker definido en firmware.");
+
+      if (!attemptConnect()) {
+        Serial.print("[MQTT] Error de conexion con fallback, estado: ");
+        Serial.println(mqttClient.state());
+        mqttHost = previousHost;
+        mqttPort = previousPort;
+        return false;
+      }
+
+      saveMqttConfiguration(mqttHost, mqttPort);
+      if (activeKnownNetworkIndex >= 0 && activeKnownNetworkIndex < static_cast<int8_t>(knownNetworkCount)) {
+        knownNetworks[activeKnownNetworkIndex].mqttHost = mqttHost;
+        knownNetworks[activeKnownNetworkIndex].mqttPort = mqttPort;
+        saveNetworks();
+      }
+    } else {
+      return false;
+    }
   }
 
   const String onlinePayload = statusPayload("ONLINE");
@@ -664,8 +701,8 @@ class ProvisioningServerCallbacks : public NimBLEServerCallbacks {
     bleClientConnected = false;
     // NimBLE detiene el advertising al aceptar una conexion. Si el usuario
     // cancela el selector BLE o la conexion falla, debe volver a descubrirse
-    // sin reiniciar el ESP32. Un equipo ya vinculado y bloqueado permanece
-    // fuera de BLE hasta que el backend mande unlink o se use BOOT.
+    // sin reiniciar el ESP32. Un equipo vinculado y bloqueado permanece fuera
+    // de BLE hasta que el backend confirme el desvinculo o se use BOOT.
     if (!linkedToHome || !bleLocked) {
       NimBLEDevice::startAdvertising();
       bleAdvertising = true;
@@ -732,10 +769,8 @@ void startProvisioningBLE() {
 void stopProvisioningBLE() {
   if (!bleInitialized) return;
 
-  // Si el backend acaba de confirmar la vinculacion mientras el navegador
-  // sigue conectado, cerrar tambien las conexiones GATT existentes. De lo
-  // contrario el anuncio se detiene, pero el cliente puede seguir viendo BLE
-  // como conectado y el equipo queda en un estado ambiguo.
+  // Al confirmar la vinculacion, cerrar clientes GATT activos ademas de
+  // detener el anuncio para que la ventana de provisionamiento quede cerrada.
   NimBLEServer* server = NimBLEDevice::getServer();
   if (server != nullptr) {
     for (const uint16_t connHandle : server->getPeerDevices()) {
@@ -750,17 +785,15 @@ void stopProvisioningBLE() {
 }
 
 void applyBlePolicy() {
-  // Sin hogar asociado, el ESP32 siempre debe poder ser descubierto y
-  // vinculado, aunque conserve una red Wi-Fi en NVS.
+  // Sin hogar asociado, BLE debe poder descubrirse para vincular el equipo.
   if (!linkedToHome) {
     if (bleLocked) saveBleLock(false);
     if (!bleAdvertising) startProvisioningBLE();
     return;
   }
 
-  // La vinculacion confirmada es la autoridad para apagar BLE. Si se habilito
-  // manualmente con BOOT o por un comando, se mantiene encendido hasta que el
-  // backend confirme nuevamente disable_ble.
+  // La vinculacion confirmada cierra el provisionamiento BLE hasta que el
+  // backend confirme el desvinculo. BOOT permite una recuperacion fisica.
   if (!bleLocked) {
     if (!bleAdvertising) startProvisioningBLE();
     return;

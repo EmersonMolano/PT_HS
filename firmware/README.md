@@ -26,9 +26,14 @@ programa que esté usando el puerto y vuelve a cargar.
 - Si no pertenece a un hogar, anuncia `HidroSmart-XXXXXX` por BLE incluso con
   Wi-Fi ya guardado.
 - Cuando recibe Wi-Fi por BLE, guarda la red en NVS y trata de conectar MQTT.
-- `confirm_link` marca la asociación, detiene BLE y conserva la red guardada.
+- `confirm_link` persiste la asociación, cierra las conexiones GATT activas y
+  detiene BLE; conserva la red guardada.
 - `unlink` conserva Wi-Fi, borra solo la asociación y reactiva BLE.
 - Mantener BOOT aproximadamente cinco segundos habilita BLE manualmente.
+
+El servicio BLE no usa pairing ni PIN. Mientras el equipo no esté asociado,
+mantén el acceso físico al dispositivo bajo control. La asociación confirmada
+detiene el anuncio BLE; BOOT permite recuperación física local.
 
 ## Telemetría
 

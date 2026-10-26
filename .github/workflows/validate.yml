@@ -44,7 +44,7 @@ jobs:
           npm ci --prefix BK_HS
           npm ci --prefix FT_HS/frontend
       - name: Start local stack
-        run: docker compose up -d postgres db-bootstrap mosquitto mailpit
+        run: docker compose up -d postgres db-bootstrap mosquitto
       - name: Validate and update database
         run: |
           docker compose --profile tooling run --rm liquibase validate
@@ -52,8 +52,30 @@ jobs:
       - name: Start API and web
         run: |
           docker compose up -d backend frontend
-          for attempt in {1..30}; do curl --fail --silent http://localhost:3000/health && break || sleep 2; done
-          curl --fail --silent http://localhost:5173/ > /dev/null
+          api_ready=false
+          for attempt in {1..30}; do
+            if curl --fail --silent http://localhost:3000/health > /dev/null; then
+              api_ready=true
+              break
+            fi
+            sleep 2
+          done
+          if [ "$api_ready" != true ]; then
+            docker compose logs backend
+            exit 1
+          fi
+          frontend_ready=false
+          for attempt in {1..30}; do
+            if curl --fail --silent http://localhost:5173/ > /dev/null; then
+              frontend_ready=true
+              break
+            fi
+            sleep 2
+          done
+          if [ "$frontend_ready" != true ]; then
+            docker compose logs frontend
+            exit 1
+          fi
       - name: Seed integration role users
         run: npm run seed:integration --prefix BK_HS
       - name: Backend quality

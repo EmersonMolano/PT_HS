@@ -22,7 +22,6 @@ export type BleProvisioningStatus = {
 
 type BleCharacteristic = {
   value: DataView | null;
-  readValue?: () => Promise<DataView>;
   startNotifications: () => Promise<BleCharacteristic>;
   writeValueWithResponse?: (value: BufferSource) => Promise<void>;
   writeValue?: (value: BufferSource) => Promise<void>;
@@ -115,15 +114,6 @@ export async function connectBleProvisioning(
   const statusCharacteristic = await service.getCharacteristic(BLE_STATUS_CHARACTERISTIC_UUID);
   await statusCharacteristic.startNotifications();
 
-  let initialStatus = decodeStatus(statusCharacteristic.value);
-  if (statusCharacteristic.readValue) {
-    try {
-      initialStatus = decodeStatus(await statusCharacteristic.readValue());
-    } catch {
-      // La lectura inicial puede no estar disponible en algunos navegadores.
-    }
-  }
-
   const listener: EventListener = (event) => {
     const target = event.target as BleCharacteristic | null;
     const status = decodeStatus(target?.value || statusCharacteristic.value);
@@ -133,7 +123,7 @@ export async function connectBleProvisioning(
 
   return {
     deviceName: device.name || 'HidroSmart',
-    initialStatus,
+    initialStatus: decodeStatus(statusCharacteristic.value),
     write: (payload) => writeBleProvisioning(configCharacteristic, payload),
     disconnect: () => {
       statusCharacteristic.removeEventListener('characteristicvaluechanged', listener);

@@ -84,25 +84,11 @@ class BleProvisioningService {
 
     this.device = device;
 
-    let lastReadError = null;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      try {
-        const characteristic = await device.readCharacteristicForService(SERVICE_UUID, STATUS_UUID);
-        if (characteristic.value) {
-          onStatus(this.parseStatus(decode(characteristic.value)));
-          lastReadError = null;
-          break;
-        }
-      } catch (error) {
-        lastReadError = error;
-      }
-
-      if (attempt < 2) {
-        await new Promise((resolve) => setTimeout(resolve, 250));
-      }
-    }
-    if (lastReadError) {
-      onStatus({ state: 'ble_read_error', message: lastReadError.message });
+    try {
+      const characteristic = await device.readCharacteristicForService(SERVICE_UUID, STATUS_UUID);
+      if (characteristic.value) onStatus(this.parseStatus(decode(characteristic.value)));
+    } catch (error) {
+      onStatus({ state: 'ble_read_error', message: error.message });
     }
 
     this.monitorSubscription = device.monitorCharacteristicForService(

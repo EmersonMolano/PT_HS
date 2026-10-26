@@ -1,22 +1,13 @@
 # Pruebas de firmware
 
-- Cada perfil guardado conserva su SSID, contraseÃ±a, host y puerto MQTT.
-- Si Wi-Fi conecta y MQTT falla, el dispositivo activa o conserva BLE para
-  corregir el broker.
+Antes de cargar una placa, compila:
 
-- Un evento nuevo genera un `mqttMessageId` nuevo.
-- El `hardwareId` conserva el mismo valor después de reiniciar el ESP32.
-- Una red enviada por BLE solo aparece en NVS después de conectar correctamente.
-- Una red válida vuelve a conectar automáticamente después de reiniciar.
-- Un JSON BLE inválido devuelve `invalid_json` o `invalid_configuration`.
-- Una configuración válida devuelve `provisioning_complete` cuando MQTT responde.
-- El topic usa `hidrosmart/devices/{deviceCode}/telemetry` y conserva el payload
-  del YF-S201 con `mqttMessageId`, `hardwareId`, `wifiRssiDbm` y
-  `signalQuality`.
+```powershell
+Set-Location firmware
+pio run
+```
 
-La prueba física BLE puede ejecutarse desde la pantalla web en Chrome/Edge o
-con nRF Connect. En iOS se debe validar mediante la aplicación móvil nativa,
-porque Safari no ofrece Web Bluetooth.
-- Un reintento conserva el mismo identificador.
-- El timestamp se expresa en ISO 8601 UTC.
-- Las metricas respetan los rangos aceptados por el backend.
+La validación funcional requiere hardware: confirma el anuncio BLE, guarda
+Wi-Fi, conexión MQTT, tres lecturas de cinco segundos y reactivación de BLE
+después de `unlink`. El procedimiento completo está en
+[../../docs/iot.md](../../docs/iot.md).

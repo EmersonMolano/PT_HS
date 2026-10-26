@@ -71,6 +71,13 @@ El servicio BLE usa `4fafc201-1fb5-459e-8fcc-c5c9c331914b`; la característica
 de escritura de configuración es `beb5483e-36e1-4688-b7f5-ea07361b26a8` y la
 de lectura/notificación de estado es `beb5483e-36e1-4688-b7f5-ea07361b26a9`.
 
+Si MQTT no está disponible, el firmware conserva las redes guardadas y mantiene
+BLE disponible mientras el dispositivo no esté asociado. `confirm_link` guarda
+el bloqueo de BLE, cierra las conexiones GATT activas y detiene el anuncio;
+`unlink` elimina la asociación y vuelve a anunciar BLE. Mantener BOOT durante
+cinco segundos habilita la recuperación física local. El servicio BLE no usa
+pairing ni PIN.
+
 La configuración BLE admite `ssid`, `password`, `mqttHost`, `mqttPort` y
 `deviceCode`. No incluye ni publica contraseñas MQTT; esas se compilan en
 `config.h` cuando el broker las requiere.

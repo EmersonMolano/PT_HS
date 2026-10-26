@@ -20,7 +20,9 @@ const authCookies = {
 function cookieResponse() {
   return {
     cookies: [],
+    headers: {},
     cookie(name, value, options) { this.cookies.push({ name, value, options }); },
+    set(name, value) { this.headers[name] = value; },
     clearCookie() {},
     json(payload) { this.payload = payload; }
   };

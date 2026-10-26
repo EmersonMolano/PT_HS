@@ -9,7 +9,7 @@ import {
 } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { authApi, SESSION_EXPIRED_EVENT, userApi } from '@shared/http/apiClient';
+import { authApi, SESSION_EXPIRED_EVENT, sessionTokens, userApi } from '@shared/http/apiClient';
 import {
   can as hasPermission,
   normalizePermissions,
@@ -66,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { i18n } = useTranslation();
 
   const clearLocalSession = useCallback(() => {
+    sessionTokens.clear();
     queryClient.clear();
     setSession(null);
   }, [queryClient]);
@@ -119,17 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let active = true;
     const initialize = async () => {
       try {
-        try {
-          try {
-            await refreshSession();
-          } catch (error) {
-            // Un access token vencido no debe cerrar la sesión si el refresh
-            // token sigue vigente. El cliente HTTP también usa este mismo flujo.
-            throw error;
-          }
-        } catch {
-          await restoreFromRefreshToken();
-        }
+        await restoreFromRefreshToken();
       } catch {
         clearLocalSession();
       } finally {

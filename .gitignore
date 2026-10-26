@@ -1,9 +1,10 @@
 # Secretos y configuracion local
-
 .env
-**/.env
+.env.*
 !.env.example
+!.env.*.example
 !**/.env.example
+!**/.env.*.example
 !**/.env.local.example
 CREDENCIALES-LOCAL.md
 **/CREDENCIALES-LOCAL.md
@@ -19,6 +20,7 @@ BD_HS/docs/credenciales-locales.md
 **/*.pem
 **/*.key
 **/*.p12
+**/compile_commands.json
 BK_HS/storage/
 BK_HS/tmp/
 backups/

@@ -4,7 +4,12 @@ const { AuthResponse } = require('../../core/application/dtos/responses/AuthResp
 const { ChangePasswordRequest } = require('../../core/application/dtos/requests/ChangePasswordRequest');
 const { RequestPasswordResetRequest } = require('../../core/application/dtos/requests/RequestPasswordResetRequest');
 const { ResetPasswordRequest } = require('../../core/application/dtos/requests/ResetPasswordRequest');
-const { clearSessionCookies, getCookie, setSessionCookies } = require('../security/authCookies');
+const {
+  clearSessionCookies,
+  getCookie,
+  getOrCreateCsrfToken,
+  setSessionCookies
+} = require('../security/authCookies');
 
 class AuthController {
   constructor({ registerUser, loginUser, sessionService, changePassword, requestPasswordReset, resetPassword, getPasswordResetContext, resendEmailVerification, verifyEmail, notificationService, authCookies, logger = console }) {
@@ -37,14 +42,29 @@ class AuthController {
     const input = LoginRequest.fromRequest(req.body);
     const result = await this.loginUser.execute({ ...input, sourceIp: req.ip });
     const session = await this.sessionService.create(result.userId, this.meta(req));
-    setSessionCookies(res, session, this.authCookies);
+    setSessionCookies(
+      res,
+      session,
+      this.authCookies,
+      getCookie(req, this.authCookies.csrfTokenName)
+    );
     res.json({ data: AuthResponse.fromSession(session) });
+  }
+
+  async csrf(req, res) {
+    const csrfToken = getOrCreateCsrfToken(req, res, this.authCookies);
+    res.json({ data: { csrfToken } });
   }
 
   async refresh(req, res) {
     const refreshToken = getCookie(req, this.authCookies.refreshTokenName);
     const session = await this.sessionService.refresh(refreshToken, this.meta(req));
-    setSessionCookies(res, session, this.authCookies);
+    setSessionCookies(
+      res,
+      session,
+      this.authCookies,
+      getCookie(req, this.authCookies.csrfTokenName)
+    );
     res.json({ data: AuthResponse.fromSession(session) });
   }
 

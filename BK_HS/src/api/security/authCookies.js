@@ -32,19 +32,30 @@ function cookieOptions(config, { httpOnly, maxAge } = {}) {
   };
 }
 
-function setSessionCookies(res, session, config) {
-  const csrfToken = randomBytes(32).toString('base64url');
+function setCsrfCookie(res, csrfToken, config) {
+  res.cookie(
+    config.csrfTokenName,
+    csrfToken,
+    cookieOptions(config, { httpOnly: false, maxAge: config.refreshMaxAgeMs })
+  );
+  res.set(config.csrfHeaderName, csrfToken);
+}
+
+function getOrCreateCsrfToken(req, res, config) {
+  const csrfToken = getCookie(req, config.csrfTokenName) || randomBytes(32).toString('base64url');
+  setCsrfCookie(res, csrfToken, config);
+  return csrfToken;
+}
+
+function setSessionCookies(res, session, config, existingCsrfToken) {
+  const csrfToken = existingCsrfToken || randomBytes(32).toString('base64url');
   res.cookie(config.accessTokenName, session.accessToken, cookieOptions(config, { httpOnly: true }));
   res.cookie(
     config.refreshTokenName,
     session.refreshToken,
     cookieOptions(config, { httpOnly: true, maxAge: config.refreshMaxAgeMs })
   );
-  res.cookie(
-    config.csrfTokenName,
-    csrfToken,
-    cookieOptions(config, { httpOnly: false, maxAge: config.refreshMaxAgeMs })
-  );
+  setCsrfCookie(res, csrfToken, config);
 }
 
 function clearSessionCookies(res, config) {
@@ -65,12 +76,15 @@ function createCsrfProtection(config) {
   return (req, _res, next) => {
     if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
 
+    const requestPath = String(req.originalUrl || req.path || '').split('?')[0];
+    const isLoginRequest = req.method === 'POST' && requestPath.endsWith('/auth/login');
     const hasSessionCookie = Boolean(
       getCookie(req, config.accessTokenName) || getCookie(req, config.refreshTokenName)
     );
+    const hasCsrfCookie = Boolean(getCookie(req, config.csrfTokenName));
     // Los clientes que autentican con Authorization Bearer no son vulnerables a
     // CSRF porque el navegador no agrega ese header automaticamente.
-    if (!hasSessionCookie) return next();
+    if (!hasSessionCookie && !hasCsrfCookie && !isLoginRequest) return next();
 
     const expected = getCookie(req, config.csrfTokenName);
     const received = req.get(config.csrfHeaderName);
@@ -87,6 +101,7 @@ module.exports = {
   clearSessionCookies,
   createCsrfProtection,
   getCookie,
+  getOrCreateCsrfToken,
   parseCookieHeader,
   setSessionCookies
 };

@@ -163,9 +163,7 @@ services:
 
 volumes:
   hidro_smart_postgres_data:
-    # Conserva el volumen histórico usado por la instalación activa del proyecto.
-    # Evita levantar una segunda base de datos cuando se usa otro nombre Compose.
-    name: hidro_smart_live_postgres_data
+    name: hidro_smart_postgres_data
   hidro_smart_mosquitto_data:
     name: hidro_smart_mosquitto_data
   hidro_smart_report_data:

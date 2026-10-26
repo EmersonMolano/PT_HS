@@ -126,9 +126,9 @@ export async function connectBleProvisioning(
   }
 
   const device = await bluetooth.requestDevice({
-    // El servicio es exclusivo de HidroSmart; así Android y el navegador no
-    // muestran audífonos, relojes ni otros dispositivos BLE cercanos.
-    filters: [{ services: [BLE_SERVICE_UUID] }],
+    // Chrome/Edge en Windows a veces omiten servicios anunciados en la
+    // respuesta de escaneo. Aceptamos el dispositivo y validamos GATT abajo.
+    acceptAllDevices: true,
     optionalServices: [BLE_SERVICE_UUID],
   });
   if (!device.gatt) throw new Error('El dispositivo BLE no expone un servidor GATT.');

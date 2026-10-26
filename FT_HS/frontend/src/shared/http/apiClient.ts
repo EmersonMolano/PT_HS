@@ -2,11 +2,10 @@ import { env } from '../config/env';
 
 const API_BASE_URL = env.apiBaseUrl;
 
-const ACCESS_TOKEN_KEY = 'hidrosmart_access_token';
-const REFRESH_TOKEN_KEY = 'hidrosmart_refresh_token';
-const SESSION_ID_KEY = 'hidrosmart_session_id';
 export const SESSION_EXPIRED_EVENT = 'hidrosmart:session-expired';
-let refreshPromise: Promise<string> | null = null;
+const CSRF_HEADER_NAME = 'X-CSRF-Token';
+let refreshPromise: Promise<void> | null = null;
+let csrfToken: string | null = null;
 
 type ApiOptions = RequestInit & { skipAuth?: boolean; responseType?: 'json' | 'blob' };
 
@@ -39,29 +38,35 @@ export class ApiError extends Error {
 }
 
 export const sessionTokens = {
+  // Compatibilidad temporal para componentes antiguos. Las credenciales no se
+  // leen ni escriben en JavaScript: la sesion vive en cookies HttpOnly.
   get accessToken() {
-    return sessionStorage.getItem(ACCESS_TOKEN_KEY);
+    return null;
   },
   get refreshToken() {
-    return sessionStorage.getItem(REFRESH_TOKEN_KEY);
+    return null;
   },
   get sessionId() {
-    return sessionStorage.getItem(SESSION_ID_KEY);
+    return null;
   },
-  save(data: { accessToken?: string; refreshToken?: string; sessionId?: string }) {
-    if (data.accessToken) sessionStorage.setItem(ACCESS_TOKEN_KEY, data.accessToken);
-    if (data.refreshToken) sessionStorage.setItem(REFRESH_TOKEN_KEY, data.refreshToken);
-    if (data.sessionId) sessionStorage.setItem(SESSION_ID_KEY, data.sessionId);
-  },
+  save(_data: { accessToken?: string; refreshToken?: string; sessionId?: string }) {},
   clear() {
-    sessionStorage.removeItem(ACCESS_TOKEN_KEY);
-    sessionStorage.removeItem(REFRESH_TOKEN_KEY);
-    sessionStorage.removeItem(SESSION_ID_KEY);
-    sessionStorage.removeItem('hidrosmart_session');
-    sessionStorage.removeItem('hidrosmart_refresh');
-    sessionStorage.removeItem('hidrosmart_role');
+    csrfToken = null;
+    // Elimina restos de versiones previas que guardaban tokens en sessionStorage.
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('hidrosmart_access_token');
+      sessionStorage.removeItem('hidrosmart_refresh_token');
+      sessionStorage.removeItem('hidrosmart_session_id');
+      sessionStorage.removeItem('hidrosmart_session');
+      sessionStorage.removeItem('hidrosmart_refresh');
+      sessionStorage.removeItem('hidrosmart_role');
+    }
   },
 };
+
+function isUnsafeMethod(method?: string) {
+  return ['POST', 'PUT', 'PATCH', 'DELETE'].includes((method || 'GET').toUpperCase());
+}
 
 async function parseResponse(response: Response) {
   const text = await response.text();
@@ -73,23 +78,24 @@ async function parseResponse(response: Response) {
   }
 }
 
-async function refreshAccessToken(): Promise<string | null> {
-  const refreshToken = sessionTokens.refreshToken;
-  if (!refreshToken) return null;
+async function ensureCsrfToken(): Promise<string> {
+  if (csrfToken) return csrfToken;
+  const response = await request<{ data?: { csrfToken?: string } }>(
+    '/auth/csrf',
+    { method: 'GET', skipAuth: true },
+    false
+  );
+  const token = response?.data?.csrfToken;
+  if (!token) throw new ApiError('No se pudo obtener el token CSRF.', 0);
+  csrfToken = token;
+  return token;
+}
+
+async function refreshAccessToken(): Promise<void> {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
-    const refreshed = await request<{ data: { accessToken: string; refreshToken?: string } }>(
-      '/auth/refresh',
-      {
-        method: 'POST',
-        skipAuth: true,
-        body: JSON.stringify({ refreshToken }),
-      },
-      false
-    );
-    sessionTokens.save(refreshed.data);
-    return refreshed.data.accessToken;
+    await request('/auth/refresh', { method: 'POST', skipAuth: true }, false);
   })().finally(() => {
     refreshPromise = null;
   });
@@ -103,8 +109,8 @@ async function request<T>(path: string, options: ApiOptions = {}, retry = true):
   if (body && !requestHeaders.has('Content-Type'))
     requestHeaders.set('Content-Type', 'application/json');
 
-  if (!skipAuth && sessionTokens.accessToken) {
-    requestHeaders.set('Authorization', `Bearer ${sessionTokens.accessToken}`);
+  if (isUnsafeMethod(requestOptions.method) && !requestHeaders.has(CSRF_HEADER_NAME)) {
+    requestHeaders.set(CSRF_HEADER_NAME, csrfToken || (await ensureCsrfToken()));
   }
 
   let response: Response;
@@ -113,6 +119,7 @@ async function request<T>(path: string, options: ApiOptions = {}, retry = true):
       ...requestOptions,
       body,
       headers: requestHeaders,
+      credentials: 'include',
     });
   } catch (error) {
     const message =
@@ -122,7 +129,25 @@ async function request<T>(path: string, options: ApiOptions = {}, retry = true):
     throw new ApiError(message, 0, error);
   }
 
-  if (response.status === 401 && retry && sessionTokens.refreshToken) {
+  const responseCsrfToken = response.headers.get(CSRF_HEADER_NAME);
+  if (responseCsrfToken) csrfToken = responseCsrfToken;
+
+  if (response.status === 403 && retry && isUnsafeMethod(requestOptions.method)) {
+    const errorData = await parseResponse(response.clone());
+    const errorMessage =
+      typeof errorData === 'object' && errorData && 'error' in errorData
+        ? String((errorData as { error?: { message?: unknown } }).error?.message || '')
+        : typeof errorData === 'object' && errorData && 'message' in errorData
+          ? String((errorData as { message?: unknown }).message || '')
+          : '';
+    if (/csrf/i.test(errorMessage)) {
+      csrfToken = null;
+      await ensureCsrfToken();
+      return request<T>(path, options, false);
+    }
+  }
+
+  if (response.status === 401 && retry && path !== '/auth/refresh' && !skipAuth) {
     try {
       await refreshAccessToken();
       return request<T>(path, options, false);
@@ -179,7 +204,7 @@ export const apiClient = {
 export const authApi = {
   login: (login: string, password: string) =>
     apiClient.post<{
-      data: { userId: string; sessionId: string; accessToken: string; refreshToken: string };
+      data: { userId: string; sessionId: string; refreshExpiresAt: string };
     }>('/auth/login', { login, password }, { skipAuth: true }),
   register: (payload: {
     username: string;
@@ -196,13 +221,13 @@ export const authApi = {
     apiClient.post<{
       data: { message: string; email: string };
     }>('/auth/register', payload, { skipAuth: true }),
-  refresh: (refreshToken: string) =>
-    apiClient.post<{ data: { sessionId: string; accessToken: string; refreshToken?: string } }>(
+  refresh: () =>
+    apiClient.post<{ data: { sessionId: string; refreshExpiresAt: string } }>(
       '/auth/refresh',
-      { refreshToken },
+      undefined,
       { skipAuth: true }
     ),
-  logout: (refreshToken: string) => apiClient.post<void>('/auth/logout', { refreshToken }),
+  logout: () => apiClient.post<void>('/auth/logout'),
   requestPasswordReset: (email: string) =>
     apiClient.post<{ data: { message: string } }>(
       '/auth/request-password-reset',

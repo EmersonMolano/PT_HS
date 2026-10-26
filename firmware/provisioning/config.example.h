@@ -7,7 +7,12 @@
 #define HIDROSMART_MQTT_HOST "hidrosmart-broker.local"
 #define HIDROSMART_MQTT_PORT 1883
 // Vacio: usa el hardwareId HS-XXXXXX generado por el ESP32.
+// Para una placa preasignada, usa UN codigo por ESP32, por ejemplo
+// "HS-7A3F91C8D2E4", "HS-B6E04D79A153" o "HS-2C8A5F01E7B9".
+// No reutilices el mismo codigo en dos placas.
 #define HIDROSMART_DEVICE_CODE ""
+// En el perfil MQTT seguro, el usuario debe coincidir con HIDROSMART_DEVICE_CODE
+// y la clave debe ser unica para esta placa. Nunca confirmes config.h en Git.
 #define HIDROSMART_MQTT_USERNAME ""
 #define HIDROSMART_MQTT_PASSWORD ""
 #define HIDROSMART_FIRMWARE_VERSION "1.1.0"

@@ -74,6 +74,12 @@ const BLE_BACKEND_STATUS: Record<string, string> = {
   mqtt_unreachable: 'FAILED',
 };
 
+const DEFAULT_BLE_WIFI_SSID = 'APRENDICES';
+const DEFAULT_BLE_MQTT_HOST = '10.3.234.45';
+const DEFAULT_BLE_MQTT_PORT = '1883';
+const TARGET_BLE_DEVICE_NAME = 'HidroSmart-470968';
+const TARGET_BLE_HARDWARE_ID = 'HS-141F47470968';
+
 function nextActuatorCommand(state: ActuatorState): ActuatorCommandValue {
   if (state.actuator === 'VALVE') return state.status === 'OPEN' ? 'CLOSED' : 'OPEN';
   return state.status === 'ON' ? 'OFF' : 'ON';
@@ -129,10 +135,10 @@ export function DeviceManagement({
   const [bleConnecting, setBleConnecting] = useState(false);
   const [bleWriting, setBleWriting] = useState(false);
   const [hardwareClaiming, setHardwareClaiming] = useState(false);
-  const [bleSsid, setBleSsid] = useState('');
+  const [bleSsid, setBleSsid] = useState(DEFAULT_BLE_WIFI_SSID);
   const [blePassword, setBlePassword] = useState('');
-  const [bleMqttHost, setBleMqttHost] = useState('');
-  const [bleMqttPort, setBleMqttPort] = useState('1883');
+  const [bleMqttHost, setBleMqttHost] = useState(DEFAULT_BLE_MQTT_HOST);
+  const [bleMqttPort, setBleMqttPort] = useState(DEFAULT_BLE_MQTT_PORT);
   const [bleIp, setBleIp] = useState('');
   const [bleRssi, setBleRssi] = useState<number | null>(null);
   const selectedHome = homes.find((home) => home.homeId === homeId);
@@ -280,10 +286,10 @@ export function DeviceManagement({
     setProvisioningError(device.provisioningError || '');
     setBleDeviceName('');
     setBleState('');
-    setBleSsid('');
+    setBleSsid(DEFAULT_BLE_WIFI_SSID);
     setBlePassword('');
-    setBleMqttHost('');
-    setBleMqttPort('1883');
+    setBleMqttHost(DEFAULT_BLE_MQTT_HOST);
+    setBleMqttPort(DEFAULT_BLE_MQTT_PORT);
     setBleIp('');
     setBleRssi(null);
   };
@@ -387,6 +393,12 @@ export function DeviceManagement({
       setBleConnection(connection);
       setBleDeviceName(connection.deviceName);
       if (connection.initialStatus) await applyBleStatus(connection.initialStatus);
+      if (
+        !connection.initialStatus?.hardwareId &&
+        connection.deviceName === TARGET_BLE_DEVICE_NAME
+      ) {
+        setProvisioningHardwareId(TARGET_BLE_HARDWARE_ID);
+      }
       toast.success(t('devices.bleConnected'));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('devices.bleConnectionError'));
@@ -1046,7 +1058,7 @@ export function DeviceManagement({
                               id="ble-mqtt-host"
                               value={bleMqttHost}
                               onChange={(event) => setBleMqttHost(event.target.value)}
-                              placeholder="192.168.1.10"
+                              placeholder={DEFAULT_BLE_MQTT_HOST}
                               maxLength={253}
                               autoComplete="off"
                             />

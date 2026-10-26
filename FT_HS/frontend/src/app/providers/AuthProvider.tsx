@@ -77,7 +77,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { i18n } = useTranslation();
 
   const clearLocalSession = useCallback(() => {
-    sessionTokens.clear();
     queryClient.clear();
     sessionTokens.clear();
     setSession(null);

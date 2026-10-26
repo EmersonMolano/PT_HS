@@ -73,15 +73,12 @@ function createCsrfProtection(config) {
   return (req, _res, next) => {
     if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
 
-    const requestPath = String(req.originalUrl || req.path || '').split('?')[0];
-    const isLoginRequest = req.method === 'POST' && requestPath.endsWith('/auth/login');
     const hasSessionCookie = Boolean(
       getCookie(req, config.accessTokenName) || getCookie(req, config.refreshTokenName)
     );
-    const hasCsrfCookie = Boolean(getCookie(req, config.csrfTokenName));
     // Los clientes que autentican con Authorization Bearer no son vulnerables a
     // CSRF porque el navegador no agrega ese header automaticamente.
-    if (!hasSessionCookie && !hasCsrfCookie && !isLoginRequest) return next();
+    if (!hasSessionCookie) return next();
 
     const expected = getCookie(req, config.csrfTokenName);
     const received = req.get(config.csrfHeaderName);
@@ -99,7 +96,6 @@ module.exports = {
   clearSessionCookies,
   createCsrfProtection,
   getCookie,
-  getOrCreateCsrfToken,
   parseCookieHeader,
   setCsrfCookie,
   setSessionCookies

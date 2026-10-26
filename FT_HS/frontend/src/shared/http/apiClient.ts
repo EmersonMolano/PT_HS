@@ -7,7 +7,6 @@ const CSRF_HEADER_NAME = 'X-CSRF-Token';
 let csrfToken: string | null = null;
 let csrfPromise: Promise<string> | null = null;
 let refreshPromise: Promise<void> | null = null;
-let csrfToken: string | null = null;
 
 type ApiOptions = RequestInit & { skipAuth?: boolean; responseType?: 'json' | 'blob' };
 
@@ -85,14 +84,12 @@ export const sessionTokens = {
   clear() {
     csrfToken = null;
     // Elimina restos de versiones previas que guardaban tokens en sessionStorage.
-    if (typeof sessionStorage !== 'undefined') {
-      sessionStorage.removeItem('hidrosmart_access_token');
-      sessionStorage.removeItem('hidrosmart_refresh_token');
-      sessionStorage.removeItem('hidrosmart_session_id');
-      sessionStorage.removeItem('hidrosmart_session');
-      sessionStorage.removeItem('hidrosmart_refresh');
-      sessionStorage.removeItem('hidrosmart_role');
-    }
+    sessionStorage.removeItem('hidrosmart_access_token');
+    sessionStorage.removeItem('hidrosmart_refresh_token');
+    sessionStorage.removeItem('hidrosmart_session_id');
+    sessionStorage.removeItem('hidrosmart_session');
+    sessionStorage.removeItem('hidrosmart_refresh');
+    sessionStorage.removeItem('hidrosmart_role');
   },
 };
 
@@ -108,19 +105,6 @@ async function parseResponse(response: Response) {
   } catch {
     return text;
   }
-}
-
-async function ensureCsrfToken(): Promise<string> {
-  if (csrfToken) return csrfToken;
-  const response = await request<{ data?: { csrfToken?: string } }>(
-    '/auth/csrf',
-    { method: 'GET', skipAuth: true },
-    false
-  );
-  const token = response?.data?.csrfToken;
-  if (!token) throw new ApiError('No se pudo obtener el token CSRF.', 0);
-  csrfToken = token;
-  return token;
 }
 
 async function refreshAccessToken(): Promise<void> {

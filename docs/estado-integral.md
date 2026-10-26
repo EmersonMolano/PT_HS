@@ -1,6 +1,12 @@
 ﻿# Estado integral de HidroSmart
 
-Fecha de corte: 2026-09-15.
+Fecha de corte: 2026-09-23.
+
+> **Actualizacion vigente:** el corte anterior mencionaba 236 changesets y
+> lecturas de desarrollo. La verificacion del 2026-09-23 confirma 239
+> changesets, 172 pruebas unitarias, 4 integraciones aprobadas y 2 omitidas por
+> falta de credenciales. La base quedo con 0 hogares, 0 dispositivos y 0
+> lecturas despues de limpiar los datos temporales de prueba.
 
 Este es el resumen transversal de la base de datos, backend, frontend, MQTT,
 correo, Docker y firmware. Distingue lo que estÃ¡ implementado de lo que fue
@@ -10,21 +16,21 @@ comprobado en el entorno local y de lo que todavÃ­a requiere trabajo.
 
 | Capa | Estado comprobado | Alcance actual |
 |---|---|---|
-| Base de datos | Operativa | PostgreSQL 16, Liquibase al día con 223 changesets, funciones, grants, RLS y datos de desarrollo |
+| Base de datos | Operativa | PostgreSQL 16, Liquibase al día con 239 changesets, funciones, grants, RLS y restricciones IoT validadas |
 | Backend | Operativo | API Express bajo `/api/v1`, autenticaciÃ³n, sesiones, dominios principales, SMTP, MQTT y persistencia IoT |
 | Frontend web | Compila y se integra | React + TypeScript + Vite, rutas protegidas, cliente HTTP centralizado, roles e i18n |
 | Frontend mÃ³vil | Bundle verificado | Expo + React Native + WebView, agrupado con Web bajo `FT_HS/frontend` |
 | Docker | Operativo local | PostgreSQL, bootstrap, backend, frontend y Mosquitto |
-| MQTT | Persistencia y control conectados | Telemetría, estados y comandos de actuadores pasan por broker; los ACK se correlacionan y persisten |
+| MQTT | Persistencia y control conectados | Telemetría, estados y comandos pasan por broker; la placa real aún requiere una prueba continua |
 | SMTP | Gmail SMTP configurable | Nodemailer envÃ­a eventos mediante las variables `SMTP_*` del `.env`; la entrega real requiere credenciales locales válidas |
 | Firmware | Estructura presente | Existe `firmware/` con ID eFuse, YF-S201, NVS, BLE y MQTT; falta compilar/cargar y validar la placa física |
 
 ## Evidencia ejecutada
 
 - Liquibase `validate`: aprobado.
-- Liquibase `status --verbose`: `up to date`, 223 changesets aplicados.
+- Liquibase `status --verbose`: `up to date`, 239 changesets aplicados.
 - Backend `npm.cmd run check`: aprobado.
-- Backend `npm.cmd test`: 163/163 pruebas unitarias aprobadas.
+- Backend `npm.cmd test`: 172/172 pruebas unitarias aprobadas.
 - Frontend `npm.cmd run typecheck`, `npm.cmd run lint` y `npm.cmd run build`: aprobados.
 - Frontend mÃ³vil `npm.cmd run mobile:prepare`: aprobado; genera el bundle web para WebView.
 - Frontend `npm.cmd audit --omit=dev`: 19 vulnerabilidades de dependencias reportadas por Expo/Metro/Vite; resolverlas requiere una actualización mayor y no se aplicó `npm audit fix --force` automáticamente.
@@ -34,12 +40,62 @@ comprobado en el entorno local y de lo que todavÃ­a requiere trabajo.
   `mosquitto` levantados en la Ãºltima verificaciÃ³n.
 - Health backend: `http://localhost:3000/health/ready` respondiÃ³ HTTP 200.
 - Health frontend: `http://localhost:5173/health` respondiÃ³ HTTP 200.
-- La integraciÃ³n local autenticada, RLS y MQTT quedÃ³ ejecutada con 6/6 pruebas
-  aprobadas. RLS usa un hogar temporal aislado y lo elimina al terminar.
-- La matriz de `Administrator`, `Support`, `HomeUser` y `Guest` en
+- La integraciÃ³n local actual ejecutÃ³ 4 pruebas aprobadas, 0 fallidas y 2
+  omitidas por falta de credenciales de usuario. RLS usa un hogar temporal
+  aislado y lo elimina al terminar; MQTT comprueba inserciÃ³n e idempotencia.
+- La comprobaciÃ³n directa de PostgreSQL encontrÃ³ 0 hogares, 0 dispositivos y
+  0 lecturas despuÃ©s de limpiar los datos temporales de integraciÃ³n. Esto no
+  representa una falla del backend ni de la base.
+- La matriz de `Administrator`, `HomeUser` y `Guest` en
   `BK_HS/tests/integration/roles-permissions.test.js` se prepara con
   `BK_HS/scripts/seed-integration-users.js`; para producciÃ³n deben repetirse
   las pruebas con cuentas y datos no sintÃ©ticos.
+
+## Corte vigente: avance y pendientes (2026-09-23)
+
+Los porcentajes son estimaciones de alcance comprobado. No representan cobertura
+de cÃ³digo ni sustituyen una prueba de aceptaciÃ³n. El porcentaje Ãºnico del
+proyecto es **80% de funcionalidad local comprobada**; la preparaciÃ³n para
+producciÃ³n es menor porque el ESP32 real aÃºn no estÃ¡ transmitiendo de forma
+continua y el broker local no usa TLS.
+
+| Ãrea | Avance | Evidencia actual | Faltante principal |
+|---|---:|---|---|
+| Base de datos | 94% | 239 changesets, 56 tablas de aplicaciÃ³n, 5 vistas materializadas y restricciones IoT validadas | backup/restore, instalaciÃ³n limpia y prueba sostenida con hardware |
+| Backend | 91% | 215 archivos JS vÃ¡lidos, 172 pruebas unitarias y 4 integraciones aprobadas | E2E manual, SMTP real, actuadores y endurecimiento productivo |
+| Frontend web | 84% | HTTP centralizado, pantallas conectadas, lint, TypeScript y build aprobados | pruebas frontend/E2E, accesibilidad, estados uniformes y refresco en tiempo real |
+| Frontend mÃ³vil | 65% | bundle WebView y puente BLE preparados | development build y prueba BLE con la placa |
+| Firmware/IoT | 60% | ID eFuse, YF-S201, NVS, BLE, Wi-Fi y MQTT implementados | carga/calibraciÃ³n y transmisiÃ³n continua de la placa real |
+| OperaciÃ³n y seguridad | 72% | Docker saludable, validaciÃ³n automatizada y logs estructurados | TLS/ACL MQTT, rotaciÃ³n de secretos, backup/restore y vulnerabilidades |
+
+### Evidencia de IoT en el corte
+
+PostgreSQL no conserva lecturas IoT en el corte actual porque los datos
+temporales de integración fueron eliminados. El backend sí está conectado a
+Mosquitto y suscrito a telemetría, estados y actuadores.
+
+Por tanto, la cadena está implementada y probada con mensajes de integración,
+pero la transmisión física continua debe verificarse encendiendo,
+provisionando y vinculando nuevamente el ESP32.
+
+### Faltantes priorizados
+
+1. **P0 - Prueba fÃ­sica completa:** ESP32/YF-S201 publicando durante varios
+   minutos, MQTT recibiendo, backend persistiendo, PostgreSQL incrementando el
+   contador y frontend mostrando la Ãºltima lectura.
+2. **P1 - OperaciÃ³n de dispositivo:** comprobar `ONLINE/OFFLINE`, `last_seen`,
+   RSSI, IP, umbral y la desapariciÃ³n de BLE cuando Wi-Fi estÃ© conectado.
+3. **P1 - Actuadores:** validar comando, ACK, timeout y auditorÃ­a con firmware
+   real.
+4. **P1 - AceptaciÃ³n de usuario:** recorrer manualmente los tres roles, crear
+   hogar, registrar/vincular dispositivo, consultar consumo, alertas, reportes
+   PDF/Excel y tickets.
+5. **P2 - ProducciÃ³n:** ACL/TLS MQTT, secretos fuera del repositorio, Gmail real,
+   backup/restore e instalaciÃ³n limpia.
+6. **P2 - Calidad de cliente:** pruebas de componentes/E2E, accesibilidad,
+   iPhone/Android real, refresco en tiempo real y reducciÃ³n del chunk principal.
+7. **P2 - Producto:** generaciÃ³n automÃ¡tica de recomendaciones y cierre del
+   flujo administrativo de solicitudes ARCO.
 
 ## Base de datos
 
@@ -79,19 +135,19 @@ Los conteos funcionales de roles en la base local durante la verificaciÃ³n fue
 
 | Rol funcional | Usuarios observados |
 |---|---:|
-| `Administrator` | 2 |
-| `Support` | 2 |
-| `HomeUser` | 6 |
+| `Administrator` | 1 |
+| `HomeUser` | 1 |
 | `Guest` | 1 |
 
-La base local ya contiene cuentas para probar los paneles administrativo y de
-soporte. Estas cuentas son de desarrollo y no deben usarse como credenciales de
+La base local ya contiene cuentas para probar el panel administrativo y la gestión
+de tickets. Estas cuentas son de desarrollo y no deben usarse como credenciales de
 producción.
 
 ### Pendientes de BD
 
-- La precisiÃ³n de `consumption.sensor_reading` ya estÃ¡ versionada: litros en
-  `NUMERIC(14,3)` y m3 generado en `NUMERIC(14,6)`.
+- No hay cambiosets pendientes en la base local. La precisiÃ³n de
+  `consumption.sensor_reading` estÃ¡ versionada: litros en `NUMERIC(14,3)` y m3
+  generado en `NUMERIC(14,6)`.
 - La auditorÃ­a se consulta por funciÃ³n SQL y endpoint administrativo protegido;
   no se concede acceso directo a la tabla al rol de aplicaciÃ³n. La matriz de
   roles ya verifica `200` para administraciÃ³n y `403` para los demÃ¡s roles.
@@ -155,8 +211,8 @@ esta en [`docs/dispositivos-iot.md`](dispositivos-iot.md).
 
 ### Pendientes de backend
 
-- Completar las pruebas manuales de los cuatro roles contra la base real; la
-  matriz automatizada local ya cubre Administrator, Support, HomeUser y Guest.
+- Completar las pruebas manuales de los tres roles contra la base real; la
+  matriz automatizada local ya cubre Administrator, HomeUser y Guest; Administrator también gestiona tickets.
 - Definir los cinco tipos de alerta de producto y completar la semÃ¡ntica del modo
   vacaciones segÃºn las reglas finales.
 - Validar comandos, timeout, ACK y auditoría de actuadores con un ESP32 real.
@@ -187,9 +243,9 @@ esta en [`docs/dispositivos-iot.md`](dispositivos-iot.md).
 - Dashboard consulta el historial real de alertas pendientes y ya no fabrica una
   alerta sintética a partir del contador.
 - Hogares presenta sus tarjetas en un carrusel horizontal responsive.
-- NavegaciÃ³n por roles `Administrator`, `Support`, `HomeUser` y `Guest`; guardas
+- Navegación por roles `Administrator`, `HomeUser` y `Guest`; guardas
   tambiÃ©n al entrar directamente por URL.
-- Panel administrativo y panel de soporte separados. `HomeUser` y `Guest` no
+- Panel administrativo con gestión de tickets integrada. `HomeUser` y `Guest` no
   muestran ni pueden abrir Soporte o Notificaciones.
 - Soporte con detalle, historial, respuestas y actualizaciÃ³n de estado.
 - Sidebar colapsable/hamburguesa, responsive base e internacionalizaciÃ³n en
@@ -222,11 +278,18 @@ envia por BLE y no se almacena ni se devuelve.
 - El indicador â€œflujo actualâ€ del dashboard representa el Ãºltimo punto agregado
   horario disponible; no debe documentarse como caudal MQTT en tiempo real.
 
+### Actualización operativa 2026-09-23
+
+- Backend: 172 pruebas unitarias; la integración actual tuvo 4 aprobadas y 2 omitidas por falta de credenciales.
+- MQTT: el parser de estados acepta el RSSI negativo que publica el ESP32 y lo normaliza a calidad porcentual.
+- Frontend: Dashboard, Consumo y Dispositivos refrescan la última telemetría persistida cada 5 segundos.
+- La transmisión continua de la placa física sigue pendiente de confirmarse en esta sesión; el último mensaje retenido observado fue `OFFLINE`.
+
 ## MQTT, firmware y correo
 
 ### MQTT actual
 
-Actualización 2026-09-15: el contrato nuevo de ESP32 ya incluye `hardwareId`,
+Actualización 2026-09-23: el contrato nuevo de ESP32 ya incluye `hardwareId`,
 `ssid`, `lastIp` y estado de aprovisionamiento. La prueba local publicó estado y telemetría por
 Mosquitto; el backend los normalizó y PostgreSQL los persistió sin perder la
 idempotencia por `mqttMessageId`. El detalle reproducible está en
@@ -247,7 +310,8 @@ Topics de entrada:
 - `hidrosmart/devices/{deviceCode}/actuators/{valve|pump}/status`
 
 El broker local es anÃ³nimo y sin TLS. La persistencia se validÃ³ con el payload
-del ESP32 y el siguiente paso es probar el equipo fÃ­sico completo.
+del ESP32 y con la prueba automatizada de MQTT; la prueba fÃ­sica continua aÃºn
+debe ejecutarse con el equipo encendido y publicando durante varios minutos.
 
 ### Firmware
 
@@ -255,7 +319,8 @@ Existe la carpeta `firmware/` con estructura para provisioning, Wi-Fi, MQTT,
 sensores, actuadores, OTA, almacenamiento y pruebas. El código actual genera el
 ID `HS-141F47470968` según el eFuse, anuncia `HidroSmart-470968`, guarda hasta
 cinco perfiles Wi-Fi/MQTT y expone el contrato BLE de configuración/estado.
-Falta compilarlo y probarlo sobre la placa y el caudalímetro reales.
+La compilación/carga, calibraciÃ³n y transmisiÃ³n sostenida sobre la placa y el
+caudalÃ­metro reales siguen pendientes de evidencia.
 
 ### Correo
 
@@ -290,13 +355,19 @@ docker compose --env-file .env --profile tooling run --rm liquibase status --ver
 
 ## Prioridad siguiente
 
-1. Mantener las cuentas funcionales de prueba para `Administrator`, `Support`,
-   `HomeUser` y `Guest`, y completar las pruebas manuales/E2E con evidencia.
-2. Cerrar el contrato de precisiÃ³n MQTT y aplicar la migraciÃ³n de consumo si se
-   confirma la necesidad de muestras menores a `0.01 L`.
-3. Completar actuadores, estados reales del dispositivo y seguridad del broker.
-4. Completar estados, pruebas y responsive del frontend.
-5. Verificar la entrega real de Gmail con una cuenta de prueba controlada.
-6. Extender la validaciÃ³n continua ya existente con una suite frontend
-   automatizada y pruebas E2E.
+1. Ejecutar la prueba fÃ­sica P0: ESP32/YF-S201 â†’ Mosquitto â†’ backend â†’
+   PostgreSQL â†’ frontend durante varios minutos.
+2. Validar con la placa `ONLINE/OFFLINE`, `last_seen`, RSSI, IP, umbral y
+   aprovisionamiento BLE; registrar la evidencia y actualizar este documento.
+3. Probar actuadores reales con ACK, timeout y auditorÃ­a.
+4. Hacer recorrido manual/E2E de los tres roles y de los flujos de hogar,
+   dispositivo, consumo, alertas, reportes y soporte.
+5. Endurecer el entorno antes de producciÃ³n: ACL/TLS MQTT, rotaciÃ³n de secretos,
+   Gmail controlado, backup/restore e instalaciÃ³n limpia.
+6. Completar calidad frontend: pruebas de componentes, accesibilidad, mÃ³vil
+   real, refresco en tiempo real y reducciÃ³n del chunk principal.
 - Bitácora de cambios verificados del 2026-09-14: `cambios-2026-09-14.md`.
+> Nota vigente (2026-09-26): este documento conserva el corte histórico del
+> 2026-09-23. Para el estado comprobado actual, incluidas 245 migraciones y la
+> configuración MQTT automática por `.env`, consulta
+> [`estado-verificado-2026-09-26.md`](./estado-verificado-2026-09-26.md).

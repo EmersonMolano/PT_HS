@@ -1,13 +1,12 @@
 ﻿# Frontend HidroSmart: endpoints y roles
 
-Fecha de revisiÃ³n: 2026-09-14.
+Fecha de revisiÃ³n: 2026-09-23.
 
 ## Roles
 
-El backend usa roles globales `Administrator`, `Support`, `HomeUser` y `Guest`. Dentro de un hogar existe ademÃ¡s la relaciÃ³n de membresÃ­a, por ejemplo `Owner`, miembro o invitado. No se deben mezclar el rol global y la membresÃ­a del hogar.
+El backend usa roles globales `Administrator`, `HomeUser` y `Guest`. La gestión de tickets se integra en `Administrator` mediante `tickets.manage`. Dentro de un hogar existe además la relación de membresía, por ejemplo `Owner`, miembro o invitado. No se deben mezclar el rol global y la membresía del hogar.
 
 - `Administrator`: administraciÃ³n global, roles y auditorÃ­a.
-- `Support`: atenciÃ³n de tickets y operaciones autorizadas de soporte.
 - `HomeUser`: gestiÃ³n de sus hogares y recursos autorizados.
 - `Guest`: lectura autorizada.
 
@@ -52,6 +51,6 @@ El inventario de rutas exactas estÃ¡ en `BK_HS/docs/03-endpoints.md` y la matr
 ## Estado de navegaciÃ³n
 
 La navegaciÃ³n usa React Router. El menÃº y las rutas protegidas consultan los
-roles/permisos de la sesiÃ³n; `Administrator` y `Support` tienen paneles
+roles/permisos de la sesión; `Administrator` integra el panel de tickets
 separados y `HomeUser`/`Guest` no acceden a soporte ni notificaciones. Quedan
 pruebas manuales de deep links y permisos con usuarios funcionales reales.

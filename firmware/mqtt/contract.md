@@ -73,7 +73,7 @@ lee/escucha los estados en la característica **Estado**:
 {
   "ssid": "APRENDICES",
   "password": "TU_PASSWORD",
-  "mqttHost": "10.3.234.166",
+  "mqttHost": "<MQTT_DEVICE_HOST>",
   "mqttPort": 1883,
   "deviceCode": "ESP32-001"
 }

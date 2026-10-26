@@ -1,12 +1,12 @@
 # Estado actual del sistema
 
-Fecha de revisión: 2026-09-15.
+Fecha de revisión: 2026-09-23.
 
 Este documento es el resumen operativo del backend y debe leerse junto con la documentación de BD y frontend. Distingue las funciones comprobadas de las que todavía requieren integración.
 
 ## Resumen
 
-- PostgreSQL y Liquibase fueron verificados en Docker con 223 changesets aplicados. Si Docker Desktop está detenido, la verificación debe repetirse.
+- PostgreSQL y Liquibase fueron verificados en Docker con 245 changesets aplicados. Si Docker Desktop está detenido, la verificación debe repetirse.
 - El backend Node.js/Express está disponible en `http://localhost:3000` y usa el rol de aplicación `hidro_smart_app`.
 - La API REST se monta bajo `/api/v1`; el health público está en `GET /health`.
 - La operación expone `GET /health/live` para liveness y `GET /health/ready` para readiness de PostgreSQL y MQTT.
@@ -108,10 +108,11 @@ reales.
 
 ## Verificaciones realizadas
 
-- `npm test`: 163 pruebas unitarias aprobadas en la última ejecución.
+- `npm test`: 174 pruebas unitarias aprobadas en la última ejecución.
 - `npm run check`: aprobado.
 - Frontend: formato y build aprobados.
-- Liquibase: `validate`, `update` y `status --verbose` aprobados; 223 changesets aplicados.
+- Liquibase: `validate`, `update` y `status --verbose` aprobados; 245 changesets aplicados.
+- Integración actual: 4 pruebas aprobadas, 0 fallidas y 2 omitidas por falta de credenciales de integración; RLS, MQTT e idempotencia fueron comprobados.
 - Docker: la pila integrada quedó validada en la última ejecución; requiere Docker Desktop activo para repetirla.
 - MQTT: una telemetría con el formato del ESP32 fue recibida, normalizada y persistida; la repetición del mismo `mqttMessageId` no duplicó la fila.
 - BLE: el contrato de dos características y el puente móvil quedaron implementados; falta probar el development build con la placa física.
@@ -123,3 +124,6 @@ reales.
 - Recomendaciones tiene API backend disponible; la pantalla frontend actual es visual y la generación automática a partir de reglas de consumo sigue pendiente de una decisión de producto.
 - La navegación web usa React Router 7.18.3; el contrato de deep links se mantiene en la documentación del frontend.
 - El indicador de flujo actual del dashboard usa el último agregado horario disponible y no debe tomarse como telemetría MQTT en tiempo real. Las tarjetas principales sí consultan los agregados del backend.
+> Actualización 2026-09-26: la fuente de estado vigente es
+> `../../docs/estado-verificado-2026-09-26.md`. El corte anterior de este
+> documento se conserva como historial.

@@ -1,6 +1,6 @@
 # MQTT — HidroSmart
 
-Fecha de revisión: 2026-09-14.
+Fecha de revisión: 2026-09-23.
 
 Este documento resume la implementación actual. El contrato detallado para el firmware está en `14-mqtt-protocol.md`; `13-flujo-datos-iot.md` describe la arquitectura y sus pendientes.
 
@@ -17,6 +17,10 @@ Este documento resume la implementación actual. El contrato detallado para el f
 - [x] Persistencia MQTT -> PostgreSQL con función protegida e idempotencia.
 - [x] Comandos de actuadores desde una ruta/caso de uso.
 - [ ] Seguridad de broker para un entorno real.
+
+En la última prueba de integración el flujo MQTT hacia PostgreSQL pasó con
+deduplicación. La base quedó sin dispositivos ni lecturas después de limpiar
+los datos temporales; falta probar la publicación continua de la placa real.
 
 ## Arquitectura de archivos
 

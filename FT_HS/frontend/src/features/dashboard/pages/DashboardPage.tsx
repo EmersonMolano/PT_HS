@@ -16,12 +16,33 @@ import {
 import { DailyConsumptionChart } from '@features/consumption/charts/DailyConsumptionChart';
 import { WeeklyConsumptionChart } from '@features/consumption/charts/WeeklyConsumptionChart';
 import { useTranslation } from 'react-i18next';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { alertsApi, consumptionApi, devicesApi } from '@shared/http/httpClient';
 import type { AlertEvent, DeviceTelemetry } from '@shared/http/httpClient';
 
 interface DashboardHomeProps {
   homeId?: string;
+}
+
+async function optionalDashboardRequest<T>(request: Promise<T>, label: string): Promise<T | null> {
+  let timedOut = false;
+  let timeoutId: number | undefined;
+  try {
+    const timeout = new Promise<null>((resolve) => {
+      timeoutId = window.setTimeout(() => {
+        timedOut = true;
+        resolve(null);
+      }, 4000);
+    });
+    const result = await Promise.race([request, timeout]);
+    if (timedOut) console.warn(`[Dashboard] Tiempo de espera agotado para ${label}`);
+    return result;
+  } catch (error) {
+    console.warn(`[Dashboard] No se pudo actualizar ${label}`, error);
+    return null;
+  } finally {
+    if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+  }
 }
 
 // RNF1.2 - Tiempos de respuesta menores a 3 segundos
@@ -59,13 +80,37 @@ export function DashboardHome({ homeId }: DashboardHomeProps) {
   const [monthlyProjection, setMonthlyProjection] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasLoadError, setHasLoadError] = useState(false);
+  const [refreshTick, setRefreshTick] = useState(0);
+  const requestInFlightRef = useRef(false);
+  const currentHomeIdRef = useRef(homeId);
+  const loadedHomeIdRef = useRef<string | undefined>(undefined);
+  currentHomeIdRef.current = homeId;
 
   useEffect(() => {
+    const refreshTimer = window.setInterval(() => {
+      setRefreshTick((current) => current + 1);
+    }, 5000);
+
+    return () => window.clearInterval(refreshTimer);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
     if (!homeId) {
+      loadedHomeIdRef.current = undefined;
       setIsLoading(false);
-      return;
+      return () => {
+        active = false;
+      };
     }
-    setIsLoading(true);
+    if (requestInFlightRef.current) {
+      return () => {
+        active = false;
+      };
+    }
+
+    requestInFlightRef.current = true;
+    if (loadedHomeIdRef.current !== homeId) setIsLoading(true);
     setHasLoadError(false);
     const now = new Date();
     const iso = (date: Date) =>
@@ -74,12 +119,14 @@ export function DashboardHome({ homeId }: DashboardHomeProps) {
       ).padStart(2, '0')}`;
     const yesterday = new Date(now);
     yesterday.setDate(now.getDate() - 1);
+    const dayOfWeek = now.getDay();
+    const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - 6);
+    weekStart.setDate(now.getDate() - daysFromMonday);
     const previousWeekStart = new Date(weekStart);
     previousWeekStart.setDate(weekStart.getDate() - 7);
-    const previousWeekEnd = new Date(now);
-    previousWeekEnd.setDate(now.getDate() - 7);
+    const previousWeekEnd = new Date(weekStart);
+    previousWeekEnd.setDate(weekStart.getDate() - 1);
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const elapsedMonthDays = now.getDate();
     const monthDays = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -89,48 +136,67 @@ export function DashboardHome({ homeId }: DashboardHomeProps) {
       return date;
     });
     Promise.all([
-      consumptionApi.summary(
-        new URLSearchParams({ homeId, from: iso(now), to: iso(now) }).toString()
+      optionalDashboardRequest(
+        consumptionApi.summary(
+          new URLSearchParams({ homeId, from: iso(now), to: iso(now) }).toString()
+        ),
+        'consumo de hoy'
       ),
-      consumptionApi.summary(
-        new URLSearchParams({ homeId, from: iso(weekStart), to: iso(now) }).toString()
+      optionalDashboardRequest(
+        consumptionApi.summary(
+          new URLSearchParams({ homeId, from: iso(weekStart), to: iso(now) }).toString()
+        ),
+        'consumo semanal'
       ),
-      consumptionApi.summary(
-        new URLSearchParams({ homeId, from: iso(monthStart), to: iso(now) }).toString()
+      optionalDashboardRequest(
+        consumptionApi.summary(
+          new URLSearchParams({ homeId, from: iso(monthStart), to: iso(now) }).toString()
+        ),
+        'consumo mensual'
       ),
-      consumptionApi.summary(
-        new URLSearchParams({ homeId, from: iso(yesterday), to: iso(yesterday) }).toString()
+      optionalDashboardRequest(
+        consumptionApi.summary(
+          new URLSearchParams({ homeId, from: iso(yesterday), to: iso(yesterday) }).toString()
+        ),
+        'comparación diaria'
       ),
-      consumptionApi.summary(
-        new URLSearchParams({
-          homeId,
-          from: iso(previousWeekStart),
-          to: iso(previousWeekEnd),
-        }).toString()
+      optionalDashboardRequest(
+        consumptionApi.summary(
+          new URLSearchParams({
+            homeId,
+            from: iso(previousWeekStart),
+            to: iso(previousWeekEnd),
+          }).toString()
+        ),
+        'comparación semanal'
       ),
-      consumptionApi.advanced(
-        new URLSearchParams({
-          homeId,
-          from: iso(weekStart),
-          to: iso(now),
-          groupBy: 'hourly',
-        }).toString()
+      optionalDashboardRequest(
+        consumptionApi.advanced(
+          new URLSearchParams({
+            homeId,
+            from: iso(now),
+            to: iso(now),
+            groupBy: 'hourly',
+          }).toString()
+        ),
+        'gráfico diario'
       ),
-      devicesApi.list(homeId),
-      alertsApi.pending(homeId).catch(() => ({
-        data: { pendingCount: 0, lastAlertAt: null, refreshedAt: null },
-      })),
-      alertsApi.history(homeId, 'status=Pending&pageSize=5').catch(() => ({
-        data: [],
-        pagination: { page: 1, pageSize: 5, total: 0, totalPages: 0 },
-      })),
-      consumptionApi.advanced(
-        new URLSearchParams({
-          homeId,
-          from: iso(weekStart),
-          to: iso(now),
-          groupBy: 'daily',
-        }).toString()
+      optionalDashboardRequest(devicesApi.list(homeId), 'dispositivos'),
+      optionalDashboardRequest(alertsApi.pending(homeId), 'alertas pendientes'),
+      optionalDashboardRequest(
+        alertsApi.history(homeId, 'status=Pending&pageSize=5'),
+        'historial de alertas'
+      ),
+      optionalDashboardRequest(
+        consumptionApi.advanced(
+          new URLSearchParams({
+            homeId,
+            from: iso(weekStart),
+            to: iso(now),
+            groupBy: 'daily',
+          }).toString()
+        ),
+        'gráfico semanal'
       ),
     ])
       .then(
@@ -146,8 +212,9 @@ export function DashboardHome({ homeId }: DashboardHomeProps) {
           alertHistoryResponse,
           dailyResponse,
         ]) => {
-          const getTotal = (response: { data: unknown }) =>
-            Number((response.data as { totalM3?: number }).totalM3 || 0);
+          if (!active || currentHomeIdRef.current !== homeId) return;
+          const getTotal = (response: { data: unknown } | null) =>
+            Number((response?.data as { totalM3?: number } | undefined)?.totalM3 || 0);
           const todayTotal = getTotal(today);
           const weekTotal = getTotal(week);
           const monthTotal = getTotal(month);
@@ -155,79 +222,101 @@ export function DashboardHome({ homeId }: DashboardHomeProps) {
           const previousWeekTotal = getTotal(previousWeekResponse);
           const percentageChange = (current: number, previous: number) =>
             previous > 0 ? ((current - previous) / previous) * 100 : null;
-          const hourData = (hourly.data.points || []).map((point) => ({
-            hour: point.bucketHour ?? Number(point.groupKey),
-            averageConsumptionM3: point.consumptionM3,
-          }));
-          setHourlyPoints(hourData);
-          setCurrentConsumption({
-            today: todayTotal,
-            week: weekTotal,
-            month: monthTotal,
-            realTime: 0,
-          });
-          setComparisons({
-            today: percentageChange(todayTotal, yesterdayTotal),
-            week: percentageChange(weekTotal, previousWeekTotal),
-          });
-          setMonthlyProjection(
-            elapsedMonthDays > 0 ? (monthTotal / elapsedMonthDays) * monthDays : null
-          );
-          const dailyByDate = new Map(
-            (dailyResponse.data.points || []).map((point) => [
-              point.bucketDate || point.groupKey,
-              point,
-            ])
-          );
-          setWeeklyPoints(
-            days.map((date) => ({
-              day: date.toLocaleDateString(undefined, { weekday: 'short' }),
-              consumption: dailyByDate.get(iso(date))?.consumptionM3 || 0,
-            }))
-          );
-          const listedDevices =
-            (deviceResponse.data as Array<{
-              deviceId: string;
-              name: string;
-              status: string;
-              connectivityStatus?: string;
-              lastConnectionAt?: string;
-            }>) || [];
-          const devicesWithTelemetry = await Promise.all(
-            listedDevices.map(async (device) => {
-              try {
-                const response = await devicesApi.latestTelemetry(device.deviceId);
-                return { ...device, latestTelemetry: response.data as DeviceTelemetry | null };
-              } catch {
-                return { ...device, latestTelemetry: null };
-              }
-            })
-          );
-          const realtimeFlowLpm = devicesWithTelemetry.reduce(
-            (total, device) => total + Number(device.latestTelemetry?.flowRateLpm || 0),
-            0
-          );
+          if (hourly) {
+            const hourlyByHour = new Map(
+              hourly.data.points.map((point) => [
+                point.bucketHour ?? Number(point.groupKey),
+                point.consumptionM3,
+              ])
+            );
+            setHourlyPoints(
+              Array.from({ length: 24 }, (_, hour) => ({
+                hour,
+                averageConsumptionM3: Number(hourlyByHour.get(hour) || 0),
+              }))
+            );
+          }
           setCurrentConsumption((current) => ({
             ...current,
-            realTime: (realtimeFlowLpm * 60) / 1000,
+            today: today ? todayTotal : current.today,
+            week: week ? weekTotal : current.week,
+            month: month ? monthTotal : current.month,
           }));
-          setDevices(
-            devicesWithTelemetry.map((device) => ({
-              id: device.deviceId,
-              name: device.name,
-              status: device.connectivityStatus === 'ONLINE' ? 'online' : 'offline',
-              lastConnectionAt: device.lastConnectionAt,
-              currentFlowLpm: device.latestTelemetry?.flowRateLpm ?? null,
-            }))
-          );
-          const pending = alertResponse.data as {
+          if (today && yesterdayResponse) {
+            setComparisons((current) => ({
+              ...current,
+              today: percentageChange(todayTotal, yesterdayTotal),
+            }));
+          }
+          if (week && previousWeekResponse) {
+            setComparisons((current) => ({
+              ...current,
+              week: percentageChange(weekTotal, previousWeekTotal),
+            }));
+          }
+          if (month) {
+            setMonthlyProjection(
+              elapsedMonthDays > 0 ? (monthTotal / elapsedMonthDays) * monthDays : null
+            );
+          }
+          if (dailyResponse) {
+            const dailyByDate = new Map(
+              dailyResponse.data.points.map((point) => [
+                point.bucketDate ? point.bucketDate.slice(0, 10) : point.groupKey,
+                point,
+              ])
+            );
+            setWeeklyPoints(
+              days.map((date) => ({
+                day: date.toLocaleDateString(undefined, { weekday: 'short' }),
+                consumption: dailyByDate.get(iso(date))?.consumptionM3 || 0,
+              }))
+            );
+          }
+          if (deviceResponse) {
+            const listedDevices =
+              (deviceResponse?.data as Array<{
+                deviceId: string;
+                name: string;
+                status: string;
+                connectivityStatus?: string;
+                lastConnectionAt?: string;
+              }>) || [];
+            const devicesWithTelemetry = await Promise.all(
+              listedDevices.map(async (device) => {
+                const response = await optionalDashboardRequest(
+                  devicesApi.latestTelemetry(device.deviceId),
+                  `telemetría de ${device.name}`
+                );
+                return { ...device, latestTelemetry: response?.data as DeviceTelemetry | null };
+              })
+            );
+            const realtimeFlowLpm = devicesWithTelemetry.reduce(
+              (total, device) => total + Number(device.latestTelemetry?.flowRateLpm || 0),
+              0
+            );
+            setCurrentConsumption((current) => ({
+              ...current,
+              realTime: (realtimeFlowLpm * 60) / 1000,
+            }));
+            setDevices(
+              devicesWithTelemetry.map((device) => ({
+                id: device.deviceId,
+                name: device.name,
+                status: device.connectivityStatus === 'ONLINE' ? 'online' : 'offline',
+                lastConnectionAt: device.lastConnectionAt,
+                currentFlowLpm: device.latestTelemetry?.flowRateLpm ?? null,
+              }))
+            );
+          }
+          const pending = (alertResponse?.data || {}) as {
             pendingCount?: number;
             lastAlertAt?: string | null;
           };
           const count = Number(pending.pendingCount || 0);
           setPendingAlertCount(count);
           setAlerts(
-            (alertHistoryResponse.data as AlertEvent[]).map((alert) => ({
+            ((alertHistoryResponse?.data || []) as AlertEvent[]).map((alert) => ({
               id: alert.alertId,
               type: 'warning',
               message: alert.message || t('dashboard.activeAlerts'),
@@ -237,6 +326,7 @@ export function DashboardHome({ homeId }: DashboardHomeProps) {
         }
       )
       .catch(() => {
+        if (!active || currentHomeIdRef.current !== homeId) return;
         setCurrentConsumption({ today: 0, week: 0, month: 0, realTime: 0 });
         setComparisons({ today: null, week: null });
         setMonthlyProjection(null);
@@ -247,11 +337,24 @@ export function DashboardHome({ homeId }: DashboardHomeProps) {
         setWeeklyPoints([]);
         setHasLoadError(true);
       })
-      .finally(() => setIsLoading(false));
-  }, [homeId, t]);
+      .finally(() => {
+        requestInFlightRef.current = false;
+        if (active && currentHomeIdRef.current === homeId) {
+          loadedHomeIdRef.current = homeId;
+          setIsLoading(false);
+        }
+      });
 
-  const MetricValue = ({ value }: { value: number }) =>
-    isLoading || hasLoadError ? '—' : `${value.toFixed(2)} m³`;
+    return () => {
+      active = false;
+    };
+  }, [homeId, t, refreshTick]);
+
+  const MetricValue = ({ value }: { value: number }) => {
+    if (isLoading) return '—';
+    const decimals = value > 0 && value < 0.01 ? 4 : 2;
+    return `${value.toFixed(decimals)} m³`;
+  };
 
   const Comparison = ({ value }: { value: number | null }) => {
     if (isLoading || hasLoadError || value === null) {

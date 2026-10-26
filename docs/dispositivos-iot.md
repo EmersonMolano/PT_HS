@@ -1,10 +1,29 @@
 # Guía de dispositivos IoT
 
-Fecha de actualización: 2026-09-15.
+Fecha de actualización: 2026-09-23.
 
 Esta guía explica cómo registrar, vincular, editar y comprobar un dispositivo
 IoT en HidroSmart. El flujo es el mismo para un ESP32 con caudalímetro u otro
 equipo compatible con el contrato MQTT del proyecto.
+
+### Ciclo de asociacion y BLE
+
+BLE permanece anunciado mientras el ESP32 no esta asociado a un hogar, incluso
+si ya tiene SSID y contrasena guardados en NVS. El frontend puede provisionar la
+red sin apagar BLE. Despues de que el backend confirma la asociacion al hogar,
+publica `confirm_link`; en ese momento el ESP32 guarda el bloqueo, desconecta
+BLE y detiene el anuncio.
+
+La accion **Desvincular dispositivo** elimina solo la relacion con el hogar y
+publica `unlink` por MQTT para que el equipo vuelva a anunciarse. La accion
+**Eliminar dispositivo** esta bloqueada mientras exista cualquier relacion en
+`home.home_device`; primero hay que desvincularlo. Al eliminarlo se borran en
+cascada sus datos historicos de PostgreSQL.
+
+Estado del último corte: el esquema y el backend están operativos, pero la
+base local quedó sin hogares, dispositivos ni lecturas después de las pruebas
+de integración. Para ver métricas en la interfaz hay que registrar/vincular el
+ESP32 y publicar nuevamente por MQTT.
 
 ## Conceptos importantes
 
@@ -76,7 +95,7 @@ estado inicial y enviar:
 {
   "ssid": "APRENDICES",
   "password": "TU_PASSWORD",
-  "mqttHost": "10.3.234.166",
+  "mqttHost": "<MQTT_DEVICE_HOST>",
   "mqttPort": 1883,
   "deviceCode": "ESP32-001"
 }
@@ -328,9 +347,14 @@ existe una muestra para ese dispositivo.
 
 ## Estado actual verificado
 
-En la última verificación local, Liquibase tenía 223 changesets aplicados y el
-backend tenía 163 pruebas unitarias aprobadas. El flujo de registro, edición,
+En la última verificación local, Liquibase tenía 245 changesets aplicados y el
+backend tenía 174 pruebas unitarias aprobadas. El flujo de registro, edición,
 vinculación, aprovisionamiento BLE, persistencia de SSID/IP y consulta del
-historial ya está implementado. La prueba final pendiente es validar el flujo
-completo con el ESP32 y el caudalímetro físicos, además de endurecer MQTT antes
+historial ya está implementado. En el corte actual no existen lecturas
+persistidas porque las pruebas limpiaron los datos temporales; la prueba final
+pendiente es validar varios minutos de transmisión
+continua con el ESP32 y el caudalímetro físicos, además de endurecer MQTT antes
 de producción.
+> Actualización 2026-09-26: el host MQTT ya no se pide en la interfaz. El
+> frontend lo toma de `VITE_MQTT_DEVICE_HOST` y lo envía por BLE. La referencia
+> vigente es [`mqtt-esp32-red-local.md`](./mqtt-esp32-red-local.md).

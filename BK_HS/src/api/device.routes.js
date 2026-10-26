@@ -16,11 +16,16 @@ const { UpdateDeviceStatus } = require('../core/application/use-cases/device/Upd
 const { UpdateDeviceProvisioning } = require('../core/application/use-cases/device/UpdateDeviceProvisioning');
 const { UnlinkDeviceFromHome } = require('../core/application/use-cases/device/UnlinkDeviceFromHome');
 const { DeactivateDevice } = require('../core/application/use-cases/device/DeactivateDevice');
+const { DeleteDevice } = require('../core/application/use-cases/device/DeleteDevice');
 const { PostgresDeviceRepository } = require('../core/infrastructure/repositories/postgres/PostgresDeviceRepository');
 const { DeviceController } = require('./controllers/DeviceController');
 const { PostgresPermissionChecker } = require('../core/infrastructure/security/PostgresPermissionChecker');
+const { MqttPublisher } = require('../core/infrastructure/services/mqtt/MqttPublisher');
+const { mqttClient } = require('../core/infrastructure/services/mqtt/mqttClientSingleton');
+const { deviceCommandsTopic } = require('../mqtt/topics');
 
 const deviceRepository = new PostgresDeviceRepository();
+const deviceCommandPublisher = new MqttPublisher({ mqttClient });
 const updateDeviceStatus = new UpdateDeviceStatus({ deviceRepository });
 const deviceController = new DeviceController({
   registerDevice: new RegisterDevice({ deviceRepository }),
@@ -36,7 +41,10 @@ const deviceController = new DeviceController({
   updateDeviceStatus,
   updateDeviceProvisioning: new UpdateDeviceProvisioning({ deviceRepository }),
   deactivateDevice: new DeactivateDevice({ updateDeviceStatus }),
-  unlinkDeviceFromHome: new UnlinkDeviceFromHome({ deviceRepository })
+  unlinkDeviceFromHome: new UnlinkDeviceFromHome({ deviceRepository }),
+  deleteDevice: new DeleteDevice({ deviceRepository }),
+  deviceCommandPublisher,
+  deviceCommandsTopic
 });
 const requirePermission = createRequirePermission({
   permissionChecker: new PostgresPermissionChecker()
@@ -57,6 +65,7 @@ router.patch('/:deviceId/provisioning', requirePermission('devices.manage'), asy
 router.post('/:deviceId/claim-hardware', requirePermission('devices.manage'), asyncHandler((req, res) => deviceController.claimHardware(req, res)));
 router.post('/:deviceId/deactivate', requirePermission('devices.manage'), asyncHandler((req, res) => deviceController.deactivate(req, res)));
 router.delete('/:deviceId/home/:homeId', requirePermission('devices.manage'), asyncHandler((req, res) => deviceController.unlink(req, res)));
+router.delete('/:deviceId', requirePermission('devices.manage'), asyncHandler((req, res) => deviceController.delete(req, res)));
 router.get('/:deviceId', asyncHandler((req, res) => deviceController.get(req, res)));
 
 module.exports = router;

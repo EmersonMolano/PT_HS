@@ -1,6 +1,6 @@
 ﻿# IntegraciÃ³n vigente: base de datos, backend y frontend
 
-Fecha de revisiÃ³n: 2026-09-14.
+Fecha de revisiÃ³n: 2026-09-23.
 
 ## TopologÃ­a local
 
@@ -119,10 +119,10 @@ normaliza y persiste el mensaje mediante `IngestReading`,
   consumo de API en las pantallas principales. Recomendaciones se presenta
   actualmente como contenido visual informativo.
 - El menÃº y las rutas directas usan los roles y permisos recibidos del backend;
-  `Administrator` y `Support` tienen paneles separados y `HomeUser`/`Guest` no
+  `Administrator` integra la gestión de tickets; `HomeUser`/`Guest` conservan el soporte propio
   acceden a soporte ni notificaciones.
 - TodavÃ­a deben uniformarse estados de carga, vacÃ­o, error y reintento, y deben
-  ejecutarse pruebas manuales con los cuatro roles.
+  ejecutarse pruebas manuales con los tres roles.
 - El dashboard obtiene sus tarjetas de agregados del backend; el indicador de
   flujo actual es el Ãºltimo punto horario disponible, no caudal MQTT en tiempo real.
 

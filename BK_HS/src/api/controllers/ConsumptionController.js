@@ -6,13 +6,14 @@ const { HourlyConsumptionRequest } = require('../../core/application/dtos/reques
 const { ConsumptionSeriesRequest } = require('../../core/application/dtos/requests/ConsumptionSeriesRequest');
 
 class ConsumptionController {
-  constructor({ getConsumptionSummary, getDailyConsumption, getMonthlyConsumption, getHourlyConsumption, getPeriodCost, getConsumptionSeries }) {
+  constructor({ getConsumptionSummary, getDailyConsumption, getMonthlyConsumption, getHourlyConsumption, getPeriodCost, getConsumptionSeries, getBudgetStatus }) {
     this.getConsumptionSummary = getConsumptionSummary;
     this.getDailyConsumption = getDailyConsumption;
     this.getMonthlyConsumption = getMonthlyConsumption;
     this.getHourlyConsumption = getHourlyConsumption;
     this.getPeriodCost = getPeriodCost;
     this.getConsumptionSeries = getConsumptionSeries;
+    this.getBudgetStatus = getBudgetStatus;
   }
 
   async summary(req, res) {
@@ -58,6 +59,15 @@ class ConsumptionController {
         points: result
       }
     });
+  }
+
+  async budgetStatus(req, res) {
+    const result = await this.getBudgetStatus.execute({
+      userId: req.user.id,
+      homeId: req.query.homeId,
+      asOfDate: req.query.asOfDate
+    });
+    res.json({ data: result });
   }
 }
 

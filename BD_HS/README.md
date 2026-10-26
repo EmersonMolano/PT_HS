@@ -533,10 +533,12 @@ rollback:
 ```
 
 No se deben usar rutas de Windows con `\` en los changelogs. Liquibase se ejecuta dentro de Docker y requiere rutas con `/`.
-## Estado operativo e integración IoT (2026-09-14)
+## Estado operativo e integración IoT (2026-09-23)
 
 El Compose integrado de la raíz levanta PostgreSQL, `db-bootstrap`, backend, frontend y Mosquitto. El correo se envía mediante Gmail SMTP configurado en el `.env`. Liquibase se ejecuta con el perfil `tooling`; consulta `docs/guia-ejecucion-liquibase.md` para los comandos actuales.
 
-La base está actualizada con 217 changesets. Los objetos `device.device`, `device.home_device`, `consumption.sensor_reading` y `device.device_telemetry_history` están conectados a la ingesta MQTT protegida del backend. `device.device.location` almacena la ubicación visible del sensor hasta 120 caracteres. `consumption.fn_get_consumption_series(...)` entrega series agregadas autorizadas para las pantallas de consumo y reportes.
+La base está actualizada con 239 changesets. Los objetos `device.device`, `home.home_device`, `consumption.sensor_reading` y `device.device_telemetry_history` están conectados a la ingesta MQTT protegida del backend. `device.device.location` almacena la ubicación visible del sensor hasta 120 caracteres. `consumption.fn_get_consumption_series(...)` entrega series agregadas autorizadas para las pantallas de consumo y reportes.
 
 La ingestión ya está activa: el rol `hidro_smart_ingest` ejecuta la función protegida, sin `INSERT` directo sobre `consumption.sensor_reading`. La resolución segura del dispositivo, la asociación activa y la idempotencia están versionadas. Las lecturas admiten `NUMERIC(14,3)` en litros y el m³ generado conserva `NUMERIC(14,6)`, suficiente para muestras como `0.040 L`.
+
+En la auditoría del 2026-09-23 se validaron 56 tablas de aplicación, 5 vistas materializadas y las restricciones críticas de IoT. La base queda sin hogares, dispositivos ni lecturas después de limpiar los datos creados por pruebas; esto no indica pérdida de estructura ni de migraciones. Consulta el detalle en `BD_HS/docs/auditoria-esquema-actual-2026-09-23.md`.

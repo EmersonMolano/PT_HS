@@ -56,7 +56,7 @@ class HomeController {
 
   async members(req, res) {
     const members = await this.listHomeMembers.execute({ userId: req.user.id, homeId: req.params.homeId });
-    const result = paginate(members.map(HomeMemberResponse.fromRow), req.query, { sortFields: ['fullName', 'email', 'homeRole', 'assignedAt'] });
+    const result = paginate(members.map(HomeMemberResponse.fromRow), req.query, { sortFields: ['fullName', 'homeRole', 'assignedAt'] });
     res.json({ data: result.items, pagination: result.pagination });
   }
 

@@ -1,6 +1,6 @@
 ﻿# GuÃ­a para levantar HidroSmart en local
 
-Fecha de revisiÃ³n: 2026-09-14.
+Fecha de revisiÃ³n: 2026-09-23.
 
 Esta guÃ­a explica cÃ³mo iniciar cada proyecto por separado y cÃ³mo iniciar la
 pila completa. EstÃ¡ pensada para el caso en que se hayan eliminado los
@@ -39,7 +39,12 @@ con los valores usados por procesos ejecutados directamente en Windows.
 Los .env locales ya estÃ¡n preparados con credenciales de desarrollo
 coherentes entre PostgreSQL, el usuario de aplicaciÃ³n, el usuario de ingesta,
 JWT y Gmail SMTP. TambiÃ©n se conserva la cuenta funcional de administrador y
-soporte en BD_HS/docs/credenciales-locales.md.
+ soporte en BD_HS/docs/credenciales-locales.md.
+
+La tabla completa de hosts, puertos y conexiones para DBeaver/pgAdmin está en
+[`docs/configuracion-entornos.md`](configuracion-entornos.md). Regla rápida:
+desde Windows PostgreSQL es `localhost:5433`; dentro de Docker es
+`postgres:5432`.
 
 No sobrescribas un .env local que ya funciona. Si falta alguno, crÃ©alo desde
 su plantilla:

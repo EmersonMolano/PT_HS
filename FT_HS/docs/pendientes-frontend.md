@@ -1,15 +1,23 @@
 ﻿# Pendientes exclusivos del frontend
 
-Ãšltima revisiÃ³n: 2026-09-14.
+Ãšltima revisiÃ³n: 2026-09-23.
 
 Este archivo contiene Ãºnicamente trabajo del cliente `FT_HS/frontend`. Las tareas de backend, base de datos, SMTP, MQTT e IoT se documentan en sus respectivos proyectos.
+
+## Actualizacion vigente 2026-09-23
+
+La API, PostgreSQL y Mosquitto estan operativos, pero la base local no tiene
+hogares, dispositivos ni lecturas porque el ESP32 no esta conectado y las
+pruebas limpian sus datos temporales. Por tanto, las pantallas de consumo y
+dispositivos deben mostrar estado vacio hasta completar el alta, vinculacion y
+primera telemetria.
 
 ## Completado
 
 - [x] Rutas pÃºblicas y protegidas con React Router.
 - [x] Login, registro, refresh token, logout y recuperaciÃ³n/restablecimiento de contraseÃ±a conectados al cliente HTTP, incluyendo validaciÃ³n del contexto del token.
 - [x] Estado central de autenticaciÃ³n y permisos funcionales.
-- [x] Roles `Administrator`, `Support`, `HomeUser` y `Guest` reflejados en la navegaciÃ³n.
+- [x] Roles `Administrator`, `HomeUser` y `Guest` reflejados en la navegación.
 - [x] Hogar activo compartido entre las pantallas que dependen de un hogar.
 - [x] Perfil conectado a `/users/me` y actualizaciÃ³n de nombre, telÃ©fono y ciudad.
 - [x] Cambio de contraseÃ±a conectado a `/auth/change-password`.
@@ -25,18 +33,19 @@ Este archivo contiene Ãºnicamente trabajo del cliente `FT_HS/frontend`. Las ta
 - [x] Build de producciÃ³n verificado con Vite.
 - [x] Seguridad consulta `/auth/sessions` y permite revocar una sesiÃ³n, las demÃ¡s o todas.
 - [x] GestiÃ³n de usuarios consume `/users` con bÃºsqueda, filtro, paginaciÃ³n y acciones de estado.
+- [x] Panel administrativo muestra usuarios administrables y carga sus hogares y dispositivos mediante `/users/:userId/overview`.
 - [x] Dispositivos consume el contrato paginado del backend con ordenamiento, estados de carga/error/vacÃ­o y reintento.
 - [x] Hogares muestra estados de carga, vacÃ­o y error con reintento; los miembros tienen su propio estado de carga/error.
 - [x] Hogares oculta creaciÃ³n, gestiÃ³n de miembros y solicitudes a roles sin `homes.manage`, manteniendo la consulta visual.
 - [x] Hogares presenta las tarjetas en un carrusel horizontal responsive con controles de navegación.
 - [x] Las vistas protegidas validan el permiso tambiÃ©n al entrar por URL directa.
-- [x] El menÃº separa el panel de `Administrator` y `Support` de las vistas del hogar.
-- [x] `Administrator` queda limitado a Panel Administrador, GestiÃ³n de Usuarios, AuditorÃ­a y ConfiguraciÃ³n; `Support` queda limitado a Panel de Soporte y ConfiguraciÃ³n.
+- [x] El menú separa el panel de `Administrator` de las vistas del hogar e integra los tickets.
+- [x] `Administrator` gestiona Panel Administrador, Usuarios, Auditoría, Tickets de soporte y Configuración.
 - [x] Dispositivos permite registrar `location`, editar nombre/ubicaciÃ³n y vincular un dispositivo existente por su cÃ³digo tÃ©cnico.
 - [x] `HomeUser` y `Guest` gestionan sus preferencias de notificaciones desde Configuración y pueden abrir sus tickets propios en `/app/support`.
-- [x] `Administrator` accede a `/app/admin`, `/app/users` y `/app/audit`; `Support` accede a `/app/support/management`, la bandeja de tickets recibidos.
+- [x] `Administrator` accede a `/app/admin`, `/app/users`, `/app/audit` y `/app/support/management`, la bandeja de tickets recibidos.
 - [x] AdministraciÃ³n de roles funcionales desde `/app/users` mediante `rolesApi`, con asignaciÃ³n y retiro de roles.
-- [x] Soporte: abrir detalle, consultar historial, enviar respuestas y actualizar estados desde el panel de `Administrator`/`Support`.
+- [x] Soporte: abrir detalle, consultar historial, enviar respuestas y actualizar estados desde el panel de `Administrator`.
 - [x] Soporte: pantalla de tickets propios para usuarios autenticados, con creación, filtros, detalle, respuestas y estados.
 - [x] Soporte: paginación real del listado, filtro por prioridad y ordenamiento por fecha, título, prioridad o estado; incluye carga y controles accesibles.
 - [x] Vista `/app/consumption` conectada a resumen, lecturas diarias, promedios horarios y costo del backend.
@@ -48,10 +57,12 @@ Este archivo contiene Ãºnicamente trabajo del cliente `FT_HS/frontend`. Las ta
 - [x] Layout: menÃº lateral colapsable, selector de colores retirado del encabezado y correo oculto en el acceso al perfil.
 - [x] Actuadores: estados del hogar y controles de vÃ¡lvula/bomba conectados a `/api/v1/actuators`; las acciones se muestran solo con `actuators.manage`.
 
+- [x] Consumo, dashboard y dispositivos refrescan la última telemetría del backend cada 5 segundos sin exponer MQTT al navegador.
+
 ## Prioridad alta
 
 - [ ] Probar manualmente login, registro, refresh y logout con los cuatro usuarios funcionales.
-- [ ] Probar manualmente navegaciÃ³n y redirecciÃ³n por permisos con `Administrator`, `Support`, `HomeUser` y `Guest`.
+- [ ] Probar manualmente navegación y redirección por permisos con `Administrator`, `HomeUser` y `Guest`.
 - [ ] AÃ±adir estados visuales consistentes de carga, vacÃ­o y error a todas las pantallas.
 - [ ] Completar paginaciÃ³n, filtros y ordenamiento visual donde el backend ya envÃ­a `pagination` en las pantallas restantes.
 - [ ] Revisar textos restantes que aÃºn estÃ©n escritos directamente en espaÃ±ol en vez de usar i18n.
@@ -71,8 +82,8 @@ Este archivo contiene Ãºnicamente trabajo del cliente `FT_HS/frontend`. Las ta
 
 - [ ] Privacidad: gestionar eliminaciÃ³n/cancelaciÃ³n completa y mostrar el detalle administrativo de una solicitud.
 - [x] Historial y descarga de reportes persistidos en PDF/Excel mediante `reportsApi.history` y `reportsApi.downloadStored`.
-- [ ] Subida y persistencia de foto de perfil.
-- [ ] Tiempo real de lecturas y estados MQTT.
+- [x] Selección, validación y persistencia de avatar como `avatarDataUrl` mediante `/users/me`.
+- [ ] Tiempo real push de lecturas y estados MQTT mediante SSE/WebSocket; mientras tanto se usa polling HTTP cada 5 segundos.
 - [x] Comandos de actuadores bÃ¡sicos; quedan pendientes pruebas con ESP32 real y tiempo real MQTT.
 
 ## Criterio para cerrar una tarea
@@ -84,3 +95,6 @@ Una tarea frontend se marca como terminada solo cuando:
 3. No contiene datos quemados que aparenten ser datos reales.
 4. Respeta los permisos funcionales recibidos.
 5. Compila y pasa las pruebas correspondientes.
+> Actualización 2026-09-26: la base local sí contiene dispositivos y lecturas;
+> este archivo conserva observaciones del corte anterior. El estado verificado
+> vigente está en `../../docs/estado-verificado-2026-09-26.md`.

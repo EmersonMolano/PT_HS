@@ -17,7 +17,7 @@ const controller = new TicketController({
   respondTicket: new RespondTicket({ repository }),
   listTicketResponses: new ListTicketResponses({ repository })
 });
-const requireSupport = createRequirePermission({ permissionChecker: new PostgresPermissionChecker() })('tickets.manage');
+const requireTicketManager = createRequirePermission({ permissionChecker: new PostgresPermissionChecker() })('tickets.manage');
 
 router.use(authenticate);
 router.get('/catalogs', asyncHandler((req, res) => controller.categories(req, res)));
@@ -25,7 +25,7 @@ router.get('/tickets', asyncHandler((req, res) => controller.list(req, res)));
 router.get('/tickets/:ticketId', asyncHandler((req, res) => controller.get(req, res)));
 router.get('/tickets/:ticketId/responses', asyncHandler((req, res) => controller.responses(req, res)));
 router.post('/tickets', asyncHandler((req, res) => controller.create(req, res)));
-router.patch('/tickets/:ticketId', requireSupport, asyncHandler((req, res) => controller.update(req, res)));
+router.patch('/tickets/:ticketId', requireTicketManager, asyncHandler((req, res) => controller.update(req, res)));
 router.post('/tickets/:ticketId/responses', asyncHandler((req, res) => controller.respond(req, res)));
 
 module.exports = router;

@@ -1,8 +1,12 @@
 # Flujo de datos IoT actual
 
-Fecha de revisión: 2026-09-15.
+Fecha de revisión: 2026-09-23.
 
 Este documento describe el flujo MQTT implementado en el backend y separa la persistencia de lecturas y estados de los comandos de actuadores ya expuestos por REST.
+
+Estado vigente: PostgreSQL y Mosquitto están arriba y la prueba de ingesta con
+deduplicación pasó. No hay lecturas persistidas en la base local hasta volver a
+registrar, vincular y conectar el ESP32 físico.
 
 ## Flujo de telemetría
 

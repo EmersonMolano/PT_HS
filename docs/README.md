@@ -6,11 +6,19 @@ conservan el detalle técnico de cada proyecto.
 
 ## Fuente de verdad
 
+- [Estado verificado vigente — 2026-09-26](./estado-verificado-2026-09-26.md)
+
 - [Plan de integracion IoT y claim de hardware](./iot/PLAN_INTEGRACION_IOT_BACKEND_FRONT_BD_HIDROSMART.md)
+
+- [MQTT del ESP32 en la red local](./mqtt-esp32-red-local.md)
+
+- [Vinculacion del ESP32 por hardwareId y broker sin IP manual](./iot/vinculacion-por-hardware-id.md)
 
 - [Integración ESP32, BD, backend y frontend](./integracion-esp32-bd-backend-front.md)
 
 - [Estado integral, evidencias y pendientes](./estado-integral.md)
+- [Auditoria vigente del 2026-09-23](./auditoria-estado-2026-09-23.md)
+- [Validación reproducible de integración](./validacion-integracion.md)
 - [Cambios verificados del 2026-09-14](./cambios-2026-09-14.md)
 - [Bitácora anterior del 2026-09-13](./cambios-2026-09-13.md)
 - [README de ejecución en Docker](../README.md)

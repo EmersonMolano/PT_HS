@@ -44,6 +44,10 @@ permitir deduplicación en el backend. Consulta el
 
 ## Configuración MQTT
 
+La configuración del `.env` y el envío del host por BLE están en
+[`docs/mqtt-esp32-red-local.md`](../docs/mqtt-esp32-red-local.md); el ciclo de
+vinculación está en [`docs/dispositivos-iot.md`](../docs/dispositivos-iot.md).
+
 El host debe ser visible desde la Wi-Fi del ESP32; no uses `localhost` ni
 `mosquitto`, pues solo funcionan dentro del equipo o la red Docker. Para la red
 local usa un nombre DNS/mDNS estable o una reserva DHCP gestionada.

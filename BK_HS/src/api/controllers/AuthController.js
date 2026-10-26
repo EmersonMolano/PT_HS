@@ -69,12 +69,12 @@ class AuthController {
   }
 
   async logout(req, res) {
-    const refreshToken = getCookie(req, this.authCookies.refreshTokenName);
     try {
-      await this.sessionService.revoke({ refreshToken, userId: req.user.id, sessionId: req.user.sessionId });
-    } finally {
-      clearSessionCookies(res, this.authCookies);
+      await this.sessionService.revokeSession({ userId: req.user.id, sessionId: req.user.sessionId });
+    } catch (error) {
+      if (error.status !== 404) throw error;
     }
+    clearSessionCookies(res, this.authCookies);
     res.status(204).send();
   }
 

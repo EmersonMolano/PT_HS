@@ -21,6 +21,8 @@ jobs:
       INTEGRATION_DATABASE_URL: postgresql://hidro_smart_app:ci_app_password@localhost:5433/hidro_smart
       INTEGRATION_ADMIN_DATABASE_URL: postgresql://hidro_smart_admin:ci_admin_password@localhost:5433/hidro_smart
       INTEGRATION_MQTT_URL: mqtt://localhost:1883
+      # El frontend se compila en CI, sin un ESP32 físico; Compose exige este host.
+      MQTT_DEVICE_HOST: localhost
       INTEGRATION_USER_EMAIL: ci-homeuser@hidrosmart.local
       INTEGRATION_USER_PASSWORD: CiHomeuser123!
       INTEGRATION_ADMIN_EMAIL: ci-administrator@hidrosmart.local

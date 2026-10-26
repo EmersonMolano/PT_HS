@@ -1,52 +1,15 @@
-# Frontend y móvil
+# Documentación del frontend
 
-## Organización
-
-| Ruta | Responsabilidad |
+| Documento | Contenido |
 | --- | --- |
-| `src/app` | Rutas, layout, proveedores y páginas de aplicación. |
-| `src/features` | Pantallas y lógica por dominio funcional. |
-| `src/shared` | Cliente HTTP, componentes comunes, i18n, almacenamiento y utilidades. |
-| `src/mobile` | Entrada Expo, WebView y puente nativo. |
-| `scripts` | Generación del bundle web y ejecución Android. |
+| [01_shell-routing.md](01_shell-routing.md) | Entrada, rutas, layouts y proveedores. |
+| [02_features.md](02_features.md) | Módulos funcionales y regla de ubicación de pantallas. |
+| [03_shared.md](03_shared.md) | Configuración, cliente HTTP, i18n y componentes compartidos. |
+| [04_mobile.md](04_mobile.md) | Expo Go, WebView, navegación móvil y BLE. |
+| [05_runtime-styles.md](05_runtime-styles.md) | Estilos, bundle, variables y ejecución web/móvil. |
+| [06_api-y-autenticacion.md](06_api-y-autenticacion.md) | Cliente HTTP, cookies, CSRF y sesión. |
+| [07_componentes-y-responsive.md](07_componentes-y-responsive.md) | Organización UI, navegación y responsive. |
+| [08_pruebas-frontend.md](08_pruebas-frontend.md) | Validación actual y cobertura pendiente. |
 
-## Guías detalladas por capa
-
-- [01_shell-routing: entrada, rutas y proveedores](01_shell-routing.md)
-- [02_features: módulos funcionales](02_features.md)
-- [03_shared: configuración, HTTP, i18n y UI](03_shared.md)
-- [04_mobile: Expo, WebView y BLE](04_mobile.md)
-- [05_runtime-styles: web, estilos y despliegue](05_runtime-styles.md)
-
-## Sesión y API
-
-El cliente HTTP usa `credentials: include`, por lo que el navegador recibe las
-cookies `HttpOnly` que entrega la API. Para operaciones mutables agrega
-automáticamente el token CSRF. El frontend no persiste tokens de sesión en
-`sessionStorage`.
-
-En Docker, Nginx envía `/api/v1` al backend. En desarrollo con Vite,
-`VITE_API_URL` debe apuntar a `http://localhost:3000/api/v1`.
-
-## Roles
-
-- Owner/HomeUser puede gestionar hogares, miembros y dispositivos según sus
-  permisos.
-- Guest solo consulta recursos compartidos autorizados.
-- Administrator administra usuarios, roles y módulos administrativos.
-
-Los permisos finales se aplican en la API y PostgreSQL; la interfaz no es una
-barrera de seguridad.
-
-## Calidad
-
-```powershell
-Set-Location FT_HS/frontend
-npm.cmd run lint
-npm.cmd run typecheck
-npm.cmd run build
-npm.cmd run mobile:prepare
-```
-
-La guía completa de pruebas y Android está en
-[../../docs/pruebas.md](../../docs/pruebas.md).
+La interfaz consume el contrato del backend en
+[`../../BK_HS/docs/openapi.yaml`](../../BK_HS/docs/openapi.yaml).

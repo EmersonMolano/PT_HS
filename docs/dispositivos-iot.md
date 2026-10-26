@@ -1,361 +1,90 @@
-# Guía de dispositivos IoT
+# Guía operativa de dispositivos IoT
 
-Fecha de actualización: 2026-10-13.
+Última revisión del código: 2026-10-15. Esta guía describe el flujo implementado; no sustituye una prueba física del ESP32.
 
-Para el estado del control físico de válvulas y el cableado seguro, consulta la
-[guía de integración de una válvula con ESP32](./electrovalvula-esp32.md). El
-firmware documentado aquí todavía no acciona válvulas.
+## Identidades: no confundir
 
-Esta guía explica cómo registrar, vincular, editar y comprobar un dispositivo
-IoT en HidroSmart. El flujo es el mismo para un ESP32 con caudalímetro u otro
-equipo compatible con el contrato MQTT del proyecto.
+| Identidad             | Para qué sirve                                               | Dónde se configura                                                            |
+| --------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| `code` / `deviceCode` | Identifica el registro lógico y forma los topics MQTT.       | En PostgreSQL y en la configuración privada `firmware/provisioning/config.h`. |
+| `hardwareId`          | Identifica la placa física; el firmware lo deriva del eFuse. | Lo detecta BLE y el frontend lo reclama para el dispositivo lógico.           |
 
-### Ciclo de asociacion y BLE
+La base de datos incluye tres códigos lógicos reservados en `BD_HS/02_dml/03_upserts/001_preassigned_esp32_device_codes.sql`. No son los `hardwareId` físicos. Para una placa preasignada, configura en `config.h` el código reservado que le corresponde; no reutilices el mismo en dos placas. Si `HIDROSMART_DEVICE_CODE` queda vacío, el firmware usa como código lógico su propio `hardwareId`, que debe existir en la base antes de intentar vincularlo.
 
-BLE permanece anunciado mientras el ESP32 no este asociado a un hogar. El
-frontend puede provisionar la red aunque el registro ya exista en el hogar;
-cuando el backend confirma la asociacion por MQTT, publica `confirm_link` y el
-firmware bloquea el acceso BLE. La red Wi-Fi permanece guardada en NVS.
+## Flujo de primera vinculación
 
-La accion **Desvincular dispositivo** elimina solo la relacion con el hogar y
-publica `unlink` por MQTT para que el ESP32 vuelva a anunciar BLE. La accion
-**Eliminar dispositivo** esta bloqueada mientras exista cualquier relacion en
-`home.home_device`; primero hay que desvincularlo. Al eliminarlo se borran en
-cascada sus datos historicos de PostgreSQL.
+1. Inicia Docker, aplica las migraciones y confirma que el código lógico del equipo exista en la base.
+2. Inicia sesión como titular del hogar, selecciona el hogar y abre **Dispositivos IoT → Vincular dispositivo**. La interfaz actual vincula por `code`, no por `hardwareId`.
+3. Escribe el código lógico exacto que usa el firmware. La API valida el hogar y publica `confirm_link` cuando corresponde.
+4. Abre **Configurar** en la tarjeta. Con una compilación que soporte BLE, el frontend detecta el `hardwareId` y lo asocia al registro lógico.
+5. Envía SSID y contraseña Wi-Fi por BLE. El host y puerto MQTT se toman del entorno del frontend; no se escriben en PostgreSQL ni se solicitan como campos al usuario.
+6. El ESP32 se conecta a Wi-Fi y al broker y publica telemetría cada cinco segundos. El backend valida el código/topic y persiste las lecturas en PostgreSQL.
 
-Estado del último corte: el esquema y el backend están operativos, pero la
-base local quedó sin hogares, dispositivos ni lecturas después de las pruebas
-de integración. Para ver métricas en la interfaz hay que registrar/vincular el
-ESP32 y publicar nuevamente por MQTT.
+El `hardwareId` y el `deviceCode` pueden ser distintos. Si el firmware publica con un código distinto del que se vinculó, el backend no asociará correctamente el mensaje al dispositivo esperado.
 
-## Conceptos importantes
+### Límite de Expo Go
 
-- `code`: identificador técnico lógico del dispositivo. Se genera en el alta si
-  no se envía y debe coincidir con `{deviceCode}` en el topic MQTT.
-- `name`: nombre visible en la aplicación, por ejemplo `Sensor Baño`.
-- `type`: tipo de dispositivo registrado, por ejemplo `flow_sensor`.
-- `location`: lugar visible dentro del hogar, por ejemplo `Baño principal`.
-  Es opcional y admite hasta 120 caracteres.
-- `homeId`: UUID del hogar al que se asociará el dispositivo.
-- `alertThreshold`: umbral de flujo que se puede configurar para generar una
-  alerta.
-- `wifiSsid`: SSID de la red activa reportada por el ESP32. Es un dato
-  informativo y no contiene la contraseña.
-- `lastIp`: última IP local reportada por el dispositivo.
+Expo Go permite abrir y revisar la aplicación móvil, pero no incluye `react-native-ble-plx`. El aprovisionamiento BLE debe probarse desde Chrome/Edge compatible con Web Bluetooth o con una compilación nativa de desarrollo de HidroSmart. La simulación MQTT no reemplaza esa prueba física.
 
-El `code` no se debe cambiar para que coincida con el nombre mostrado. El
-nombre y la ubicación son datos administrativos; el código lógico es la
-identidad que usa MQTT y el `hardwareId` identifica la placa física.
+## Cambiar un dispositivo a otro hogar
 
-## Aprovisionamiento del ESP32
+Una placa debe trasladarse como una operación explícita:
 
-El `hardwareId` es la identidad física estable que genera el ESP32 con los 12
-caracteres hexadecimales del eFuse, por ejemplo `HS-141F47470968`. No se escribe
-en el alta: se detecta por BLE y se asocia después desde el apartado
-**Configurar** de la tarjeta. La pantalla también muestra el estado
-`PENDING`, `BLE_READY`, `WIFI_CONNECTED`, `MQTT_CONNECTED`, `COMPLETE` o
-`FAILED`.
+1. En el hogar actual, el titular pulsa **Desvincular dispositivo**.
+2. El backend elimina la relación con ese hogar y publica `unlink`. El firmware conserva Wi-Fi y el código lógico, borra el estado de asociación y vuelve a anunciar BLE.
+3. Selecciona el nuevo hogar y vincula el mismo código lógico disponible.
+4. Confirma que el estado vuelva a **En línea** y que lleguen lecturas bajo el mismo topic.
 
-En la placa probada, la salida observada fue `HS-141F47470968`, con YF-S201 en
-GPIO 27, cero redes guardadas y BLE anunciado como `HidroSmart-470968`. Esto
-significa que el sensor está listo, pero todavía no puede publicar porque falta
-provisionar Wi-Fi y el broker. El alta genera un código lógico, por ejemplo
-`ESP32-A1B2C3D4E5F6`; después de asociar el hardware, ese código será el usado
-en el topic MQTT:
+No registres un segundo código para la misma placa durante el traslado. Si solo cambia el hogar y la red Wi-Fi sigue siendo la misma, normalmente no es necesario volver a enviar las credenciales.
 
-```text
-hidrosmart/devices/ESP32-A1B2C3D4E5F6/telemetry
-```
+## Desvincular no es eliminar
 
-La actualización administrativa utiliza:
+- **Desvincular** quita la relación hogar-dispositivo y solicita sincronizar el estado por MQTT. Conserva el registro, código lógico, Wi-Fi guardado e historial.
+- **Eliminar** es una operación distinta y destructiva: el backend solo la permite cuando el dispositivo no está vinculado a ningún hogar. La función SQL elimina también el historial asociado.
 
-```http
-PATCH /api/v1/devices/{deviceId}/provisioning
-```
+Primero desvincula de todos los hogares; elimina solo si realmente se quiere retirar el equipo y sus datos históricos.
 
-```json
-{
-  "hardwareId": "HS-141F47470968",
-  "provisioningStatus": "COMPLETE",
-  "provisioningError": null
-}
-```
+## Comprobación de telemetría
 
-Para asociar una placa detectada a un dispositivo lógico ya existente, consulta
-primero `GET /api/v1/devices/hardware/HS-141F47470968` y luego ejecuta
-`POST /api/v1/devices/{deviceId}/claim-hardware` con
-`{ "hardwareId": "HS-141F47470968" }`. La asociación requiere
-`devices.manage` y evita que el mismo hardware quede en dos equipos.
-
-Las credenciales Wi-Fi se escriben por BLE directamente en el ESP32 usando el
-servicio `4fafc201-1fb5-459e-8fcc-c5c9c331914b`, la característica de
-configuración `beb5483e-36e1-4688-b7f5-ea07361b26a8` y la característica de
-estado `beb5483e-36e1-4688-b7f5-ea07361b26a9`; nunca se guardan en la base ni se
-envían al backend. La pantalla web puede solicitar el dispositivo, leer el
-estado inicial y enviar:
-
-```json
-{
-  "ssid": "APRENDICES",
-  "password": "TU_PASSWORD",
-  "mqttHost": "<MQTT_DEVICE_HOST>",
-  "mqttPort": 1883,
-  "deviceCode": "ESP32-001"
-}
-```
-
-El estado inicial incluye `state: ready`, `hardwareId`, `deviceCode`, `firmwareVersion`,
-`savedNetworks`, `wifiConnected` y `mqttConnected`. Luego el ESP32 notifica
-`wifi_connecting`, `wifi_connected`, `provisioning_complete`, `wifi_failed` o
-`mqtt_unreachable`. Web Bluetooth funciona en Chrome/Edge sobre HTTPS o
-localhost. La aplicación móvil ya incluye el puente nativo con
-`react-native-ble-plx`; para probarlo se necesita un development build, no Expo
-Go.
-
-## Configuración centralizada
-
-El botón **Configurar** abre un único apartado para el dispositivo. Allí se
-pueden editar el nombre, la ubicación y el umbral; consultar el código lógico,
-el `hardwareId`, la red Wi-Fi, la última IP, el RSSI y el estado de conexión;
-abrir el historial de lecturas; y ejecutar el provisionamiento BLE aunque ya
-exista una conexión Wi-Fi confirmada.
-
-La contraseña Wi-Fi se muestra únicamente como un campo vacío para reemplazar
-la red. No se puede recuperar desde el ESP32, la API ni PostgreSQL, y nunca se
-devuelve en una respuesta. El botón **Conectar por Bluetooth** permanece
-disponible para volver a enviar credenciales, cambiar el broker MQTT o recuperar
-el equipo sin borrar la red guardada.
-
-## Requisitos previos
-
-Desde la raíz `PT_HS`, Docker Desktop debe estar iniciado y la pila local debe
-estar levantada:
+Desde la raíz del proyecto, observa mensajes del broker local:
 
 ```powershell
-docker compose --env-file .env up -d
-docker compose --env-file .env ps
+docker compose exec mosquitto mosquitto_sub -h localhost -p 1883 -t "hidrosmart/devices/+/telemetry" -v
 ```
 
-La base debe tener las migraciones aplicadas:
+Durante una prueba de unos 20 segundos deberían verse varias publicaciones separadas aproximadamente cinco segundos. Verifica que el segmento del topic coincida exactamente con `deviceCode` y que cada lectura use un `mqttMessageId` único; al reintentar el mismo mensaje, se conserva su ID para evitar duplicados.
+
+El contrato completo de topics, telemetría, estado y comandos está en [`../firmware/mqtt/contract.md`](../firmware/mqtt/contract.md). La prueba automatizada contra recursos de prueba se ejecuta con:
+
+Configura primero las variables `SIM_OWNER_LOGIN`, `SIM_OWNER_PASSWORD`, `SIM_HOME_ID` y `SIM_DEVICE_CODE` descritas en [Pruebas y validación](pruebas.md).
 
 ```powershell
-docker compose --env-file .env --profile tooling run --rm liquibase validate
-docker compose --env-file .env --profile tooling run --rm liquibase update
+npm.cmd --prefix BK_HS run simulate:iot
 ```
 
-La pantalla de dispositivos necesita una sesión autenticada y un hogar
-seleccionado. Registrar, vincular, editar, configurar, desactivar y desvincular
-requiere el permiso `devices.manage` y, para las operaciones del hogar, ser su
-titular (`Owner`). El backend y PostgreSQL vuelven a validar estos permisos;
-ocultar un botón en el frontend no es un mecanismo de seguridad.
+No uses esa simulación con un hogar/dispositivo real: modifica asociaciones y genera lecturas.
 
-## Opción A: registrar un dispositivo nuevo
+## Fallos comunes
 
-Esta opción crea el dispositivo lógico y lo asocia al hogar. El usuario no
-escribe códigos, `hardwareId` ni credenciales de red en este formulario.
+| Síntoma                             | Revisar                                                                                                                                                 |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No encuentra el código al vincular  | Que la migración de códigos reservados se haya aplicado o que el dispositivo se haya registrado antes. Compara `code` con el publicado por el firmware. |
+| BLE no aparece en Expo Go           | Es una limitación de Expo Go; prueba Web Bluetooth compatible o una compilación nativa.                                                                 |
+| El ESP32 no resuelve el broker      | Revisa `MQTT_DEVICE_HOST`: debe resolver desde la Wi-Fi del ESP32; `localhost` y `mosquitto` no sirven para una placa física.                           |
+| Hay conexión MQTT, pero no lecturas | Comprueba el topic, `deviceCode`, formato del payload, `mqttMessageId`, asociación activa y logs del backend.                                           |
+| El traslado no activa la placa      | Confirma que el comando `unlink` llegó o que el ESP32 vuelva a conectarse al broker para sincronizar el estado.                                         |
 
-1. Abre el frontend en `http://localhost:5173` e inicia sesión.
-2. Entra en **Dispositivos IoT**.
-3. Selecciona el hogar correcto.
-4. Pulsa **Registrar nuevo dispositivo**.
-5. Completa únicamente:
-   - **Nombre**: nombre que verá la persona usuaria.
-   - **Tipo**: tipo del sensor o dispositivo.
-   - **Umbral**: opcional; se expresa en m³/h según la configuración actual.
-6. Guarda el formulario.
+## Rutas API relacionadas
 
-El backend genera automáticamente el código lógico `ESP32-XXXXXXXXXXXX`.
-Después, desde **Configurar**, el frontend descubre el `hardwareId` por
-Bluetooth, lo asocia al dispositivo lógico y permite enviar la red Wi-Fi y el
-host MQTT mientras el equipo todavía no está configurado.
+La sesión autenticada del frontend llama a estas rutas; la autorización efectiva se vuelve a validar en backend y PostgreSQL:
 
-El frontend envía una solicitud `POST /api/v1/devices` con este formato:
-
-```json
-{
-  "homeId": "11111111-1111-4111-8111-111111111111",
-  "name": "Sensor Baño Principal",
-  "type": "flow_sensor",
-  "alertThreshold": 10
-}
-```
-
-El backend registra el dispositivo y crea la asociación con el hogar dentro de
-una transacción. La base ejecuta la función de registro con el código generado;
-no se debe insertar el dispositivo directamente en PostgreSQL para el flujo
-normal.
-
-## Opción B: vincular un dispositivo ya registrado
-
-Esta opción se usa cuando el dispositivo ya existe en la base, pero todavía no
-está asociado al hogar seleccionado. Es el caso habitual de un equipo
-pre-registrado o de un dispositivo que se quiere asociar a otro hogar.
-
-1. Entra en **Dispositivos IoT** y selecciona el hogar cuyo titular hará la
-   vinculación.
-2. Pulsa **Vincular dispositivo**.
-3. Escribe el código exacto publicado por el equipo, por ejemplo `ESP32-001`.
-4. Confirma.
-
-La API utilizada es:
-
-```http
-POST /api/v1/devices/link
-Authorization: Bearer <access_token>
-Content-Type: application/json
-```
-
-```json
-{
-  "homeId": "11111111-1111-4111-8111-111111111111",
-  "code": "ESP32-001"
-}
-```
-
-La función `device.fn_link_device_to_home(code, home_id)` comprueba el permiso,
-la titularidad del hogar, que el dispositivo esté activo y que el código exista.
-Si la relación ya existía suspendida, la reactiva; no crea asociaciones
-duplicadas.
-
-## Editar nombre y ubicación
-
-En **Dispositivos IoT**, pulsa **Configurar** en la tarjeta del equipo y edita
-el nombre o la ubicación. El código MQTT no se edita desde este formulario.
-
-La API es:
-
-```http
-PUT /api/v1/devices/{deviceId}
-Authorization: Bearer <access_token>
-Content-Type: application/json
-```
-
-```json
-{
-  "name": "Sensor Baño Principal",
-  "location": "Baño principal"
-}
-```
-
-La ubicación se guarda en `device.device.location` como `VARCHAR(120)`. Los
-dispositivos existentes pueden tener la ubicación vacía; al editarlo se puede
-completar sin cambiar su código ni sus lecturas.
-
-## Configurar umbral y estado
-
-El umbral se modifica desde la configuración del dispositivo y se actualiza
-con `PUT /api/v1/devices/{deviceId}/config` o con la operación de actualización
-disponible en el frontend. El estado administrativo se gestiona con las rutas
-de estado y desactivación protegidas.
-
-La ubicación, el nombre y el umbral no sustituyen las métricas del ESP32. Las
-lecturas llegan exclusivamente por MQTT y se persisten en PostgreSQL mediante
-la función protegida de ingesta.
-
-## Cómo verificar que el dispositivo está funcionando
-
-### Ver mensajes en Mosquitto
-
-Desde la raíz del proyecto:
-
-```powershell
-docker compose --env-file .env exec mosquitto mosquitto_sub `
-  -h localhost -p 1883 -t "hidrosmart/devices/+/telemetry" -v
-```
-
-El topic debe contener el mismo código registrado. Un payload compatible con
-el ESP32 puede verse así:
-
-```json
-{
-  "deviceId": "ESP32-001",
-  "flowRateLpm": 3.973,
-  "consumptionLiters": 0.331,
-  "totalLiters": 9.275,
-  "pulses": 149,
-  "sampleIntervalSeconds": 5,
-  "signalQuality": -33
-}
-```
-
-### Consultar lecturas persistidas
-
-En el entorno local se puede consultar la evidencia con el rol administrador
-de PostgreSQL, sin modificar datos:
-
-```powershell
-$query = "SELECT d.code, COALESCE(d.location, '—') AS location, COUNT(sr.reading_id) AS readings, MAX(sr.measured_at) AS last_reading FROM device.device d LEFT JOIN consumption.sensor_reading sr ON sr.device_id = d.device_id WHERE d.code = 'ESP32-001' GROUP BY d.code, d.location;"
-docker compose --env-file .env exec -T postgres psql -U hidro_smart_admin -d hidro_smart -c $query
-```
-
-La columna `readings` debe aumentar mientras el ESP32 publica muestras y
-`last_reading` debe actualizarse. No se debe corregir el contador editando la
-tabla: si no aumenta, se debe revisar el topic, el código, la asociación y los
-logs del backend.
-
-### Consultar red e IP desde PostgreSQL
-
-Para comprobar los metadatos recibidos del último estado MQTT:
-
-```powershell
-$query = "SELECT code, hardware_id, wifi_ssid, last_ip, wifi_rssi_dbm, connectivity_status, provisioning_status, last_connection_at FROM device.device WHERE code = 'ESP32-001';"
-docker compose --env-file .env exec -T postgres psql -U hidro_smart_admin -d hidro_smart -c $query
-```
-
-`wifi_ssid` y `last_ip` solo tendrán valor después de que el firmware publique
-un estado que incluya `ssid` e `ip`/`lastIp`. La contraseña no aparecerá en esta
-consulta porque no se almacena.
-
-### Consultar desde la API
-
-Con un token obtenido al iniciar sesión:
-
-```powershell
-$headers = @{ Authorization = "Bearer <access_token>" }
-Invoke-WebRequest -Headers $headers `
-  http://localhost:3000/api/v1/devices/{deviceId}/telemetry/latest
-```
-
-La respuesta contiene la última lectura autorizada o `data: null` si todavía no
-existe una muestra para ese dispositivo.
-
-## Errores frecuentes
-
-| Síntoma                       | Causa probable                                                 | Qué revisar                                              |
-| ----------------------------- | -------------------------------------------------------------- | -------------------------------------------------------- |
-| `401 Unauthorized`            | No hay sesión o el token expiró                                | Iniciar sesión y renovar la sesión                       |
-| `403 Forbidden`               | Falta `devices.manage` o el usuario no es titular del hogar    | Rol funcional, permiso y hogar seleccionado              |
-| `404` al vincular             | El código no existe, está inactivo o está escrito diferente    | Comparar con `device.device.code` y con el topic MQTT    |
-| Código duplicado al registrar | El equipo ya fue registrado                                    | Usar **Vincular dispositivo**                            |
-| Se muestra ubicación `—`      | El registro anterior no tenía ubicación                        | Abrir **Configurar** y guardarla                         |
-| No llegan lecturas            | Topic, código, asociación o broker incorrectos                 | Suscribirse a Mosquitto y revisar logs del backend       |
-| Lectura rechazada             | Payload inválido, dispositivo inactivo o sin asociación activa | Revisar el contrato MQTT y la relación hogar-dispositivo |
-
-## Modelo de datos y archivos de referencia
-
-- `device.device`: identidad, código, nombre, tipo, ubicación, estado,
-  configuración y metadatos no sensibles de red (`wifi_ssid`, `last_ip`).
-- `home.home_device`: asociación activa entre hogares y dispositivos.
-- `consumption.sensor_reading`: lecturas de consumo y métricas del ESP32.
-- `device.device_telemetry_history`: historial de conectividad y salud.
-- `device.fn_register_device_with_location(...)`: registro controlado.
-- `device.fn_link_device_to_home(...)`: vinculación controlada.
-- `BK_HS/docs/03-endpoints.md`: inventario de rutas REST.
-- `BK_HS/docs/14-mqtt-protocol.md`: contrato MQTT.
-- `BK_HS/docs/13-flujo-datos-iot.md`: recorrido ESP32 → Mosquitto → backend →
-  PostgreSQL.
-
-## Estado actual verificado
-
-En la última verificación local, Liquibase tenía 245 changesets aplicados y el
-backend tenía 174 pruebas unitarias aprobadas. El flujo de registro, edición,
-vinculación, aprovisionamiento BLE, persistencia de SSID/IP y consulta del
-historial ya está implementado. En el corte actual no existen lecturas
-persistidas porque las pruebas limpiaron los datos temporales; la prueba final
-pendiente es validar varios minutos de transmisión
-continua con el ESP32 y el caudalímetro físicos, además de endurecer MQTT antes
-de producción.
-
-> Actualización 2026-09-26: el host MQTT ya no se pide en la interfaz. El
-> frontend lo toma de `VITE_MQTT_DEVICE_HOST` y lo envía por BLE. La referencia
-> vigente es [`mqtt-esp32-red-local.md`](./mqtt-esp32-red-local.md).
+| Acción                                          | Ruta                                              |
+| ----------------------------------------------- | ------------------------------------------------- |
+| Vincular código existente a un hogar            | `POST /api/v1/devices/link`                       |
+| Listar dispositivos visibles                    | `GET /api/v1/devices?homeId=...`                  |
+| Consultar por hardware                          | `GET /api/v1/devices/hardware/{hardwareId}`       |
+| Asociar hardwareId al registro                  | `POST /api/v1/devices/{deviceId}/claim-hardware`  |
+| Actualizar estado BLE/MQTT de aprovisionamiento | `PATCH /api/v1/devices/{deviceId}/provisioning`   |
+| Consultar última lectura                        | `GET /api/v1/devices/{deviceId}/telemetry/latest` |
+| Desvincular del hogar                           | `DELETE /api/v1/devices/{deviceId}/home/{homeId}` |
+| Eliminar después de desvincular                 | `DELETE /api/v1/devices/{deviceId}`               |

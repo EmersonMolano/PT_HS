@@ -131,7 +131,7 @@ class BleProvisioningService {
       mqttHost,
       mqttPort,
       ...(deviceCode ? { deviceCode } : {}),
-      disableBleAfterProvisioning: false,
+      disableBleAfterProvisioning: true,
     });
     await this.device.writeCharacteristicWithResponseForService(
       SERVICE_UUID,

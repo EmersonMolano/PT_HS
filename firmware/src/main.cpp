@@ -104,6 +104,7 @@ bool configButtonHandled = false;
 unsigned long configButtonStartedAt = 0;
 
 void startProvisioningBLE();
+void stopProvisioningBLE();
 void notifyStatus(const char* state);
 void saveBleLock(bool locked);
 void saveLinkedToHome(bool linked);
@@ -489,7 +490,7 @@ void handleMqttCommand(char* topic, uint8_t* payload, unsigned int length) {
 
   if (command == "confirm_link") {
     saveLinkedToHome(true);
-    saveBleLock(false);
+    saveBleLock(true);
     applyBlePolicy();
     notifyStatus("provisioning_complete");
     return;
@@ -504,9 +505,13 @@ void handleMqttCommand(char* topic, uint8_t* payload, unsigned int length) {
   }
 
   if (command == "disable_ble") {
-    saveBleLock(false);
+    if (!linkedToHome) {
+      notifyStatus("ble_disable_rejected");
+      return;
+    }
+    saveBleLock(true);
     applyBlePolicy();
-    notifyStatus("ble_enabled");
+    notifyStatus("ble_disabled");
   }
 }
 
@@ -655,7 +660,7 @@ void handleProvisioningPayload(const String& serialized) {
 
   if (connectMqtt()) {
     if (linkedToHome) {
-      saveBleLock(false);
+      saveBleLock(true);
       applyBlePolicy();
       notifyStatus("provisioning_complete");
     } else {
@@ -696,13 +701,16 @@ class ProvisioningServerCallbacks : public NimBLEServerCallbacks {
     bleClientConnected = false;
     // NimBLE detiene el advertising al aceptar una conexion. Si el usuario
     // cancela el selector BLE o la conexion falla, debe volver a descubrirse
-    // sin reiniciar el ESP32.
-    NimBLEDevice::startAdvertising();
-    bleAdvertising = true;
-    setBleStatus("ready", false);
-    Serial.print("[BLE] Cliente desconectado (razon ");
-    Serial.print(reason);
-    Serial.println("); advertising reiniciado.");
+    // sin reiniciar el ESP32. Un equipo vinculado y bloqueado permanece fuera
+    // de BLE hasta que el backend confirme el desvinculo o se use BOOT.
+    if (!linkedToHome || !bleLocked) {
+      NimBLEDevice::startAdvertising();
+      bleAdvertising = true;
+      setBleStatus("ready", false);
+      Serial.print("[BLE] Cliente desconectado (razon ");
+      Serial.print(reason);
+      Serial.println("); advertising reiniciado.");
+    }
   }
 };
 
@@ -758,11 +766,40 @@ void startProvisioningBLE() {
   }
 }
 
+void stopProvisioningBLE() {
+  if (!bleInitialized) return;
+
+  // Al confirmar la vinculacion, cerrar clientes GATT activos ademas de
+  // detener el anuncio para que la ventana de provisionamiento quede cerrada.
+  NimBLEServer* server = NimBLEDevice::getServer();
+  if (server != nullptr) {
+    for (const uint16_t connHandle : server->getPeerDevices()) {
+      server->disconnect(connHandle);
+    }
+  }
+
+  NimBLEDevice::getAdvertising()->stop();
+  bleAdvertising = false;
+  bleClientConnected = false;
+  Serial.println("[BLE] Provisionamiento detenido: dispositivo asociado");
+}
+
 void applyBlePolicy() {
-  // BLE queda siempre disponible para reprovisionar o recuperar el equipo,
-  // incluso despues de vincularlo a un hogar.
-  if (bleLocked) saveBleLock(false);
-  if (!bleAdvertising) startProvisioningBLE();
+  // Sin hogar asociado, BLE debe poder descubrirse para vincular el equipo.
+  if (!linkedToHome) {
+    if (bleLocked) saveBleLock(false);
+    if (!bleAdvertising) startProvisioningBLE();
+    return;
+  }
+
+  // La vinculacion confirmada cierra el provisionamiento BLE hasta que el
+  // backend confirme el desvinculo. BOOT permite una recuperacion fisica.
+  if (!bleLocked) {
+    if (!bleAdvertising) startProvisioningBLE();
+    return;
+  }
+
+  stopProvisioningBLE();
 }
 
 void checkConfigurationButton() {

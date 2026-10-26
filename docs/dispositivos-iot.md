@@ -8,14 +8,13 @@ equipo compatible con el contrato MQTT del proyecto.
 
 ### Ciclo de asociacion y BLE
 
-BLE permanece anunciado siempre, incluso cuando el ESP32 ya esta asociado a un
-hogar o tiene SSID y contrasena guardados en NVS. El frontend puede provisionar
-la red sin apagar BLE. Despues de que el backend confirma la asociacion al
-hogar, publica `confirm_link`; el firmware conserva BLE activo para
-reprovisionar o recuperar el equipo.
+BLE permanece anunciado mientras el ESP32 no este asociado a un hogar. El
+frontend puede provisionar la red aunque el registro ya exista en el hogar;
+cuando el backend confirma la asociacion por MQTT, publica `confirm_link` y el
+firmware bloquea el acceso BLE. La red Wi-Fi permanece guardada en NVS.
 
 La accion **Desvincular dispositivo** elimina solo la relacion con el hogar y
-publica `unlink` por MQTT para sincronizar ese estado en el equipo. La accion
+publica `unlink` por MQTT para que el ESP32 vuelva a anunciar BLE. La accion
 **Eliminar dispositivo** esta bloqueada mientras exista cualquier relacion en
 `home.home_device`; primero hay que desvincularlo. Al eliminarlo se borran en
 cascada sus datos historicos de PostgreSQL.

@@ -7,18 +7,17 @@ usa PlatformIO y separa Wi-Fi, MQTT, sensores, actuadores, OTA y almacenamiento.
 
 ## Ciclo BLE segun la asociacion
 
-El ESP32 anuncia BLE de forma permanente, aunque ya este asociado a un hogar o
-tenga una red Wi-Fi guardada. La configuracion recibida por BLE guarda la red y,
-si MQTT queda disponible, publica el estado de provisionamiento sin apagar BLE.
-El backend envia `confirm_link` despues de asociar el dispositivo a un hogar,
-pero el firmware conserva BLE activo para reprovisionar o recuperar el equipo.
+El ESP32 anuncia BLE mientras no este asociado a un hogar. La configuracion
+recibida por BLE guarda la red y envia el estado de provisionamiento por MQTT.
+Cuando el backend confirma la asociacion, publica `confirm_link`; el firmware
+guarda el bloqueo en NVS, cierra conexiones GATT activas y detiene el anuncio.
 La red Wi-Fi permanece guardada en NVS.
 
 Al desvincular el dispositivo, el backend publica
 `{"command":"unlink"}` en `hidrosmart/devices/{deviceCode}/commands`.
-El ESP32 lo recibe por MQTT y sincroniza que ya no pertenece a un hogar; BLE
-sigue disponible para vincularlo otra vez. Si MQTT no esta disponible, mantener
-BOOT presionado durante cinco segundos fuerza BLE activo localmente.
+El ESP32 lo recibe por MQTT, elimina el estado de asociacion y vuelve a anunciar
+BLE para vincularlo otra vez. Si MQTT no esta disponible, mantener BOOT
+presionado durante cinco segundos fuerza BLE activo localmente.
 
 ```text
 firmware/

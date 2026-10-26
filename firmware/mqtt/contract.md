@@ -90,8 +90,9 @@ conexión incluyen `hardwareId`, `deviceCode`, `firmwareVersion`,
 `savedNetworks`, `wifiConnected` y `mqttConnected`; cuando corresponde,
 también incluyen `ssid`, `ip` y `rssi`.
 
-`mqtt_unreachable` no borra la red guardada. BLE se mantiene disponible de forma
-permanente para corregir `mqttHost`, `mqttPort` o la red Wi-Fi. El firmware
+`mqtt_unreachable` no borra la red guardada. BLE permanece disponible mientras
+el dispositivo espera completar su asociacion; al recibir `confirm_link`, el
+firmware cierra el provisionamiento y vuelve a habilitarlo tras `unlink`. El firmware
 guarda como máximo cinco perfiles SSID, cada uno con su contraseña y
 configuración MQTT.
 

@@ -15,6 +15,7 @@ BD_HS/docs/credenciales-locales.md
 **/dist/
 **/.vite/
 **/.expo/
+**/.pio/
 **/*.log
 **/*.pem
 **/*.key

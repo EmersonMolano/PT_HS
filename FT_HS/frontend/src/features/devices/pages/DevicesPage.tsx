@@ -947,8 +947,10 @@ export function DeviceManagement({
 
                 {(provisioningUnlinked ||
                   (!provisioningDevice.provisionedAt &&
-                    String(provisioningDevice.provisioningStatus || '').toUpperCase() !== 'COMPLETE' &&
-                    String(provisioningDevice.connectivityStatus || '').toUpperCase() !== 'ONLINE')) && (
+                    String(provisioningDevice.provisioningStatus || '').toUpperCase() !==
+                      'COMPLETE' &&
+                    String(provisioningDevice.connectivityStatus || '').toUpperCase() !==
+                      'ONLINE')) && (
                   <div className="space-y-3 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>

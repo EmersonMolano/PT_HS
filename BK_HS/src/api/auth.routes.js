@@ -48,10 +48,12 @@ const authController = new AuthController({
   getPasswordResetContext: new GetPasswordResetContext({ authRepository, tokenService: passwordTokenService }),
   resendEmailVerification: new ResendEmailVerification({ authRepository, tokenService: passwordTokenService, notificationService }),
   verifyEmail: new VerifyEmail({ authRepository, tokenService: passwordTokenService }),
-  notificationService
+  notificationService,
+  authCookies: env.authCookies
 });
 
 router.use(authRateLimiter);
+router.get('/csrf', asyncHandler((req, res) => authController.csrf(req, res)));
 router.post('/register', asyncHandler((req, res) => authController.register(req, res)));
 router.post('/login', asyncHandler((req, res) => authController.login(req, res)));
 router.post('/refresh', asyncHandler((req, res) => authController.refresh(req, res)));

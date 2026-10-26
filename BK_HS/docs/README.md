@@ -22,7 +22,10 @@ son la fuente de verdad de la API y persistencia respectivamente.
 - [03_domain: entidades y reglas centrales](03_domain.md)
 - [04_infrastructure: PostgreSQL, correo, seguridad y MQTT](04_infrastructure.md)
 - [05_runtime-tests: arranque, jobs, MQTT y pruebas](05_runtime-tests.md)
+- [06_mqtt-y-procesos-asincronos: tópicos y tareas periódicas](06_mqtt-y-procesos-asincronos.md)
+- [07_autorizacion-y-permisos: permisos, roles y RLS](07_autorizacion-y-permisos.md)
 - [Resumen del contrato HTTP](api.md)
+- [Contrato OpenAPI: rutas y seguridad](openapi.yaml)
 
 ## Autenticación y autorización
 

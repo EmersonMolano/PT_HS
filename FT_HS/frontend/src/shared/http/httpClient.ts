@@ -38,4 +38,5 @@ export type {
   ActuatorCommandListOptions,
   GeneratedReport,
   AlertEvent,
+  BudgetStatus,
 } from './apiClient';

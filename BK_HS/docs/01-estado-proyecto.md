@@ -1,15 +1,15 @@
 # Estado del proyecto HidroSmart
 
-Fecha de revisión: 2026-09-15.
+Fecha de revisión: 2026-09-23.
 
 ## Estado actual
 
-> Actualización 2026-09-15: el flujo de dispositivos ya persiste `location`, `hardwareId`, `wifi_ssid`, `last_ip` y estados de aprovisionamiento; permite editar nombre/ubicación/umbral, registrar y vincular por código MQTT, consultar historial y provisionar por BLE. Las consultas avanzadas de consumo ya están versionadas y conectadas a Dashboard, Consumo y Reportes. Liquibase tiene 223 changesets aplicados y el backend tiene 163 pruebas unitarias aprobadas.
+> Actualización 2026-09-23: el flujo de dispositivos ya persiste `location`, `hardwareId`, `wifi_ssid`, `last_ip` y estados de aprovisionamiento; permite editar nombre/ubicación/umbral, registrar y vincular por código MQTT, consultar historial y provisionar por BLE. Las consultas avanzadas de consumo ya están versionadas y conectadas a Dashboard, Consumo y Reportes. Liquibase tiene 245 changesets aplicados, el backend tiene 174 pruebas unitarias aprobadas y la integración local tiene 4 pruebas aprobadas y 2 omitidas por falta de credenciales. La gestión de tickets quedó integrada en `Administrator` y se retiró el rol `Support`.
 
 | Área | Estado |
 |---|---|
 | Docker integrado | Compose configurado; requiere Docker Desktop activo para ejecutar |
-| PostgreSQL/Liquibase | 223 changesets aplicados; `validate/update/status` exitosos en la última verificación |
+| PostgreSQL/Liquibase | 245 changesets aplicados; `validate/update/status` exitosos en la última verificación |
 | Autenticación y sesiones | Implementado | Registro pendiente hasta verificar correo; JWT y sesiones activas después de verificar |
 | Hogares y miembros | Rutas implementadas; validar cada pantalla |
 | Dispositivos | Rutas implementadas y vinculadas al modelo BD |
@@ -51,7 +51,8 @@ Fecha de revisión: 2026-09-15.
 
 ## Evidencia
 
-- Backend: 163 pruebas unitarias, `npm run check`, `npm run lint`, MQTT local y flujo auth real aprobados.
+- Backend: 172 pruebas unitarias, `npm run check`, `npm run lint` y MQTT local aprobados.
+- Integración: 4 pruebas aprobadas y 2 omitidas; health, rutas protegidas, RLS y MQTT con deduplicación fueron comprobados.
 - Frontend: formato y build aprobados.
 - BD: rutas de changelog corregidas, migraciones aplicadas y conexión `hidro_smart_app` → PostgreSQL verificada.
 - Integración autenticada externa: se ejecuta solo con credenciales de prueba configuradas.

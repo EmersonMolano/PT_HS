@@ -20,7 +20,7 @@ const statusStyles: Record<AccountStatus, string> = {
   Blocked: 'bg-red-100 text-red-800',
 };
 
-const MANAGED_ROLES: SystemRole[] = ['Administrator', 'Support', 'HomeUser', 'Guest'];
+const MANAGED_ROLES: SystemRole[] = ['Administrator', 'HomeUser', 'Guest'];
 
 export function UserManagementPage() {
   const { t, i18n } = useTranslation();

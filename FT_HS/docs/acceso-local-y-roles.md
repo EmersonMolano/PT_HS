@@ -1,9 +1,9 @@
 # Acceso local y paneles por rol — Hidro Smart
 
-Última revisión: 2026-09-14.
+Última revisión: 2026-09-23.
 
 Este documento explica cómo iniciar el proyecto, entrar al frontend y acceder a
-los paneles de `Administrator`, `Support`, `HomeUser` y `Guest`.
+los paneles de `Administrator`, `HomeUser` y `Guest`.
 
 ## 1. Iniciar el entorno
 
@@ -47,7 +47,6 @@ iniciar sesión.
 | Rol | Cómo entrar | Pantallas disponibles |
 | --- | --- | --- |
 | `Administrator` | Iniciar sesión y abrir `/app/admin` | Panel administrativo, `/app/users` y `/app/audit` |
-| `Support` | Iniciar sesión y abrir `/app/support/management` | Bandeja de tickets recibidos y actualización de estado |
 | `HomeUser` | Iniciar sesión y abrir `/app` | Dashboard, hogares, dispositivos, consumo, reportes, recomendaciones, metas y configuración según permisos |
 | `Guest` | Iniciar sesión y abrir `/app` | Dashboard y consultas autorizadas de solo lectura, incluidas recomendaciones |
 
@@ -57,18 +56,21 @@ denegado. La autorización real también se verifica en el backend y en PostgreS
 
 ## 4. Estado actual de la base local
 
-Verificado el 2026-09-14:
+La infraestructura responde correctamente en el corte vigente. La base está
+limpia de hogares y dispositivos porque las pruebas de integración eliminan
+sus datos temporales; para abrir el panel y ver datos reales se debe usar una
+cuenta activa y registrar un hogar/dispositivo.
+
+Verificado el 2026-09-23:
 
 ```text
-Administrator: 0
-Support:       0
-HomeUser:      5
-Guest:         0
+Administrator: 1
+HomeUser:      1
+Guest:         1
 ```
 
-Por eso, con la base actual ningún usuario puede entrar todavía a los paneles de
-Administrador o Support. Las pantallas sí están implementadas; falta asignar esos roles a
-cuentas existentes.
+Por eso, con la base actual ningún usuario puede entrar todavía al panel de
+Administrador. La pantalla sí está implementada; falta asignar ese rol a una cuenta existente.
 
 ## 5. Habilitar el primer Administrator
 
@@ -98,47 +100,21 @@ Luego:
 
 La función rechaza el proceso si ya existe un `Administrator` activo.
 
-## 6. Asignar el rol Support
+## 6. Gestionar tickets desde Administrator
 
-Después de tener una sesión de administrador puedes abrir `/app/users`, localizar la cuenta
-y usar los botones de `Roles funcionales` para agregar o retirar `Support`. Esa pantalla usa
-el endpoint protegido de roles y actualiza la lista después de cada operación.
-
-También puedes realizar la misma operación desde PowerShell si necesitas automatizar una
-prueba. Identifica primero el UUID de la cuenta que será Support con la consulta anterior:
-
-```powershell
-$login = Invoke-RestMethod `
-  -Method Post `
-  -Uri "http://localhost:3000/api/v1/auth/login" `
-  -ContentType "application/json" `
-  -Body (@{ login = "CORREO_DEL_ADMIN"; password = "CONTRASENA_DEL_ADMIN" } | ConvertTo-Json)
-
-$headers = @{ Authorization = "Bearer $($login.data.accessToken)" }
-
-Invoke-RestMethod `
-  -Method Post `
-  -Uri "http://localhost:3000/api/v1/roles/users/<SUPPORT_USER_ID>" `
-  -Headers $headers `
-  -ContentType "application/json" `
-  -Body (@{ roleName = "Support" } | ConvertTo-Json)
-```
-
-No guardes el correo, la contraseña ni el token en scripts versionados. Después de asignar
-el rol, la cuenta Support debe cerrar sesión, volver a entrar y abrir:
-
-```text
-http://localhost:5173/app/support/management
-```
+Después de tener una sesión de administrador puedes abrir `/app/support/management` desde
+el menú administrativo. Allí puedes consultar tickets, abrir el detalle, responder y
+actualizar estados. La operación está protegida por el permiso `tickets.manage`; ya no
+existe un rol funcional independiente para soporte.
 
 ## 7. Qué hacer si aparece acceso denegado
 
 - Comprueba que la cuenta esté activa y no eliminada lógicamente.
 - Cierra sesión y vuelve a iniciar sesión para renovar roles y permisos.
-- Verifica que `GET /api/v1/users/me` devuelva `Administrator` o `Support` en `roles`.
+- Verifica que `GET /api/v1/users/me` devuelva `Administrator` en `roles` cuando necesites gestionar tickets.
 - Confirma que el permiso requerido también esté presente:
   - Administrador: `roles.manage`, `users.manage` o `audit.read`.
-  - Support: `tickets.manage`.
+  - Administrador para tickets: `tickets.manage`.
 - Revisa que el backend responda en <http://localhost:3000/health/ready>.
 - Si cambiaste el código del frontend con Docker activo, ejecuta nuevamente:
 

@@ -1,6 +1,6 @@
 # Endpoints reales de la API — HidroSmart
 
-Fecha de revisión: 2026-09-15.
+Fecha de revisión: 2026-09-23.
 
 Este documento refleja las rutas montadas actualmente en `BK_HS/src/app.js`. La URL base pública es `http://localhost:3000/api/v1` en desarrollo directo y `/api/v1` desde el frontend servido por Nginx.
 
@@ -44,6 +44,7 @@ Este documento refleja las rutas montadas actualmente en `BK_HS/src/app.js`. La 
 | PUT | `/api/v1/users/me/preferences` | autenticado |
 | GET | `/api/v1/users/me/notifications` | autenticado; preferencias propias de avisos por correo |
 | PUT | `/api/v1/users/me/notifications` | autenticado; guarda avisos de consumo, alertas, dispositivos y canal Gmail |
+| GET | `/api/v1/users/:userId/overview` | `users.manage`; hogares y dispositivos asociados al usuario seleccionado |
 | PATCH | `/api/v1/users/:userId/status` | `users.manage` |
 | DELETE | `/api/v1/users/:userId` | `users.manage`; eliminación lógica |
 
@@ -78,7 +79,7 @@ disponible, el miembro permanece agregado y `notification.sent` queda en
 | Método | Ruta completa | Acceso |
 |---|---|---|
 | POST | `/api/v1/devices` | `devices.manage` |
-| POST | `/api/v1/devices/link` | `devices.manage`; vinculación por código técnico y titularidad del hogar |
+| POST | `/api/v1/devices/link` | `devices.manage`; vinculación por `hardwareId` o código técnico y titularidad del hogar |
 | GET | `/api/v1/devices` | autenticado; lista dispositivos autorizados con `homeId`, `page`, `pageSize`, `sort` y `order` |
 | GET | `/api/v1/devices/:deviceId` | autenticado y con acceso al dispositivo |
 | GET | `/api/v1/devices/:deviceId/status` | autenticado y con acceso al dispositivo |
@@ -91,8 +92,8 @@ disponible, el miembro permanece agregado y `notification.sent` queda en
 | POST | `/api/v1/devices/:deviceId/deactivate` | `devices.manage` |
 | DELETE | `/api/v1/devices/:deviceId/home/:homeId` | `devices.manage` |
 
-El `device.code` de este módulo es el identificador que debe aparecer en el topic MQTT como `{deviceCode}`. Si el alta no recibe `code`, el backend genera uno con el formato `ESP32-XXXXXXXXXXXX`; así el usuario no tiene que escribir identificadores técnicos. Registrar el dispositivo por REST no genera por sí solo una lectura MQTT.
-El `hardwareId` se completa después, al descubrir la placa por BLE y ejecutar `POST /api/v1/devices/{deviceId}/claim-hardware`. La contraseña Wi-Fi solo viaja por BLE y nunca se guarda en PostgreSQL. La vinculación de un dispositivo ya existente usa `{ homeId, code }` en `POST /api/v1/devices/link`.
+El `device.code` de este módulo es el identificador que debe aparecer en el topic MQTT como `{deviceCode}`. El alta acepta `hardwareId`; si no se recibe `code`, el backend usa ese hardwareId como código lógico inicial para que el ESP32 que publica con su identidad física sea reconocido. Si tampoco se recibe hardwareId, conserva la generación compatible `ESP32-XXXXXXXXXXXX`.
+El `hardwareId` se puede guardar desde el alta o asociar después con `POST /api/v1/devices/{deviceId}/claim-hardware`. La contraseña Wi-Fi solo viaja por BLE y nunca se guarda en PostgreSQL. La vinculación de un dispositivo ya existente acepta `{ homeId, hardwareId }` en `POST /api/v1/devices/link`; el código técnico anterior sigue siendo válido.
 
 ## Actuators — `/actuators`
 
@@ -177,7 +178,7 @@ Estas rutas consultan agregados de PostgreSQL. No son un endpoint de entrada MQT
 | POST | `/api/v1/roles/users/:userId` | `roles.manage` |
 | DELETE | `/api/v1/roles/users/:userId` | `roles.manage` |
 
-## Support — `/support`
+## Tickets de soporte — `/support`
 
 | Método | Ruta completa | Acceso |
 |---|---|---|
@@ -186,7 +187,7 @@ Estas rutas consultan agregados de PostgreSQL. No son un endpoint de entrada MQT
 | GET | `/api/v1/support/tickets/:ticketId` | autenticado y autorizado |
 | GET | `/api/v1/support/tickets/:ticketId/responses` | autenticado y autorizado |
 | POST | `/api/v1/support/tickets` | autenticado; crea un ticket propio |
-| PATCH | `/api/v1/support/tickets/:ticketId` | soporte |
+| PATCH | `/api/v1/support/tickets/:ticketId` | `tickets.manage` (`Administrator`) |
 | POST | `/api/v1/support/tickets/:ticketId/responses` | autenticado y autorizado por RLS; propio o `tickets.manage` |
 
 ## Audit — `/audit`
@@ -233,7 +234,7 @@ Las descargas reutilizan `consumption.fn_calculate_consumption(...)`, no exponen
 
 El listado admite `page`, `pageSize`, `sort`, `order` y `category`. El backend no permite devolver una recomendación de otro usuario: la consulta se ejecuta con el contexto de usuario de PostgreSQL y la política RLS de `analytics_support.user_recommendation`. El estado inicial `Pending` no se puede restaurar desde la API; `Read`, `Dismissed` y `Applied` actualizan el registro, y `Read` conserva `read_at`.
 
-## Corrección de permisos de Support
+## Autorización de tickets de soporte
 
 `POST /api/v1/support/tickets` requiere únicamente autenticación. La creación de tickets propios no requiere `homes.manage`.
 

@@ -22,7 +22,7 @@ test('vincula un dispositivo existente usando su código técnico', async () => 
     code: ' ESP32-001 '
   });
 
-  assert.deepEqual(received, { userId: 'user-1', homeId: validHomeId, code: 'ESP32-001' });
+  assert.deepEqual(received, { userId: 'user-1', homeId: validHomeId, code: 'ESP32-001', hardwareId: null });
   assert.equal(result, device);
 });
 
@@ -49,4 +49,29 @@ test('valida el hogar y el código antes de consultar la base', async () => {
     () => useCase.execute({ userId: 'user-1', homeId: validHomeId, code: 'x' }),
     (error) => error.status === 400
   );
+});
+
+test('vincula un dispositivo existente usando hardwareId', async () => {
+  let received;
+  const useCase = new LinkDeviceToHome({
+    deviceRepository: {
+      linkToHome: async (input) => {
+        received = input;
+        return { id: 'device-2', hardwareId: 'HS-141F47470968' };
+      }
+    }
+  });
+
+  await useCase.execute({
+    userId: 'user-1',
+    homeId: validHomeId,
+    hardwareId: ' HS-141F47470968 '
+  });
+
+  assert.deepEqual(received, {
+    userId: 'user-1',
+    homeId: validHomeId,
+    code: null,
+    hardwareId: 'HS-141F47470968'
+  });
 });

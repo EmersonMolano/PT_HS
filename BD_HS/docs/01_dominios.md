@@ -73,6 +73,6 @@ La relación `home.home_device` se mantiene N:N: un dispositivo puede estar asoc
 `consumption.fn_calculate_cost(...)` calcula solo el costo variable de una lectura. `consumption.fn_calculate_period_cost(...)` agrega el `fixed_charge` una vez por cada mes incluido en el rango, siempre que exista una tarifa vigente para ese mes.
 ## Estado de integración MQTT (2026-09-14)
 
-La base contiene las tablas `device.device`, `device.home_device`, `consumption.sensor_reading` y `device.device_telemetry_history`, conectadas a la ingesta IoT protegida del backend. Las lecturas conservan métricas, `mqtt_message_id`, `measured_at` y `received_at`.
+La base contiene las tablas `device.device`, `home.home_device`, `consumption.sensor_reading` y `device.device_telemetry_history`, conectadas a la ingesta IoT protegida del backend. Las lecturas conservan métricas, `mqtt_message_id`, `measured_at` y `received_at`.
 
 La escritura ya resuelve `deviceCode` contra `device.device.code`, comprueba la asociación activa con el hogar y usa grants versionados para la conexión de ingestión. La columna `consumption.sensor_reading.consumption_liters` usa `NUMERIC(14,3)` y la columna generada `consumption_m3` usa `NUMERIC(14,6)` para conservar muestras del ESP32 como `0.040 L`.

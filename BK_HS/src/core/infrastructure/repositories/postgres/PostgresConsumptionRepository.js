@@ -43,6 +43,43 @@ class PostgresConsumptionRepository {
     return { homeId, date, consumptionLiters: Number(result.rows[0]?.consumption_liters || 0) };
   }
 
+  async getBudgetStatus({ userId, homeId, asOfDate }) {
+    const result = await withTransaction(userId, (client) => client.query(
+      `SELECT * FROM analytics_support.fn_get_home_budget_status($1::uuid, $2::date)`,
+      [homeId, asOfDate]
+    ));
+    const row = result.rows[0];
+    if (!row) return null;
+    return {
+      homeId: row.home_id,
+      asOfDate: row.as_of_date,
+      periodStart: row.period_start,
+      periodEnd: row.period_end,
+      daysInMonth: Number(row.days_in_month),
+      dayOfMonth: Number(row.day_of_month),
+      peopleCount: Number(row.people_count),
+      referenceSource: row.reference_source,
+      historyDays: Number(row.history_days || 0),
+      expectedDailyLiters: Number(row.expected_daily_liters || 0),
+      expectedWeeklyLiters: Number(row.expected_weekly_liters || 0),
+      expectedMonthlyLiters: Number(row.expected_monthly_liters || 0),
+      expectedToDateLiters: Number(row.expected_to_date_liters || 0),
+      currentLiters: Number(row.current_liters || 0),
+      currentM3: Number(row.current_m3 || 0),
+      currentCost: Number(row.current_cost || 0),
+      tariffM3: Number(row.tariff_m3 || 0),
+      monthlyBudget: row.monthly_budget === null ? null : Number(row.monthly_budget),
+      expectedBudgetToDate: row.expected_budget_to_date === null ? null : Number(row.expected_budget_to_date),
+      budgetPercentage: row.budget_percentage === null ? null : Number(row.budget_percentage),
+      budgetPacePercentage: row.budget_pace_percentage === null ? null : Number(row.budget_pace_percentage),
+      budgetStatus: row.budget_status,
+      remainingBudget: row.remaining_budget === null ? null : Number(row.remaining_budget),
+      remainingLiters: row.remaining_liters === null ? null : Number(row.remaining_liters),
+      consumptionPacePercentage: row.consumption_pace_percentage === null ? null : Number(row.consumption_pace_percentage),
+      consumptionStatus: row.consumption_status
+    };
+  }
+
   async getMonthly({ userId, homeId, year, month }) {
     const result = await withTransaction(userId, (client) => client.query(
       `SELECT consumption.fn_get_monthly_consumption($1::uuid, $2::integer, $3::integer) AS consumption_liters`, [homeId, year, month]

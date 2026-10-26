@@ -42,12 +42,11 @@ El frontend nunca se conecta directamente a PostgreSQL ni a MQTT.
 el access token y, ante un `401`, intenta renovar el refresh token una vez. Si la
 renovaciÃ³n falla, borra la sesiÃ³n y vuelve al login.
 
-Los roles funcionales son `Administrator`, `Support`, `HomeUser` y `Guest`.
+Los roles funcionales son `Administrator`, `HomeUser` y `Guest`. La gestión de tickets está integrada en `Administrator` mediante `tickets.manage`.
 El frontend oculta opciones y bloquea accesos directos sin permiso, pero la
 autorizaciÃ³n real permanece en el backend y PostgreSQL/RLS.
 
 - `Administrator`: panel administrativo, usuarios, roles y auditorÃ­a.
-- `Support`: panel de tickets recibidos y atenciÃ³n de soporte.
 - `HomeUser`: gestiÃ³n de hogares/dispositivos y operaciones de su hogar.
 - `Guest`: consultas de solo lectura autorizadas.
 

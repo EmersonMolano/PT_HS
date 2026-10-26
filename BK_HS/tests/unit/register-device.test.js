@@ -21,12 +21,14 @@ test('registra el dispositivo asociado al hogar', async () => {
     code: 'ESP32-001',
     name: 'Medidor principal',
     type: 'YF-S201',
+    hardwareId: 'HS-141F47470968',
     location: 'Baño principal'
   });
 
   assert.equal(received.userId, 'user-1');
   assert.equal(received.homeId, validHomeId);
   assert.equal(received.device.code, 'ESP32-001');
+  assert.equal(received.device.hardwareId, 'HS-141F47470968');
   assert.equal(received.device.location, 'Baño principal');
 });
 
@@ -59,6 +61,6 @@ test('genera el código lógico cuando el alta no lo recibe', async () => {
     alertThreshold: 10
   });
 
-  assert.match(registeredDevice.code, /^ESP32-[A-F0-9]{12}$/);
-  assert.equal(registeredDevice.hardwareId, null);
+  assert.equal(registeredDevice.code, 'HS-141F47470968');
+  assert.equal(registeredDevice.hardwareId, 'HS-141F47470968');
 });

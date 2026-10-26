@@ -61,7 +61,7 @@ test('usuario de integración accede solo al flujo protegido de consulta', { ski
 
   const token = login.body.data.accessToken;
   const headers = { authorization: `Bearer ${token}` };
-  for (const path of ['/api/v1/users/me', '/api/v1/homes', '/api/v1/devices']) {
+  for (const path of ['/api/v1/users/me', '/api/v1/users/me/notifications', '/api/v1/homes', '/api/v1/devices']) {
     const result = await requestJson(path, { headers });
     assert.equal(result.response.status, 200, path);
   }

@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shar
 import { Button } from '@shared/ui/button';
 import { Badge } from '@shared/ui/badge';
 import { AlertTriangle, Bell, CheckCircle2 } from 'lucide-react';
-import { alertsApi } from '@shared/http/httpClient';
+import { alertsApi, consumptionApi, type BudgetStatus } from '@shared/http/httpClient';
 import { toast } from 'sonner';
 
 type AlertEvent = {
@@ -23,17 +23,20 @@ export function NotificationsPanel({ homeId }: { homeId?: string }) {
   const [alerts, setAlerts] = useState<AlertEvent[]>([]);
   const [thresholds, setThresholds] = useState<AlertThresholds | null>(null);
   const [pendingCount, setPendingCount] = useState<number | null>(null);
+  const [budgetStatus, setBudgetStatus] = useState<BudgetStatus | null>(null);
   const load = () => {
     if (!homeId) return Promise.resolve();
     return Promise.all([
       alertsApi.history(homeId, 'pageSize=100'),
       alertsApi.thresholds(homeId),
       alertsApi.pending(homeId),
+      consumptionApi.budgetStatus(new URLSearchParams({ homeId }).toString()),
     ])
-      .then(([history, threshold, pending]) => {
+      .then(([history, threshold, pending, budget]) => {
         setAlerts(history.data as AlertEvent[]);
         setThresholds(threshold.data as AlertThresholds);
         setPendingCount(pending.data.pendingCount);
+        setBudgetStatus(budget.data);
       })
       .catch((error) =>
         toast.error(error instanceof Error ? error.message : 'No se pudieron cargar las alertas')
@@ -83,6 +86,35 @@ export function NotificationsPanel({ homeId }: { homeId?: string }) {
           </div>
         </CardContent>
       </Card>
+      {budgetStatus && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Ritmo de consumo y presupuesto</CardTitle>
+            <CardDescription>
+              Comparacion contra la referencia del hogar y el avance real del mes.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="rounded-lg border p-4">
+              <p className="text-sm text-gray-600">Consumo</p>
+              <p className="text-xl">
+                {budgetStatus.currentLiters.toFixed(0)} L /{' '}
+                {budgetStatus.expectedToDateLiters.toFixed(0)} L esperados
+              </p>
+              <Badge>{budgetStatus.consumptionStatus || 'SIN DATOS'}</Badge>
+            </div>
+            <div className="rounded-lg border p-4">
+              <p className="text-sm text-gray-600">Presupuesto</p>
+              <p className="text-xl">
+                {budgetStatus.monthlyBudget == null
+                  ? 'Sin presupuesto configurado'
+                  : `$${budgetStatus.currentCost.toLocaleString('es-CO')} / $${budgetStatus.expectedBudgetToDate?.toLocaleString('es-CO') || '0'}`}
+              </p>
+              <Badge>{budgetStatus.budgetStatus || 'SIN DATOS'}</Badge>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       <Card>
         <CardHeader>
           <CardTitle>Historial</CardTitle>

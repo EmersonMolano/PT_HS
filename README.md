@@ -4,9 +4,9 @@ HidroSmart es una plataforma local para monitoreo inteligente de consumo de agua
 
 ## Estado verificado
 
-RevisiÃ³n: 2026-09-14.
+RevisiÃ³n: 2026-09-23.
 
-- PostgreSQL y Liquibase están operativos; la base local está actualizada con 217 changesets.
+- PostgreSQL y Liquibase están operativos; la base local está actualizada con 245 changesets.
 - El backend Express estÃ¡ conectado a PostgreSQL y expone la API REST bajo `/api/v1`.
 - El frontend React/Vite estÃ¡ compilado y servido por Nginx en Docker.
 - Registro, autenticaciÃ³n, sesiones, hogares, dispositivos, consumo, alertas, metas, vacaciones, soporte, tarifas, roles y auditorÃ­a tienen rutas de backend implementadas.
@@ -159,9 +159,11 @@ El contrato completo, normalizaciÃ³n y comandos de prueba estÃ¡n en `BK_HS/d
 
 ## Pruebas conocidas
 
-- Backend: `npm test` — 156 pruebas unitarias aprobadas en la última ejecución.
+- Backend: `npm test` — 174 pruebas unitarias aprobadas en la última ejecución.
 - Backend: `npm run check` y `npm run lint` â€” aprobados.
 - Frontend: `npm run lint`, `npm run typecheck` y `npm run build` â€” aprobados. `npm test` finaliza con 0 pruebas porque aÃºn no hay suite automatizada frontend.
+- Integración local: `npm run test:integration` — 4 pruebas aprobadas, 0 fallos y 2 omitidas por credenciales de integración no configuradas.
+  PostgreSQL, RLS, MQTT, deduplicación y matriz de roles quedan verificados en los casos disponibles.
 - Base de datos: `validate` y `status --verbose` â€” aprobados.
 - MQTT: publicaciÃ³n local de telemetrÃ­a vÃ¡lida recibida y normalizada por el backend â€” aprobada.
 - Pruebas de integraciÃ³n: `npm run seed:integration` prepara las cuatro cuentas
@@ -172,6 +174,8 @@ El contrato completo, normalizaciÃ³n y comandos de prueba estÃ¡n en `BK_HS/d
 
 - Estado integral transversal: `docs/estado-integral.md`.
 - GuÃ­a para levantar cada proyecto o toda la pila: `docs/guia-ejecucion-local.md`.
+- ConfiguraciÃ³n de `.env`, PostgreSQL y conexiones desde Windows:
+  `docs/configuracion-entornos.md`.
 - ValidaciÃ³n de integraciÃ³n y usuarios de prueba: `docs/validacion-integracion.md`.
 - GuÃ­a de dispositivos IoT: `docs/dispositivos-iot.md`.
 
@@ -185,4 +189,6 @@ El contrato completo, normalizaciÃ³n y comandos de prueba estÃ¡n en `BK_HS/d
 - IntegraciÃ³n web: `FT_HS/frontend/INTEGRACION.md`.
 
 Los Compose individuales de `BD_HS` y `BK_HS` se conservan por compatibilidad. Para validar el sistema completo usa el Compose de esta raÃ­z.
+- Estado, avance y pendientes verificados el 2026-09-23: `docs/estado-integral.md`.
+- Auditoría transversal vigente: `docs/auditoria-estado-2026-09-23.md`.
 - Bitácora de cambios verificados del 2026-09-14: `docs/cambios-2026-09-14.md`.

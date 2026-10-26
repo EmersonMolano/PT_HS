@@ -1,6 +1,6 @@
 # Documentación del backend HidroSmart
 
-Fecha de revisión: 2026-09-15.
+Fecha de revisión: 2026-09-23.
 
 La documentación se mantiene alineada con el código que realmente está montado. Para una lectura rápida empieza por:
 
@@ -14,6 +14,7 @@ La documentación se mantiene alineada con el código que realmente está montad
 - `14-mqtt-protocol.md`: contrato MQTT vigente para el backend y el ESP32.
 - `13-flujo-datos-iot.md`: flujo IoT y límites actuales.
 - `pendientes-proyecto.md`: checklist de trabajo pendiente.
+- `auditoria-backend-db-2026-09-23.md`: evidencia vigente de conexión, pruebas y MQTT.
 - `auditoria-p2-correcciones.md`: cierre del informe P2 y límites actuales.
 
 Los documentos `01` a `12` conservan decisiones de arquitectura, dominio, seguridad, jobs y estructura. Cuando un documento conceptual mencione una ruta o componente que no aparece en `src/app.js`, prevalece el código y la ruta real de `03-endpoints.md`.
@@ -28,9 +29,10 @@ Los documentos `01` a `12` conservan decisiones de arquitectura, dominio, seguri
 
 La persistencia de telemetría MQTT está conectada mediante `device.fn_ingest_sensor_reading`, con métricas validadas e idempotencia por `mqttMessageId`. El dominio de recomendaciones está expuesto en `/api/v1/recommendations` y protegido por `reports.read` más RLS. El dominio de actuadores está expuesto en `/api/v1/actuators`, con comandos publicados por MQTT, estados persistidos y ACK por `correlationId`.
 
-El último corte comprobado tiene 163 pruebas unitarias backend aprobadas. Las
-pruebas autenticadas/RLS de integración se omiten cuando no se configuran
-usuarios funcionales de prueba.
+El último corte comprobado tiene 174 pruebas unitarias aprobadas y 4 pruebas de
+integración aprobadas; 2 escenarios autenticados se omiten cuando no se
+configuran usuarios funcionales de prueba. La matriz completa se ejecuta con
+`seed:integration`.
 
 ## Verificación local
 
@@ -64,3 +66,4 @@ directamente desde Windows.
 Cuando una documentación conceptual contradiga una ruta inexistente, prevalecen
 `src/app.js` y `03-endpoints.md`.
 - Bitácora transversal de cambios del 2026-09-14: `../../docs/cambios-2026-09-14.md`.
+- Estado verificado vigente: `../../docs/estado-verificado-2026-09-26.md`.

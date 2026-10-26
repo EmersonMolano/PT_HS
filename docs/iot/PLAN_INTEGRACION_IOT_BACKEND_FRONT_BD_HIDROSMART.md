@@ -126,7 +126,7 @@ Antes de enviar la red, el usuario selecciona el dispositivo lógico y pulsa
 {
   "ssid": "APRENDICES",
   "password": "CLAVE_WIFI",
-  "mqttHost": "10.3.234.166",
+  "mqttHost": "<MQTT_DEVICE_HOST>",
   "mqttPort": 1883,
   "deviceCode": "ESP32-001"
 }

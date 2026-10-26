@@ -130,6 +130,8 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_URL: /api/v1
+        VITE_MQTT_DEVICE_HOST: ${MQTT_DEVICE_HOST:?Set_MQTT_DEVICE_HOST_to_the_DNS_name_reachable_by_ESP32}
+        VITE_MQTT_DEVICE_PORT: ${MQTT_DEVICE_PORT:-1883}
     ports:
       - "${FRONTEND_PORT:-5173}:80"
     depends_on:

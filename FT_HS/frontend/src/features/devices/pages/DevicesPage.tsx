@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shared/ui/card';
 import { Button } from '@shared/ui/button';
@@ -16,11 +16,9 @@ import {
 import {
   Activity,
   Bluetooth,
-  Copy,
   Droplets,
   History,
   Loader2,
-  Plus,
   RefreshCw,
   Trash2,
   Wifi,
@@ -37,6 +35,7 @@ import {
 } from '@shared/http/httpClient';
 import { toast } from 'sonner';
 import { can } from '@shared/config/authorization';
+import { env } from '@shared/config/env';
 import {
   connectBleProvisioning,
   isBleProvisioningSupported,
@@ -69,16 +68,15 @@ type Home = { homeId: string; name: string; homeRole?: 'Owner' | 'Member' | 'Gue
 
 const BLE_BACKEND_STATUS: Record<string, string> = {
   wifi_connected: 'WIFI_CONNECTED',
+  mqtt_connected: 'MQTT_CONNECTED',
+  waiting_link_confirmation: 'MQTT_CONNECTED',
   provisioning_complete: 'COMPLETE',
   wifi_failed: 'FAILED',
   mqtt_unreachable: 'FAILED',
 };
 
-const DEFAULT_BLE_WIFI_SSID = 'APRENDICES';
-const DEFAULT_BLE_MQTT_HOST = '10.3.234.45';
-const DEFAULT_BLE_MQTT_PORT = '1883';
-const TARGET_BLE_DEVICE_NAME = 'HidroSmart-470968';
-const TARGET_BLE_HARDWARE_ID = 'HS-141F47470968';
+const DEVICE_LOCATION_OPTIONS = ['Baño', 'Cocina', 'Patio', 'Garaje', 'Baño privado'];
+const OTHER_LOCATION_OPTION = 'OTHER';
 
 function nextActuatorCommand(state: ActuatorState): ActuatorCommandValue {
   if (state.actuator === 'VALVE') return state.status === 'OPEN' ? 'CLOSED' : 'OPEN';
@@ -111,11 +109,11 @@ export function DeviceManagement({
   const [order, setOrder] = useState<DeviceListOptions['order']>('asc');
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [editName, setEditName] = useState('');
   const [editLocation, setEditLocation] = useState('');
-  const [threshold, setThreshold] = useState('');
+  const [locationOption, setLocationOption] = useState('');
+  const [otherLocation, setOtherLocation] = useState('');
   const [historyDevice, setHistoryDevice] = useState<Device | null>(null);
   const [history, setHistory] = useState<DeviceTelemetry[]>([]);
   const [historyPagination, setHistoryPagination] =
@@ -126,21 +124,18 @@ export function DeviceManagement({
   const [commandingActuator, setCommandingActuator] = useState<string | null>(null);
   const [provisioningDevice, setProvisioningDevice] = useState<Device | null>(null);
   const [provisioningHardwareId, setProvisioningHardwareId] = useState('');
-  const [provisioningStatus, setProvisioningStatus] = useState('PENDING');
-  const [provisioningError, setProvisioningError] = useState('');
   const [provisioningSaving, setProvisioningSaving] = useState(false);
   const [bleConnection, setBleConnection] = useState<BleProvisioningConnection | null>(null);
   const [bleDeviceName, setBleDeviceName] = useState('');
   const [bleState, setBleState] = useState('');
   const [bleConnecting, setBleConnecting] = useState(false);
   const [bleWriting, setBleWriting] = useState(false);
-  const [hardwareClaiming, setHardwareClaiming] = useState(false);
-  const [bleSsid, setBleSsid] = useState(DEFAULT_BLE_WIFI_SSID);
+  const [bleSsid, setBleSsid] = useState('');
   const [blePassword, setBlePassword] = useState('');
-  const [bleMqttHost, setBleMqttHost] = useState(DEFAULT_BLE_MQTT_HOST);
-  const [bleMqttPort, setBleMqttPort] = useState(DEFAULT_BLE_MQTT_PORT);
-  const [bleIp, setBleIp] = useState('');
-  const [bleRssi, setBleRssi] = useState<number | null>(null);
+  const [provisioningUnlinked, setProvisioningUnlinked] = useState(false);
+  const claimingHardwareIdRef = useRef<string | null>(null);
+  const devicesRequestInFlightRef = useRef(false);
+  const devicesViewKeyRef = useRef('');
   const selectedHome = homes.find((home) => home.homeId === homeId);
   const isHomeOwner = selectedHome?.homeRole === 'Owner';
   const canManageAssignedDevice =
@@ -151,8 +146,13 @@ export function DeviceManagement({
   const canManageActuators =
     ['Owner', 'Member'].includes(selectedHome?.homeRole || '') &&
     can(permissions, 'actuators.manage');
+  devicesViewKeyRef.current = `${homeId}:${page}:${sort}:${order}`;
 
-  const loadDevices = async (id = homeId, requestedPage = page) => {
+  const loadDevices = async (
+    id = homeId,
+    requestedPage = page,
+    { silent = false }: { silent?: boolean } = {}
+  ) => {
     if (!id) {
       setLoading(false);
       setDevices([]);
@@ -161,7 +161,11 @@ export function DeviceManagement({
       return;
     }
 
-    setLoading(true);
+    if (devicesRequestInFlightRef.current) return;
+    const requestKey = `${id}:${requestedPage}:${sort}:${order}`;
+    devicesRequestInFlightRef.current = true;
+
+    if (!silent) setLoading(true);
     setLoadError(null);
     try {
       const [response, actuatorResponse] = await Promise.all([
@@ -188,6 +192,7 @@ export function DeviceManagement({
           }
         })
       );
+      if (devicesViewKeyRef.current !== requestKey) return;
       setDevices(devicesWithTelemetry);
       setActuatorStates(actuatorResponse.data);
       setPagination(nextPagination);
@@ -197,10 +202,13 @@ export function DeviceManagement({
     } catch (error) {
       const message = error instanceof Error ? error.message : t('devices.loadError');
       setLoadError(message);
-      setDevices([]);
-      setActuatorStates([]);
+      if (!silent) {
+        setDevices([]);
+        setActuatorStates([]);
+      }
     } finally {
-      setLoading(false);
+      devicesRequestInFlightRef.current = false;
+      if (!silent) setLoading(false);
     }
   };
 
@@ -236,95 +244,88 @@ export function DeviceManagement({
 
   useEffect(() => {
     void loadDevices(homeId, page);
-  }, [homeId, page, sort, order]);
+    const refreshTimer = window.setInterval(() => {
+      void loadDevices(homeId, page, { silent: true });
+    }, 5000);
 
-  const register = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    try {
-      await devicesApi.register({
-        homeId,
-        name: String(form.get('name') || '').trim(),
-        type: String(form.get('type') || '').trim(),
-        alertThreshold: Number(form.get('threshold')) || null,
-      });
-      toast.success(t('devices.deviceLinked'));
-      handleRegistrationOpenChange(false);
-      event.currentTarget.reset();
-      setPage(1);
-      await loadDevices(homeId, 1);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : t('devices.registerError'));
-    }
-  };
+    return () => window.clearInterval(refreshTimer);
+  }, [homeId, page, sort, order]);
 
   const linkExisting = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     try {
-      await devicesApi.link({
+      const response = await devicesApi.link({
         homeId,
-        code: String(form.get('code') || '').trim(),
+        hardwareId: String(form.get('hardwareId') || '').trim(),
       });
       toast.success(t('devices.deviceLinked'));
       setLinkOpen(false);
       event.currentTarget.reset();
       setPage(1);
       await loadDevices(homeId, 1);
+      const linkedDevice = { ...(response.data as Device), homeId };
+      if (linkedDevice?.deviceId) openProvisioning(linkedDevice);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('devices.registerError'));
     }
   };
 
   const openProvisioning = (device: Device) => {
+    const savedLocation = device.location?.trim() || '';
+    const selectedLocation = DEVICE_LOCATION_OPTIONS.includes(savedLocation)
+      ? savedLocation
+      : savedLocation
+        ? OTHER_LOCATION_OPTION
+        : '';
     setProvisioningDevice(device);
     setEditName(device.name);
-    setEditLocation(device.location || '');
-    setThreshold(String(device.alertThreshold ?? ''));
+    setEditLocation(savedLocation);
+    setLocationOption(selectedLocation);
+    setOtherLocation(selectedLocation === OTHER_LOCATION_OPTION ? savedLocation : '');
     setProvisioningHardwareId(device.hardwareId || '');
-    setProvisioningStatus(device.provisioningStatus || 'PENDING');
-    setProvisioningError(device.provisioningError || '');
     setBleDeviceName('');
     setBleState('');
-    setBleSsid(DEFAULT_BLE_WIFI_SSID);
+    setBleSsid('');
     setBlePassword('');
-    setBleMqttHost(DEFAULT_BLE_MQTT_HOST);
-    setBleMqttPort(DEFAULT_BLE_MQTT_PORT);
-    setBleIp('');
-    setBleRssi(null);
+    setProvisioningUnlinked(!device.homeId);
   };
 
   const closeProvisioning = () => {
     bleConnection?.disconnect();
     setBleConnection(null);
     setProvisioningDevice(null);
+    setProvisioningUnlinked(false);
     setBlePassword('');
-    setBleIp('');
-    setBleRssi(null);
   };
 
-  const claimHardware = async () => {
-    if (!provisioningDevice || !provisioningHardwareId.trim()) return;
-    setHardwareClaiming(true);
+  const claimHardware = async (hardwareIdOverride?: string, showSuccess = true) => {
+    if (!provisioningDevice) return null;
+    const hardwareId = (hardwareIdOverride || provisioningHardwareId).trim();
+    if (!hardwareId) return null;
+    if (provisioningDevice.hardwareId === hardwareId) {
+      return { hardwareId } as Partial<Device>;
+    }
+    if (claimingHardwareIdRef.current === hardwareId) return null;
+
+    claimingHardwareIdRef.current = hardwareId;
     try {
-      const response = await devicesApi.claimHardware(
-        provisioningDevice.deviceId,
-        provisioningHardwareId.trim()
-      );
+      const response = await devicesApi.claimHardware(provisioningDevice.deviceId, hardwareId);
       const updated = response.data as Partial<Device>;
+      setProvisioningHardwareId(String(updated.hardwareId || hardwareId));
       setDevices((current) =>
         current.map((device) =>
           device.deviceId === provisioningDevice.deviceId ? { ...device, ...updated } : device
         )
       );
       setProvisioningDevice((current) => (current ? { ...current, ...updated } : current));
-      setProvisioningStatus(String(updated.provisioningStatus || 'BLE_READY'));
-      setProvisioningError('');
-      toast.success(t('devices.hardwareClaimed'));
+      if (showSuccess) toast.success(t('devices.hardwareClaimed'));
+      return updated;
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('devices.hardwareClaimError'));
+      return null;
     } finally {
-      setHardwareClaiming(false);
+      claimingHardwareIdRef.current = null;
     }
   };
 
@@ -341,24 +342,21 @@ export function DeviceManagement({
     setBleState(state || 'ready');
     if (status.hardwareId) setProvisioningHardwareId(status.hardwareId);
     if (status.ssid) setBleSsid(status.ssid);
-    if (status.ip) setBleIp(status.ip);
-    if (typeof status.rssi === 'number') setBleRssi(status.rssi);
-    if (status.mqttConnected) setProvisioningError('');
 
     const nextStatus = state ? BLE_BACKEND_STATUS[state] : 'BLE_READY';
-    if (state === 'mqtt_unreachable') {
-      setProvisioningError(t('devices.bleMqttUnreachable'));
-    } else if (state === 'wifi_failed') {
-      setProvisioningError(t('devices.bleWifiFailed'));
+    if (!provisioningDevice) return;
+    let deviceForStatus = provisioningDevice;
+    const reportedHardwareId = String(status.hardwareId || '').trim();
+    if (reportedHardwareId && reportedHardwareId !== provisioningDevice.hardwareId) {
+      const claimed = await claimHardware(reportedHardwareId, false);
+      if (!claimed) return;
+      deviceForStatus = { ...provisioningDevice, ...claimed };
     }
-    if (!nextStatus || !provisioningDevice) return;
-    if (status.hardwareId && status.hardwareId !== provisioningDevice.hardwareId) {
-      return;
-    }
+    if (!nextStatus) return;
 
     try {
-      const response = await devicesApi.updateProvisioning(provisioningDevice.deviceId, {
-        hardwareId: status.hardwareId || provisioningHardwareId.trim() || null,
+      const response = await devicesApi.updateProvisioning(deviceForStatus.deviceId, {
+        hardwareId: reportedHardwareId || provisioningHardwareId.trim() || null,
         provisioningStatus: nextStatus,
         provisioningError:
           state === 'mqtt_unreachable'
@@ -370,11 +368,10 @@ export function DeviceManagement({
       const updated = response.data as Partial<Device>;
       setDevices((current) =>
         current.map((device) =>
-          device.deviceId === provisioningDevice.deviceId ? { ...device, ...updated } : device
+          device.deviceId === deviceForStatus.deviceId ? { ...device, ...updated } : device
         )
       );
       setProvisioningDevice((current) => (current ? { ...current, ...updated } : current));
-      setProvisioningStatus(nextStatus);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('devices.provisioningUpdateError'));
     }
@@ -393,12 +390,6 @@ export function DeviceManagement({
       setBleConnection(connection);
       setBleDeviceName(connection.deviceName);
       if (connection.initialStatus) await applyBleStatus(connection.initialStatus);
-      if (
-        !connection.initialStatus?.hardwareId &&
-        connection.deviceName === TARGET_BLE_DEVICE_NAME
-      ) {
-        setProvisioningHardwareId(TARGET_BLE_HARDWARE_ID);
-      }
       toast.success(t('devices.bleConnected'));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('devices.bleConnectionError'));
@@ -416,15 +407,12 @@ export function DeviceManagement({
       toast.error(t('devices.claimHardwareFirst'));
       return;
     }
-    const port = Number(bleMqttPort);
-    if (
-      !bleSsid.trim() ||
-      !bleMqttHost.trim() ||
-      !Number.isInteger(port) ||
-      port < 1 ||
-      port > 65535
-    ) {
+    if (!bleSsid.trim()) {
       toast.error(t('devices.bleInvalidConfiguration'));
+      return;
+    }
+    if (!env.mqttDeviceHost) {
+      toast.error('Falta configurar VITE_MQTT_DEVICE_HOST en el entorno del frontend.');
       return;
     }
 
@@ -433,9 +421,10 @@ export function DeviceManagement({
       await bleConnection.write({
         ssid: bleSsid.trim(),
         password: blePassword,
-        mqttHost: bleMqttHost.trim(),
-        mqttPort: port,
+        mqttHost: env.mqttDeviceHost,
+        mqttPort: env.mqttDevicePort,
         deviceCode: provisioningDevice.code,
+        disableBleAfterProvisioning: true,
       });
       setBleState('wifi_connecting');
       toast.success(t('devices.bleConfigurationSent'));
@@ -446,32 +435,21 @@ export function DeviceManagement({
     }
   };
 
-  const handleRegistrationOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen);
-  };
-
   const saveSettings = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!provisioningDevice) return;
+    const savedLocation =
+      locationOption === OTHER_LOCATION_OPTION
+        ? otherLocation.trim()
+        : locationOption || editLocation.trim();
     setProvisioningSaving(true);
     try {
       const deviceResponse = await devicesApi.update(provisioningDevice.deviceId, {
         name: editName.trim(),
-        location: editLocation.trim() || null,
-        alertThreshold: threshold.trim() ? Number(threshold) : null,
+        location: savedLocation || null,
       });
-      const provisioningResponse = await devicesApi.updateProvisioning(
-        provisioningDevice.deviceId,
-        {
-          hardwareId: provisioningDevice.hardwareId || null,
-          provisioningStatus,
-          provisioningError: provisioningError.trim() || null,
-        }
-      );
-      const updated = {
-        ...(deviceResponse.data as Partial<Device>),
-        ...(provisioningResponse.data as Partial<Device>),
-      };
+      const updated = deviceResponse.data as Partial<Device>;
+      setEditLocation(savedLocation);
       setDevices((current) =>
         current.map((device) =>
           device.deviceId === provisioningDevice.deviceId ? { ...device, ...updated } : device
@@ -486,10 +464,23 @@ export function DeviceManagement({
     }
   };
 
-  const unlink = async (device: Device) => {
+  const unlink = async (device: Device, keepProvisioningOpen = false) => {
     try {
       await devicesApi.unlink(device.deviceId, homeId);
-      await loadDevices(homeId, page);
+      setProvisioningUnlinked(
+        (current) => current || provisioningDevice?.deviceId === device.deviceId
+      );
+      setProvisioningDevice((current) =>
+        current?.deviceId === device.deviceId ? { ...current, homeId: '' } : current
+      );
+      if (keepProvisioningOpen) {
+        setDevices((current) =>
+          current.map((item) =>
+            item.deviceId === device.deviceId ? { ...item, homeId: '' } : item
+          )
+        );
+      }
+      if (!keepProvisioningOpen) await loadDevices(homeId, page);
       toast.success(t('devices.deviceUnlinked'));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('devices.unlinkError'));
@@ -516,19 +507,6 @@ export function DeviceManagement({
   const isFirstPage = currentPage <= 1;
   const isLastPage = totalPages === 0 || currentPage >= totalPages;
   const dateLocale = i18n.language || 'es-CO';
-  const currentConnectivity = String(provisioningDevice?.connectivityStatus || '').toUpperCase();
-  const isWifiConfigured = Boolean(
-    provisioningDevice &&
-      currentConnectivity !== 'OFFLINE' &&
-      (currentConnectivity === 'ONLINE' ||
-        ['WIFI_CONNECTED', 'MQTT_CONNECTED', 'COMPLETE'].includes(
-          String(provisioningDevice.provisioningStatus || '').toUpperCase()
-        ) ||
-        ['wifi_connected', 'mqtt_connected', 'provisioning_complete', 'mqtt_unreachable'].includes(
-          bleState
-        ))
-  );
-
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -577,64 +555,39 @@ export function DeviceManagement({
             <option value="createdAt:desc">{t('devices.sortNewest')}</option>
           </select>
           {canRegisterDevice && (
-            <>
-              <Dialog open={open} onOpenChange={handleRegistrationOpenChange}>
-                <DialogTrigger asChild>
-                  <Button className="w-full sm:w-auto" disabled={!homeId || loading}>
-                    <Plus className="mr-2 size-4" />
-                    {t('devices.registerNewDevice')}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <form onSubmit={register}>
-                    <DialogHeader>
-                      <DialogTitle>{t('devices.registerNewDevice')}</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <p className="text-sm text-gray-600">
-                        {t('devices.registrationIdentityHelp')}
-                      </p>
-                      <Input name="name" placeholder={t('devices.deviceName')} required />
-                      <Input name="type" placeholder={t('devices.type')} required />
-                      <Input
-                        name="threshold"
-                        type="number"
-                        min="0.01"
-                        placeholder={t('devices.alertThreshold')}
-                      />
-                    </div>
-                    <DialogFooter>
-                      <Button type="submit">{t('common.save')}</Button>
-                    </DialogFooter>
-                  </form>
-                </DialogContent>
-              </Dialog>
-              <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
-                <DialogTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full sm:w-auto"
-                    disabled={!homeId || loading}
-                  >
-                    {t('devices.linkDevice')}
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <form onSubmit={linkExisting}>
-                    <DialogHeader>
-                      <DialogTitle>{t('devices.linkDevice')}</DialogTitle>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4">
-                      <p className="text-sm text-gray-600">{t('devices.linkNewSensor')}</p>
-                      <Input name="code" placeholder={t('devices.deviceId')} required />
-                    </div>
-                    <DialogFooter>
-                      <Button type="submit">{t('devices.linkDevice')}</Button>
-                    </DialogFooter>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            </>
+            <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  disabled={!homeId || loading}
+                >
+                  {t('devices.linkDevice')}
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <form onSubmit={linkExisting}>
+                  <DialogHeader>
+                    <DialogTitle>{t('devices.linkDevice')}</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <p className="text-sm text-gray-600">{t('devices.linkNewSensor')}</p>
+                    <Input
+                      name="hardwareId"
+                      placeholder={t('devices.hardwareIdPlaceholder')}
+                      pattern="[A-Za-z0-9_-]{3,32}"
+                      title={t('devices.hardwareIdFormatHelp')}
+                      required
+                      autoCapitalize="characters"
+                      autoComplete="off"
+                    />
+                  </div>
+                  <DialogFooter>
+                    <Button type="submit">{t('devices.linkDevice')}</Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
           )}
         </div>
       </div>
@@ -685,11 +638,25 @@ export function DeviceManagement({
                   (state) => state.deviceId === device.deviceId
                 );
                 return (
-                  <Card key={device.deviceId}>
-                    <CardHeader>
-                      <div className="flex items-start justify-between gap-2">
-                        <Droplets className="size-6 text-blue-600" />
+                  <Card
+                    key={device.deviceId}
+                    className="overflow-hidden border-slate-200 shadow-sm transition-shadow hover:shadow-md"
+                  >
+                    <CardHeader className="space-y-4 pb-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-blue-50">
+                            <Droplets className="size-5 text-blue-600" />
+                          </div>
+                          <div className="min-w-0">
+                            <CardTitle className="truncate text-base">{device.name}</CardTitle>
+                            <CardDescription className="mt-1 truncate font-mono text-xs">
+                              {device.code} {device.type ? `· ${device.type}` : ''}
+                            </CardDescription>
+                          </div>
+                        </div>
                         <Badge
+                          className="shrink-0"
                           variant={isOnline ? 'default' : isOffline ? 'destructive' : 'outline'}
                         >
                           {isOnline ? (
@@ -700,16 +667,34 @@ export function DeviceManagement({
                           {t(`devices.connectivity.${connectivity.toLowerCase()}`)}
                         </Badge>
                       </div>
-                      <CardTitle className="text-base">{device.name}</CardTitle>
-                      <CardDescription>
-                        {device.code} · {device.type || '—'}
-                      </CardDescription>
-                      <p className="text-xs text-gray-500">
-                        {t('devices.location')}: {device.location || '—'}
-                      </p>
-                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-blue-100 bg-blue-50/50 px-3 py-2 text-xs">
-                        <span className="min-w-0 truncate text-blue-950">
-                          {t('devices.hardwareId')}: {device.hardwareId || '—'}
+                      <div className="grid gap-2 rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-slate-500">{t('devices.location')}</span>
+                          <span className="max-w-[65%] truncate text-right font-medium text-slate-800">
+                            {device.location || '—'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-slate-500">{t('devices.hardwareId')}</span>
+                          <span
+                            className="max-w-[65%] truncate text-right font-mono text-[11px] text-slate-700"
+                            title={device.hardwareId || undefined}
+                          >
+                            {device.hardwareId || '—'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between gap-3 text-xs">
+                        <span className="text-slate-500">{t('devices.lastConnection')}</span>
+                        <span className="text-right font-medium text-slate-700">
+                          {device.lastConnectionAt
+                            ? new Date(device.lastConnectionAt).toLocaleString(dateLocale)
+                            : '—'}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs text-slate-500">
+                          {t('devices.provisioningStatus')}
                         </span>
                         <Badge
                           variant={device.provisioningStatus === 'COMPLETE' ? 'default' : 'outline'}
@@ -720,54 +705,55 @@ export function DeviceManagement({
                         </Badge>
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-3">
-                      <p className="text-sm">
-                        {t('devices.alertThreshold')}: {device.alertThreshold ?? '—'}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {t('devices.lastConnection')}:{' '}
-                        {device.lastConnectionAt
-                          ? new Date(device.lastConnectionAt).toLocaleString(dateLocale)
-                          : '—'}
-                      </p>
+                    <CardContent className="space-y-4 border-t border-slate-100 pt-4">
+                      <div className="flex items-center justify-between rounded-lg bg-amber-50 px-3 py-2 text-sm">
+                        <span className="text-amber-800">{t('devices.alertThreshold')}</span>
+                        <strong className="text-amber-950">
+                          {device.alertThreshold ?? '—'} m³/hora
+                        </strong>
+                      </div>
                       {device.latestTelemetry ? (
-                        <div className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">
-                          <div>
-                            <span className="block text-xs text-gray-500">
-                              {t('devices.currentFlow')}
-                            </span>
-                            <strong className="flex items-center gap-1">
-                              <Activity className="size-3 text-blue-600" />
-                              {device.latestTelemetry.flowRateLpm?.toFixed(2) ?? '—'} L/min
-                            </strong>
+                        <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                          <div className="grid grid-cols-2 divide-x divide-slate-200 text-sm">
+                            <div className="p-3">
+                              <span className="block text-xs text-slate-500">
+                                {t('devices.currentFlow')}
+                              </span>
+                              <strong className="mt-1 flex items-center gap-1 text-slate-900">
+                                <Activity className="size-3 text-blue-600" />
+                                {device.latestTelemetry.flowRateLpm?.toFixed(2) ?? '—'} L/min
+                              </strong>
+                            </div>
+                            <div className="p-3">
+                              <span className="block text-xs text-slate-500">
+                                {t('devices.totalVolume')}
+                              </span>
+                              <strong className="mt-1 text-slate-900">
+                                {device.latestTelemetry.totalLiters?.toFixed(2) ?? '—'} L
+                              </strong>
+                            </div>
                           </div>
-                          <div>
-                            <span className="block text-xs text-gray-500">
-                              {t('devices.totalVolume')}
-                            </span>
-                            <strong>
-                              {device.latestTelemetry.totalLiters?.toFixed(2) ?? '—'} L
-                            </strong>
-                          </div>
-                          <div>
-                            <span className="block text-xs text-gray-500">
-                              {t('devices.lastReading')}
-                            </span>
-                            <strong>
-                              {new Date(device.latestTelemetry.measuredAt).toLocaleString(
-                                dateLocale
-                              )}
-                            </strong>
-                          </div>
-                          <div>
-                            <span className="block text-xs text-gray-500">
-                              {t('devices.pulses')}
-                            </span>
-                            <strong>{device.latestTelemetry.pulses ?? '—'}</strong>
+                          <div className="grid grid-cols-[1fr_auto] gap-3 border-t border-slate-200 bg-white px-3 py-2 text-xs">
+                            <div className="min-w-0">
+                              <span className="block text-slate-500">
+                                {t('devices.lastReading')}
+                              </span>
+                              <strong className="block truncate text-slate-800">
+                                {new Date(device.latestTelemetry.measuredAt).toLocaleString(
+                                  dateLocale
+                                )}
+                              </strong>
+                            </div>
+                            <div className="text-right">
+                              <span className="block text-slate-500">{t('devices.pulses')}</span>
+                              <strong className="text-slate-800">
+                                {device.latestTelemetry.pulses ?? '—'}
+                              </strong>
+                            </div>
                           </div>
                         </div>
                       ) : (
-                        <p className="rounded-lg border border-dashed p-3 text-xs text-gray-500">
+                        <p className="rounded-lg border border-dashed bg-slate-50 p-4 text-center text-xs text-gray-500">
                           {t('devices.noTelemetryYet')}
                         </p>
                       )}
@@ -812,30 +798,30 @@ export function DeviceManagement({
                           })}
                         </div>
                       )}
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-2 border-t border-slate-100 pt-4">
                         {canManageAssignedDevice && (
-                          <>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => openProvisioning(device)}
-                            >
-                              {t('devices.configure')}
-                            </Button>
-                          </>
+                          <Button
+                            className="flex-1"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openProvisioning(device)}
+                          >
+                            {t('devices.configure')}
+                          </Button>
                         )}
-                        <Button variant="outline" size="sm" onClick={() => openHistory(device)}>
+                        <Button
+                          className="flex-1"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openHistory(device)}
+                        >
                           <History className="mr-2 size-4" />
                           {t('devices.viewHistory')}
                         </Button>
                         {canUnlinkDevice && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => void unlink(device)}
-                            aria-label={t('devices.unlinkDevice')}
-                          >
+                          <Button variant="outline" size="sm" onClick={() => void unlink(device)}>
                             <Trash2 className="size-4" />
+                            <span className="ml-2">{t('devices.unlinkDevice')}</span>
                           </Button>
                         )}
                       </div>
@@ -892,8 +878,8 @@ export function DeviceManagement({
               </DialogHeader>
               <p className="text-sm text-gray-600">{t('devices.provisioningHelp')}</p>
               <div className="space-y-4 py-4">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-2 sm:col-span-2">
+                <div className="space-y-3">
+                  <div className="space-y-2">
                     <Label htmlFor="device-settings-name">{t('devices.deviceName')}</Label>
                     <Input
                       id="device-settings-name"
@@ -904,38 +890,46 @@ export function DeviceManagement({
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="device-settings-type">{t('devices.type')}</Label>
-                    <Input
-                      id="device-settings-type"
-                      value={provisioningDevice.type || '—'}
-                      readOnly
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="device-settings-code">{t('devices.logicalDeviceCode')}</Label>
-                    <Input id="device-settings-code" value={provisioningDevice.code} readOnly />
-                  </div>
-                  <div className="space-y-2 sm:col-span-2">
                     <Label htmlFor="device-settings-location">{t('devices.location')}</Label>
-                    <Input
+                    <select
                       id="device-settings-location"
-                      value={editLocation}
-                      onChange={(event) => setEditLocation(event.target.value)}
-                      placeholder={t('devices.locationPlaceholder')}
-                      maxLength={120}
-                    />
+                      className="h-10 w-full rounded-md border px-3"
+                      value={locationOption}
+                      onChange={(event) => {
+                        const nextLocation = event.target.value;
+                        setLocationOption(nextLocation);
+                        setEditLocation(
+                          nextLocation === OTHER_LOCATION_OPTION ? otherLocation : nextLocation
+                        );
+                      }}
+                    >
+                      <option value="">Selecciona una ubicación</option>
+                      {DEVICE_LOCATION_OPTIONS.map((location) => (
+                        <option key={location} value={location}>
+                          {location}
+                        </option>
+                      ))}
+                      <option value={OTHER_LOCATION_OPTION}>Otro</option>
+                    </select>
                   </div>
-                  <div className="space-y-2 sm:col-span-2">
-                    <Label htmlFor="device-settings-threshold">{t('devices.alertThreshold')}</Label>
-                    <Input
-                      id="device-settings-threshold"
-                      type="number"
-                      min="0.01"
-                      value={threshold}
-                      onChange={(event) => setThreshold(event.target.value)}
-                    />
-                    <p className="text-xs text-gray-500">{t('devices.alertThresholdHelp')}</p>
-                  </div>
+                  {locationOption === OTHER_LOCATION_OPTION && (
+                    <div className="space-y-2">
+                      <Label htmlFor="device-settings-other-location">
+                        Especifica la ubicación
+                      </Label>
+                      <Input
+                        id="device-settings-other-location"
+                        value={otherLocation}
+                        onChange={(event) => {
+                          setOtherLocation(event.target.value);
+                          setEditLocation(event.target.value);
+                        }}
+                        placeholder="Ej.: Lavandería, terraza..."
+                        required
+                        maxLength={120}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2 rounded-lg border bg-slate-50 p-3">
@@ -943,26 +937,10 @@ export function DeviceManagement({
                     <Wifi className="size-4 text-blue-600" />
                     <p className="text-sm font-medium">{t('devices.connectionSettings')}</p>
                   </div>
-                  <div className="grid gap-2 text-sm sm:grid-cols-2">
+                  <div className="text-sm">
                     <p>
                       <span className="text-gray-500">{t('devices.wifiNetwork')}:</span>{' '}
                       {bleSsid || provisioningDevice.wifiSsid || '—'}
-                    </p>
-                    <p>
-                      <span className="text-gray-500">{t('devices.wifiIp')}:</span>{' '}
-                      {bleIp || provisioningDevice.lastIp || '—'}
-                    </p>
-                    <p>
-                      <span className="text-gray-500">RSSI:</span>{' '}
-                      {bleRssi ?? provisioningDevice.wifiRssiDbm ?? '—'}
-                      {(bleRssi ?? provisioningDevice.wifiRssiDbm) !== null &&
-                      (bleRssi ?? provisioningDevice.wifiRssiDbm) !== undefined
-                        ? ' dBm'
-                        : ''}
-                    </p>
-                    <p>
-                      <span className="text-gray-500">{t('devices.wifiPassword')}:</span>{' '}
-                      {t('devices.wifiPasswordNotShown')}
                     </p>
                   </div>
                 </div>
@@ -978,12 +956,7 @@ export function DeviceManagement({
                         {bleState ? ` · ${bleState}` : ''}
                       </p>
                     </div>
-                    {isWifiConfigured ? (
-                      <Badge variant="default">
-                        <Wifi className="mr-1 size-3" />
-                        {t('devices.wifiConfigured')}
-                      </Badge>
-                    ) : (
+                    <div className="flex items-center gap-2">
                       <Button
                         type="button"
                         variant="outline"
@@ -998,167 +971,56 @@ export function DeviceManagement({
                         )}
                         {bleConnection ? t('devices.bleConnected') : t('devices.connectBle')}
                       </Button>
-                    )}
+                    </div>
                   </div>
                   {bleConnection && (
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-md border border-blue-200 bg-white p-3 text-xs text-blue-950 sm:col-span-2">
-                        <p>
-                          {t('devices.logicalDeviceCode')}:{' '}
-                          <strong>{provisioningDevice?.code}</strong>
-                        </p>
-                        <p className="mt-1 break-all">
-                          {t('devices.detectedHardware')}:{' '}
-                          <strong>{provisioningHardwareId || '—'}</strong>
-                        </p>
-                        <p className="mt-1 text-blue-800">{t('devices.claimHardwareHelp')}</p>
-                        <Button
-                          type="button"
-                          className="mt-3"
-                          size="sm"
-                          onClick={() => void claimHardware()}
-                          disabled={
-                            hardwareClaiming ||
-                            !provisioningHardwareId.trim() ||
-                            provisioningDevice?.hardwareId === provisioningHardwareId.trim()
-                          }
-                        >
-                          {hardwareClaiming ? t('common.loading') : t('devices.claimHardware')}
-                        </Button>
+                      <div className="space-y-1 sm:col-span-2">
+                        <Label htmlFor="ble-wifi-ssid">{t('devices.bleSsid')}</Label>
+                        <Input
+                          id="ble-wifi-ssid"
+                          value={bleSsid}
+                          onChange={(event) => setBleSsid(event.target.value)}
+                          maxLength={32}
+                          autoComplete="off"
+                        />
                       </div>
-                      {!isWifiConfigured && (
-                        <>
-                          <div className="space-y-1 sm:col-span-2">
-                            <Label htmlFor="ble-wifi-ssid">{t('devices.bleSsid')}</Label>
-                            <Input
-                              id="ble-wifi-ssid"
-                              value={bleSsid}
-                              onChange={(event) => setBleSsid(event.target.value)}
-                              maxLength={32}
-                              autoComplete="off"
-                            />
-                          </div>
-                          <div className="space-y-1 sm:col-span-2">
-                            <Label htmlFor="ble-wifi-password">{t('devices.blePassword')}</Label>
-                            <Input
-                              id="ble-wifi-password"
-                              type="password"
-                              value={blePassword}
-                              onChange={(event) => setBlePassword(event.target.value)}
-                              maxLength={63}
-                              autoComplete="new-password"
-                            />
-                            <p className="text-xs text-blue-800">
-                              {t('devices.wifiPasswordNotShown')}
-                            </p>
-                          </div>
-                          <div className="space-y-1">
-                            <Label htmlFor="ble-mqtt-host">{t('devices.bleMqttHost')}</Label>
-                            <Input
-                              id="ble-mqtt-host"
-                              value={bleMqttHost}
-                              onChange={(event) => setBleMqttHost(event.target.value)}
-                              placeholder={DEFAULT_BLE_MQTT_HOST}
-                              maxLength={253}
-                              autoComplete="off"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label htmlFor="ble-mqtt-port">{t('devices.bleMqttPort')}</Label>
-                            <Input
-                              id="ble-mqtt-port"
-                              type="number"
-                              min="1"
-                              max="65535"
-                              value={bleMqttPort}
-                              onChange={(event) => setBleMqttPort(event.target.value)}
-                            />
-                          </div>
-                          <Button
-                            type="button"
-                            className="sm:col-span-2"
-                            onClick={() => void sendBleConfiguration()}
-                            disabled={bleWriting}
-                          >
-                            {bleWriting ? t('common.loading') : t('devices.sendBleConfiguration')}
-                          </Button>
-                        </>
-                      )}
+                      <div className="space-y-1 sm:col-span-2">
+                        <Label htmlFor="ble-wifi-password">{t('devices.blePassword')}</Label>
+                        <Input
+                          id="ble-wifi-password"
+                          type="password"
+                          value={blePassword}
+                          onChange={(event) => setBlePassword(event.target.value)}
+                          maxLength={63}
+                          autoComplete="new-password"
+                        />
+                        <p className="text-xs text-blue-800">{t('devices.wifiPasswordNotShown')}</p>
+                      </div>
+                      <Button
+                        type="button"
+                        className="sm:col-span-2"
+                        onClick={() => void sendBleConfiguration()}
+                        disabled={bleWriting}
+                      >
+                        {bleWriting ? t('common.loading') : t('devices.sendBleConfiguration')}
+                      </Button>
                     </div>
                   )}
                 </div>
-                <div className="space-y-2 rounded-lg border bg-slate-50 p-3">
-                  <Label>{t('devices.hardwareId')}</Label>
-                  <p className="break-all text-sm text-gray-700">
-                    {provisioningHardwareId || t('devices.hardwareIdPending')}
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="device-provisioning-status">
-                    {t('devices.provisioningStatus')}
-                  </Label>
-                  <select
-                    id="device-provisioning-status"
-                    className="h-10 w-full rounded-md border px-3"
-                    value={provisioningStatus}
-                    onChange={(event) => setProvisioningStatus(event.target.value)}
-                  >
-                    {[
-                      'PENDING',
-                      'BLE_READY',
-                      'WIFI_CONNECTED',
-                      'MQTT_CONNECTED',
-                      'COMPLETE',
-                      'FAILED',
-                    ].map((status) => (
-                      <option key={status} value={status}>
-                        {t(`devices.provisioningStates.${status.toLowerCase()}`)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {provisioningStatus === 'FAILED' && (
-                  <div className="space-y-2">
-                    <Label htmlFor="device-provisioning-error">
-                      {t('devices.provisioningError')}
-                    </Label>
-                    <Input
-                      id="device-provisioning-error"
-                      value={provisioningError}
-                      onChange={(event) => setProvisioningError(event.target.value)}
-                      maxLength={255}
-                    />
-                  </div>
-                )}
-                <div className="rounded-lg border border-dashed p-3 text-xs text-gray-600">
-                  <p>
-                    {t('devices.bleServiceUuid')}: <code>4fafc201-1fb5-459e-8fcc-c5c9c331914b</code>
-                  </p>
-                  <p>
-                    {t('devices.bleCharacteristicUuid')}:{' '}
-                    <code>beb5483e-36e1-4688-b7f5-ea07361b26a8</code>
-                  </p>
-                  <p>
-                    {t('devices.bleStatusCharacteristicUuid')}:{' '}
-                    <code>beb5483e-36e1-4688-b7f5-ea07361b26a9</code>
-                  </p>
-                  <button
-                    type="button"
-                    className="mt-2 inline-flex items-center text-blue-700 hover:underline"
-                    onClick={() =>
-                      void navigator.clipboard?.writeText(
-                        JSON.stringify({
-                          hardwareId: provisioningHardwareId.trim() || undefined,
-                          provisioningStatus,
-                        })
-                      )
-                    }
-                  >
-                    <Copy className="mr-1 size-3" /> {t('devices.copyProvisioningData')}
-                  </button>
-                </div>
               </div>
               <DialogFooter>
+                {canUnlinkDevice && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => provisioningDevice && void unlink(provisioningDevice, true)}
+                    disabled={provisioningUnlinked}
+                  >
+                    <Trash2 className="mr-2 size-4" />
+                    {t('devices.unlinkDevice')}
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -1171,7 +1033,7 @@ export function DeviceManagement({
                   <History className="mr-2 size-4" />
                   {t('devices.viewHistory')}
                 </Button>
-                <Button type="submit" disabled={provisioningSaving}>
+                <Button type="submit" disabled={provisioningSaving || provisioningUnlinked}>
                   {provisioningSaving ? t('common.loading') : t('common.save')}
                 </Button>
               </DialogFooter>

@@ -8,6 +8,7 @@ const { GetMonthlyConsumption } = require('../core/application/use-cases/consump
 const { GetHourlyConsumption } = require('../core/application/use-cases/consumption/GetHourlyConsumption');
 const { GetPeriodCost } = require('../core/application/use-cases/consumption/GetPeriodCost');
 const { GetConsumptionSeries } = require('../core/application/use-cases/consumption/GetConsumptionSeries');
+const { GetBudgetStatus } = require('../core/application/use-cases/consumption/GetBudgetStatus');
 const { PostgresConsumptionRepository } = require('../core/infrastructure/repositories/postgres/PostgresConsumptionRepository');
 const { ConsumptionController } = require('./controllers/ConsumptionController');
 const { PostgresPermissionChecker } = require('../core/infrastructure/security/PostgresPermissionChecker');
@@ -23,13 +24,15 @@ const consumptionController = new ConsumptionController({
   getMonthlyConsumption,
   getHourlyConsumption,
   getPeriodCost,
-  getConsumptionSeries: new GetConsumptionSeries({ consumptionRepository })
+  getConsumptionSeries: new GetConsumptionSeries({ consumptionRepository }),
+  getBudgetStatus: new GetBudgetStatus({ consumptionRepository })
 });
 const requirePermission = createRequirePermission({
   permissionChecker: new PostgresPermissionChecker()
 });
 
 router.use(authenticate);
+router.get('/budget-status', requirePermission('consumption.read'), asyncHandler((req, res) => consumptionController.budgetStatus(req, res)));
 router.get('/summary', requirePermission('consumption.read'), asyncHandler((req, res) => consumptionController.summary(req, res)));
 router.get('/daily', requirePermission('consumption.read'), asyncHandler((req, res) => consumptionController.daily(req, res)));
 router.get('/monthly', requirePermission('consumption.read'), asyncHandler((req, res) => consumptionController.monthly(req, res)));

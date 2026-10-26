@@ -1,9 +1,24 @@
 # Firmware ESP32 — HidroSmart
 
-Última revisión: 2026-09-15.
+Última revisión: 2026-09-23.
 
 Firmware base versionado para el dispositivo IoT de HidroSmart. El proyecto
 usa PlatformIO y separa Wi-Fi, MQTT, sensores, actuadores, OTA y almacenamiento.
+
+## Ciclo BLE segun la asociacion
+
+El ESP32 anuncia BLE mientras no esta asociado a un hogar, aunque ya tenga una
+red Wi-Fi guardada. La configuracion recibida por BLE guarda la red y, si MQTT
+queda disponible, publica el estado de provisionamiento; por si sola no apaga
+BLE. El backend envia `confirm_link` solamente despues de asociar el dispositivo
+a un hogar. Ese comando guarda el bloqueo en NVS, desconecta el cliente BLE y
+detiene el anuncio. La red Wi-Fi permanece guardada en NVS.
+
+Al desvincular el dispositivo, el backend publica
+`{"command":"unlink"}` en `hidrosmart/devices/{deviceCode}/commands`.
+El ESP32 lo recibe por MQTT, reactiva BLE y queda disponible para vincularlo
+otra vez. Si MQTT no esta disponible, mantener BOOT presionado durante cinco
+segundos reactiva BLE localmente.
 
 ```text
 firmware/
@@ -18,10 +33,11 @@ firmware/
 └── tests/           pruebas de contrato
 ```
 
-En esta red local, `provisioning/config.example.h` ya deja el broker en
-`192.168.1.10:1883`, que corresponde al PC donde corre Mosquitto. Si la IP
-cambia por DHCP, actualiza `HIDROSMART_MQTT_HOST`; desde el ESP32 no uses
-`localhost`, `127.0.0.1` ni `mosquitto`.
+El frontend no solicita una IP manual para el broker. El ESP32 usa el host y
+puerto del perfil MQTT guardado en NVS; si no existen, utiliza
+`HIDROSMART_MQTT_HOST` y `HIDROSMART_MQTT_PORT` de su `config.h` privado.
+Para una red local estable se recomienda que ese host sea un nombre DNS/mDNS
+del PC, por ejemplo `hidrosmart-broker.local`, o una reserva DHCP.
 
 Instala PlatformIO, copia `provisioning/config.example.h` como
 `provisioning/config.h`, completa los secretos localmente y ejecuta:
@@ -70,11 +86,12 @@ estados en la característica **Estado**:
 {
   "ssid": "NOMBRE_DE_LA_RED",
   "password": "CLAVE_WIFI",
-  "mqttHost": "192.168.1.10",
-  "mqttPort": 1883,
   "deviceCode": "ESP32-001"
 }
 ```
+
+`mqttHost` y `mqttPort` son opcionales. Si se omiten, el firmware conserva el
+broker previamente guardado o utiliza la configuración compilada del equipo.
 
 `deviceCode` es opcional por compatibilidad; cuando se envía, el ESP32 lo
 valida y lo usa para publicar el topic lógico después de guardar la
@@ -98,3 +115,13 @@ Cada lectura publica `mqttMessageId`, `timestamp`, `flowRateLpm`,
 `consumptionLiters`, `totalLiters`, `pulses`, `sampleIntervalSeconds`,
 `wifiRssiDbm` y `signalQuality`. El identificador combina el dispositivo, una sesión de arranque
 aleatoria y la secuencia de la lectura, por lo que no se repite entre reinicios.
+
+Estado del hardware en el corte: el ID observado fue `HS-141F47470968`, con
+YF-S201 en GPIO 27 y sin redes guardadas al iniciar. El backend ya conserva
+lecturas asociadas a ese equipo, pero la última verificación lo encontró
+`OFFLINE`; queda ejecutar una transmisión continua con la placa y calibrar el
+caudalímetro.
+> Configuración vigente: el frontend envía `mqttHost` y `mqttPort` desde su
+> `.env` durante el provisionamiento BLE. La placa los guarda en NVS; el
+> usuario no escribe la IP. Consulta
+> [`../docs/mqtt-esp32-red-local.md`](../docs/mqtt-esp32-red-local.md).

@@ -21,6 +21,13 @@ export type BleProvisioningStatus = {
   ssid?: string;
   ip?: string;
   rssi?: number;
+  networks?: BleWifiNetwork[];
+};
+
+export type BleWifiNetwork = {
+  ssid: string;
+  rssi?: number;
+  secure?: boolean;
 };
 
 type BleCharacteristic = {
@@ -65,6 +72,7 @@ type NavigatorWithBluetooth = Navigator & { bluetooth?: BluetoothApi };
 export type BleProvisioningConnection = {
   deviceName: string;
   initialStatus: BleProvisioningStatus | null;
+  scanWifiNetworks: () => Promise<void>;
   write: (payload: BleProvisioningPayload) => Promise<void>;
   disconnect: () => void;
 };
@@ -77,6 +85,8 @@ export type BleProvisioningPayload = {
   deviceCode?: string;
   disableBleAfterProvisioning?: boolean;
 };
+
+type BleCommandPayload = BleProvisioningPayload | { action: 'scan_wifi' };
 
 function getBluetooth(): BluetoothApi | null {
   if (typeof navigator === 'undefined') return null;
@@ -116,10 +126,8 @@ export async function connectBleProvisioning(
   }
 
   const device = await bluetooth.requestDevice({
-    // Windows puede registrar el servicio BLE, pero Chrome/Edge no siempre lo
-    // incluye en el filtro del selector cuando llega desde scan response.
-    // Dejamos que el usuario seleccione el equipo y validamos el servicio al
-    // conectarnos; asi no aparece el selector vacio aunque el ESP32 anuncie.
+    // Chrome/Edge en Windows a veces omiten servicios anunciados en la
+    // respuesta de escaneo. Aceptamos el dispositivo y validamos GATT abajo.
     acceptAllDevices: true,
     optionalServices: [BLE_SERVICE_UUID],
   });
@@ -213,6 +221,10 @@ export async function connectBleProvisioning(
   return {
     deviceName: device.name || 'HidroSmart',
     initialStatus,
+    scanWifiNetworks: async () => {
+      const characteristic = await reconnectBeforeWrite();
+      await writeBleProvisioning(characteristic, { action: 'scan_wifi' });
+    },
     write: async (payload) => {
       const characteristic = await reconnectBeforeWrite();
       await writeBleProvisioning(characteristic, payload);
@@ -227,7 +239,7 @@ export async function connectBleProvisioning(
 
 export async function writeBleProvisioning(
   characteristic: BleCharacteristic,
-  payload: BleProvisioningPayload
+  payload: BleCommandPayload
 ): Promise<void> {
   const encoded = new TextEncoder().encode(JSON.stringify(payload));
   const value = encoded.buffer as ArrayBuffer;

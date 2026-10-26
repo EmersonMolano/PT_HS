@@ -1,47 +1,46 @@
 # Integrar una válvula de 12 V con el ESP32
 
-Actualizado: 2026-10-13.
+Actualizado: 2026-10-13. Integrado desde el aporte funcional de HU-13.
 
 ## Estado actual
 
-La etiqueta visible en la fotografía indica **DC 12 V**, pero la imagen no
-permite confirmar si el actuador es una bobina solenoide, una válvula
-motorizada o un modelo con enclavamiento. Antes de cablearlo, hay que leer el
-modelo completo y su ficha técnica: tensión, corriente, tipo de accionamiento,
-polaridad, ciclo de trabajo y posición sin alimentación (normalmente abierta o
-normalmente cerrada).
+La etiqueta visible **DC 12 V** no permite confirmar si el actuador es una
+bobina solenoide, una válvula motorizada o un modelo con enclavamiento. Antes
+de cablearlo, se debe consultar la ficha técnica completa: tensión, corriente,
+tipo de accionamiento, polaridad, ciclo de trabajo y posición sin alimentación
+(normalmente abierta o normalmente cerrada).
 
-En el firmware revisado, GPIO 27 está asignado al caudalímetro YF-S201 y GPIO 0
-al botón BOOT. El manejador MQTT existente procesa comandos BLE/vinculación
-(`enable_ble`, `confirm_link`, `unlink`, `disable_ble`); todavía no acciona una
-válvula. Por tanto, conectar un módulo al ESP32 no hará que la aplicación pueda
-abrirla o cerrarla hasta implementar y probar ese control en el firmware y
-definir el comando autorizado en el flujo de aplicación.
+En el firmware vigente, GPIO 27 está reservado para el caudalímetro YF-S201 y
+GPIO 0 para el botón BOOT. Los comandos MQTT actuales cubren provisión y
+vinculación (`enable_ble`, `confirm_link`, `unlink` y `disable_ble`); no
+accionan una válvula. Conectar un módulo de potencia al ESP32 no hará que la
+aplicación pueda abrirla o cerrarla hasta implementar, probar y autorizar ese
+control de extremo a extremo.
 
-## Componentes
+## Componentes mínimos
 
-- Fuente regulada de 12 V DC, dimensionada según la corriente indicada por el
+- Fuente regulada de 12 V DC, dimensionada para la corriente indicada por el
   fabricante de la válvula.
-- Fusible en serie con el positivo de 12 V, dimensionado para proteger el cable
-  y la carga.
-- Etapa de potencia compatible con el tipo de válvula: MOSFET lógico para una
-  bobina DC simple; puente H o controlador indicado por el fabricante si la
-  válvula necesita invertir polaridad; módulo de relé solo si sus contactos y
-  entrada soportan la carga y la señal de 3.3 V.
-- Supresión de transientes para la carga inductiva, integrada en el controlador
-  o externa según su ficha técnica.
-- Cables, borneras y caja adecuados para la corriente y para el entorno húmedo.
+- Fusible en serie con el positivo de 12 V, adecuado para proteger el cable y
+  la carga.
+- Etapa de potencia compatible: MOSFET lógico para una bobina DC simple;
+  puente H o controlador del fabricante si requiere invertir polaridad; relé
+  solo si sus contactos y entrada soportan la carga y una señal de 3.3 V.
+- Supresión de transientes para cargas inductivas, integrada en el controlador
+  o añadida según su ficha técnica.
+- Cables, borneras y caja aptos para la corriente y el entorno húmedo.
 
-El GPIO del ESP32 es una señal lógica de 3.3 V; no debe alimentar la válvula ni
-una bobina de 12 V. Consulta la [ficha técnica oficial del ESP32-WROOM-32](https://documentation.espressif.com/esp32_wroom-32_datasheet_en.html)
-para las características eléctricas de la placa/módulo.
+Un GPIO del ESP32 es una señal lógica de 3.3 V: no debe alimentar la válvula ni
+una bobina de 12 V. Consulta la [ficha técnica oficial del
+ESP32-WROOM-32](https://documentation.espressif.com/esp32_wroom-32_datasheet_en.html)
+para sus características eléctricas.
 
 ## Cableado según el actuador
 
-### Si la ficha confirma una bobina solenoide DC de dos cables
+### Bobina solenoide DC de dos cables
 
-Se puede usar un controlador MOSFET de lado bajo, apto para señal lógica de 3.3
-V y para la corriente de la válvula:
+Si la ficha confirma una bobina DC simple, se puede usar un controlador MOSFET
+de lado bajo, compatible con 3.3 V y con la corriente de la válvula:
 
 ```text
 Fuente +12 V ── fusible ──┬── válvula (+)
@@ -53,53 +52,55 @@ ESP32 GND ────────────────── fuente 0 V (tie
 Diodo: ánodo ─────────────── válvula (-) / drenador
 ```
 
-El diodo debe ser apto para la corriente de la bobina; su banda/cátodo va al
-positivo de 12 V y el ánodo al lado conmutado de la válvula. No hace falta
-añadir un diodo externo si el módulo ya incorpora una supresión apropiada y su
-fabricante lo confirma. GPIO 25 es solo un candidato de diseño, no está
-configurado en el firmware actual; se debe revisar la placa y reservar el pin
-antes de usarlo. GPIO 27 debe quedar para el sensor de flujo.
+El diodo debe soportar la corriente de la bobina; su cátodo (lado con banda) va
+al positivo de 12 V y el ánodo al lado conmutado. No se añade un diodo externo
+si el módulo incorpora una supresión apropiada que su fabricante confirme.
+GPIO 25 es solo un candidato: hay que revisar la placa y reservarlo antes de
+configurarlo. GPIO 27 permanece exclusivo para el sensor de flujo.
 
-### Si es motorizada, de polaridad reversible o con enclavamiento
+### Válvula motorizada, reversible o con enclavamiento
 
-No uses el circuito MOSFET simple anterior. Usa un puente H/controlador o el
-circuito exacto indicado por el fabricante. Algunas válvulas requieren invertir
-la polaridad para abrir/cerrar; otras requieren pulsos breves y no deben quedar
-alimentadas continuamente. En estos casos, confirma también la corriente de
-arranque o bloqueo del motor, que puede superar la corriente normal.
+No se debe usar el circuito MOSFET simple anterior. Se requiere un puente H,
+controlador dedicado o el circuito exacto del fabricante. Algunas válvulas
+necesitan invertir polaridad para abrir o cerrar; otras solo admiten pulsos
+breves y no deben permanecer energizadas. También hay que considerar su
+corriente de arranque o bloqueo, que puede ser mayor que la nominal.
 
-### Si es de tres o más cables
+### Válvula con tres o más cables
 
-No deduzcas la función de cada cable por color. Sigue el diagrama del modelo y
-usa un controlador con entradas, salidas y tensión compatibles con esa
-configuración.
+No se deduce la función de cada cable por su color. Debe seguirse el diagrama
+del modelo y emplearse un controlador cuyas entradas, salidas y tensión sean
+compatibles con esa configuración.
 
 ## Reglas de seguridad y prueba
 
 1. No conectes la válvula directamente a GPIO, 3V3, 5 V ni al USB del ESP32.
-2. No conectes 12 V al pin GPIO. Para un MOSFET no aislado, comparte GND entre
-   ESP32 y la fuente de 12 V; con un módulo aislado, sigue su diagrama y no
-   elimines el aislamiento.
-3. Verifica polaridad, corriente nominal, corriente de arranque, ciclo de
-   trabajo y estado de la válvula al perder alimentación. Para cortar agua ante
-   una falla suele preferirse normalmente cerrada, pero hay que confirmarlo con
-   el modelo y con el requisito hidráulico.
-4. Prueba primero sobre una mesa, con la tubería sin presión y una fuente
-   limitada/protegida. Comprueba apertura, cierre, temperatura y comportamiento
-   al reiniciar el ESP32, perder Wi-Fi/MQTT o desconectar la fuente.
-5. Mantén la electrónica protegida de fugas; instala fusible, aislamiento,
-   alivio de tensión y un cierre manual accesible. No manipules conexiones
-   energizadas con las manos húmedas.
+2. Nunca apliques 12 V a un GPIO. En un MOSFET no aislado, ESP32 y la fuente de
+   12 V comparten GND; para un módulo aislado se sigue su diagrama sin eliminar
+   el aislamiento.
+3. Verifica polaridad, corriente nominal y de arranque, ciclo de trabajo y
+   estado de la válvula al perder alimentación. Para cortar agua ante falla se
+   suele preferir normalmente cerrada, sujeto al modelo y al requisito
+   hidráulico.
+4. Prueba primero sobre mesa, con tubería sin presión y una fuente limitada o
+   protegida. Confirma apertura, cierre, temperatura y comportamiento al
+   reiniciar el ESP32, perder Wi-Fi/MQTT o desconectar la fuente.
+5. Protege la electrónica de fugas; instala fusible, aislamiento, alivio de
+   tensión y un cierre manual accesible. No manipules conexiones energizadas
+   con las manos húmedas.
 
-## Vinculación con HidroSmart
+## Integración pendiente en HidroSmart
 
-La ruta prevista no necesita un segundo microcontrolador: la integración puede
-usar el topic MQTT de comandos del dispositivo y hacer que el ESP32 accione el
-controlador de potencia y publique un estado/resultado. Hay que definir o
-verificar el soporte de extremo a extremo: API autorizada, formato de orden,
-confirmación, estado seguro ante desconexión y protección contra órdenes
-repetidas. Actualmente el firmware no implementa el control físico.
+La ruta prevista usa el topic MQTT de comandos del dispositivo para que el
+ESP32 opere el controlador de potencia y publique resultado y estado. Antes de
+habilitarla se debe implementar y verificar:
 
-Un relé/controlador MQTT externo también podría accionar una válvula, pero sería
-un dispositivo separado y requiere su propia integración y controles de acceso;
-vincular el ESP32 en la interfaz no lo configura automáticamente.
+1. Ruta API con autorización para emitir la orden.
+2. Contrato MQTT de comando, confirmación y estado de la válvula.
+3. Prevención de reintentos u órdenes repetidas.
+4. Estado seguro ante desconexión, reinicio o pérdida de alimentación.
+5. Pruebas eléctricas e hidráulicas antes de exponer el control en web o móvil.
+
+Un relé o controlador MQTT externo también podría accionar una válvula, pero
+sería un dispositivo independiente con su propia integración y controles de
+acceso. Vincular el ESP32 en HidroSmart no configura automáticamente ese relé.

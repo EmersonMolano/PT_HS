@@ -1,100 +1,83 @@
-# Contrato MQTT del firmware
+# Contrato MQTT del ESP32
 
-Topic: `hidrosmart/devices/{deviceCode}/telemetry`
-
-Cuando `HIDROSMART_DEVICE_CODE` está vacío, `{deviceCode}` es el `hardwareId`
-generado por el ESP32 usando los 12 caracteres hexadecimales del eFuse, por
-ejemplo `HS-680947471F14`. Ese valor debe registrarse o
-vincularse en HidroSmart antes de esperar lecturas en un hogar.
-
-```json
-{
-  "mqttMessageId": "ESP32-001-00000001-42",
-  "deviceId": "ESP32-001",
-  "hardwareId": "HS-680947471F14",
-  "timestamp": "2026-09-12T12:00:00.000Z",
-  "flowRateLpm": 2.4,
-  "consumptionLiters": 0.04,
-  "totalLiters": 3.407,
-  "pulses": 1,
-  "sampleIntervalSeconds": 1,
-  "wifiRssiDbm": -56,
-  "signalQuality": -56,
-  "batteryLevel": 100,
-  "voltage": 5,
-  "temperature": 25
-}
-```
-
-`mqttMessageId` debe conservarse al reintentar el mismo evento.
-
-El backend local mantiene compatibilidad temporal con el firmware anterior que
-no enviaba `mqttMessageId` mediante `MQTT_ALLOW_LEGACY_TELEMETRY=true`. Esa
-compatibilidad genera un identificador interno y no ofrece deduplicaciÃ³n ante
-reentregas; el firmware actualizado debe seguir enviando el identificador
-propio mostrado arriba.
-
-Para el caudalímetro YF-S201, el firmware calcula:
+## Topics
 
 ```text
-flowRateLpm = (pulsos del intervalo / segundos del intervalo) / 7.5
-consumptionLiters = flowRateLpm * segundos del intervalo / 60
+hidrosmart/devices/{deviceCode}/telemetry
+hidrosmart/devices/{deviceCode}/status
+hidrosmart/devices/{deviceCode}/commands
 ```
 
-El intervalo predeterminado es de 5 segundos y se puede cambiar mediante
-`HIDROSMART_SAMPLE_INTERVAL_MS` en `provisioning/config.h`.
+`deviceCode` es el código lógico de la placa. `hardwareId` continúa siendo la
+identidad física inmutable y viaja en cada estado y lectura.
 
-## Aprovisionamiento BLE
+## Telemetría
 
-El ESP32 activa el servicio BLE
-`4fafc201-1fb5-459e-8fcc-c5c9c331914b`, la característica de configuración
-`beb5483e-36e1-4688-b7f5-ea07361b26a8` y la característica de estado
-`beb5483e-36e1-4688-b7f5-ea07361b26a9`. El nombre anunciado es
-`HidroSmart-XXXXXX`, usando el identificador de hardware sin el prefijo `HS-`.
-
-La primera lectura de la característica devuelve el estado del dispositivo:
+Publicada cada cinco segundos por defecto en `telemetry`:
 
 ```json
 {
-  "state": "ready",
-  "hardwareId": "HS-680947471F14",
-  "deviceCode": "HS-680947471F14",
-  "firmwareVersion": "1.1.0",
-  "savedNetworks": 0,
-  "wifiConnected": false,
-  "mqttConnected": false
+  "mqttMessageId": "HS-7A3F91C8D2E4-123456-42",
+  "deviceId": "HS-7A3F91C8D2E4",
+  "hardwareId": "HS-141F47470968",
+  "timestamp": "2026-10-11T12:00:00Z",
+  "flowRateLpm": 2.4,
+  "consumptionLiters": 0.2,
+  "totalLiters": 3.4,
+  "pulses": 18,
+  "sampleIntervalSeconds": 5,
+  "wifiRssiDbm": -56,
+  "signalQuality": -56
 }
 ```
 
-El frontend escribe la configuración en la característica **Configuración** y
-lee/escucha los estados en la característica **Estado**:
+No cambies `mqttMessageId` al reintentar exactamente la misma lectura. El
+backend lo usa para evitar duplicados.
+
+El cálculo predeterminado del YF-S201 es:
+
+```text
+flowRateLpm = (pulsos / segundos) / 7.5
+consumptionLiters = flowRateLpm × segundos / 60
+```
+
+## Estado
+
+El estado MQTT es retenido y contiene, entre otros, `deviceId`, `hardwareId`,
+`status`, `provisioningState`, `timestamp`, `firmwareVersion`, `lastIp`,
+`linkedToHome`, `bleLocked`, `ssid` y `wifiRssiDbm`.
+
+El campo `status` utiliza `ONLINE` u `OFFLINE`. `provisioningState` expresa
+`PENDING`, `BLE_READY`, `WIFI_CONNECTED`, `MQTT_CONNECTED` o `COMPLETE`.
+
+## Comandos
+
+El backend publica JSON en `commands`:
 
 ```json
-{
-  "ssid": "APRENDICES",
-  "password": "TU_PASSWORD",
-  "mqttHost": "<MQTT_DEVICE_HOST>",
-  "mqttPort": 1883,
-  "deviceCode": "ESP32-001"
-}
+{ "command": "confirm_link" }
 ```
 
-`deviceCode` es opcional para conservar compatibilidad con clientes antiguos;
-cuando se envía, el ESP32 lo valida, lo guarda después de conectar Wi-Fi y lo
-usa para publicar el topic lógico. `hardwareId` sigue siendo la identidad
-física y no se reemplaza.
+| Comando | Efecto |
+| --- | --- |
+| `confirm_link` | Marca hogar asociado y detiene BLE. |
+| `unlink` | Elimina asociación, conserva Wi-Fi y vuelve a anunciar BLE. |
+| `enable_ble` | Habilita BLE para configuración. |
+| `disable_ble` | Solo se acepta si la placa ya está asociada. |
 
-El ESP32 notifica `wifi_connecting`, `wifi_connected`,
-`provisioning_complete`, `wifi_failed` o `mqtt_unreachable`. Los estados de
-conexión incluyen `hardwareId`, `deviceCode`, `firmwareVersion`,
-`savedNetworks`, `wifiConnected` y `mqttConnected`; cuando corresponde,
-también incluyen `ssid`, `ip` y `rssi`.
+## BLE
 
-`mqtt_unreachable` no borra la red guardada. BLE se mantiene disponible de forma
-permanente para corregir `mqttHost`, `mqttPort` o la red Wi-Fi. El firmware
-guarda como máximo cinco perfiles SSID, cada uno con su contraseña y
-configuración MQTT.
+El servicio BLE usa `4fafc201-1fb5-459e-8fcc-c5c9c331914b`; la característica
+de escritura de configuración es `beb5483e-36e1-4688-b7f5-ea07361b26a8` y la
+de lectura/notificación de estado es `beb5483e-36e1-4688-b7f5-ea07361b26a9`.
 
-`signalQuality` conserva el RSSI en dBm (por ejemplo `-38`) para coincidir con
-el payload del ESP32. El backend también acepta el nombre anterior
-`wifiRssiDbm` y normaliza ambos valores.
+Si MQTT no está disponible, el firmware conserva las redes guardadas y mantiene
+BLE disponible mientras el dispositivo no esté asociado. `confirm_link` guarda
+el bloqueo de BLE, cierra las conexiones GATT activas y detiene el anuncio;
+`unlink` elimina la asociación y vuelve a anunciar BLE. Mantener BOOT durante
+cinco segundos habilita la recuperación física local. El servicio BLE no usa
+pairing ni PIN.
+
+La configuración BLE admite `ssid`, `password`, `mqttHost`, `mqttPort` y
+`deviceCode`. No incluye ni publica contraseñas MQTT; esas se compilan en
+`config.h` cuando el broker las requiere.

@@ -470,6 +470,9 @@ void startProvisioningBLE() {
   );
   service->start();
 
+  // Deja la identidad disponible para una lectura inmediata al conectar.
+  setBleStatus("ready", false);
+
   NimBLEAdvertising* advertising = NimBLEDevice::getAdvertising();
   advertising->addServiceUUID(BLE_SERVICE_UUID);
   advertising->setName(bleName.c_str());
@@ -477,8 +480,6 @@ void startProvisioningBLE() {
 
   Serial.print("[BLE] Provisionamiento activo: ");
   Serial.println(bleName);
-  // La primera lectura BLE devuelve la identidad y el estado inicial.
-  setBleStatus("ready", false);
 }
 } // namespace
 

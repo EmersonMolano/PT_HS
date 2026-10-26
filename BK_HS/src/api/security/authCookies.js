@@ -32,30 +32,27 @@ function cookieOptions(config, { httpOnly, maxAge } = {}) {
   };
 }
 
-function setCsrfCookie(res, csrfToken, config) {
+function setCsrfCookie(res, config, existingToken) {
+  const csrfToken = typeof existingToken === 'string' && /^[A-Za-z0-9_-]{43}$/.test(existingToken)
+    ? existingToken
+    : randomBytes(32).toString('base64url');
   res.cookie(
     config.csrfTokenName,
     csrfToken,
     cookieOptions(config, { httpOnly: false, maxAge: config.refreshMaxAgeMs })
   );
-  res.set(config.csrfHeaderName, csrfToken);
-}
-
-function getOrCreateCsrfToken(req, res, config) {
-  const csrfToken = getCookie(req, config.csrfTokenName) || randomBytes(32).toString('base64url');
-  setCsrfCookie(res, csrfToken, config);
+  res.setHeader(config.csrfHeaderName, csrfToken);
   return csrfToken;
 }
 
 function setSessionCookies(res, session, config, existingCsrfToken) {
-  const csrfToken = existingCsrfToken || randomBytes(32).toString('base64url');
   res.cookie(config.accessTokenName, session.accessToken, cookieOptions(config, { httpOnly: true }));
   res.cookie(
     config.refreshTokenName,
     session.refreshToken,
     cookieOptions(config, { httpOnly: true, maxAge: config.refreshMaxAgeMs })
   );
-  setCsrfCookie(res, csrfToken, config);
+  setCsrfCookie(res, config, existingCsrfToken);
 }
 
 function clearSessionCookies(res, config) {
@@ -76,21 +73,19 @@ function createCsrfProtection(config) {
   return (req, _res, next) => {
     if (!['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) return next();
 
-    const requestPath = String(req.originalUrl || req.path || '').split('?')[0];
-    const isLoginRequest = req.method === 'POST' && requestPath.endsWith('/auth/login');
     const hasSessionCookie = Boolean(
       getCookie(req, config.accessTokenName) || getCookie(req, config.refreshTokenName)
     );
-    const hasCsrfCookie = Boolean(getCookie(req, config.csrfTokenName));
     // Los clientes que autentican con Authorization Bearer no son vulnerables a
     // CSRF porque el navegador no agrega ese header automaticamente.
-    if (!hasSessionCookie && !hasCsrfCookie && !isLoginRequest) return next();
+    if (!hasSessionCookie) return next();
 
     const expected = getCookie(req, config.csrfTokenName);
     const received = req.get(config.csrfHeaderName);
     if (!tokensEqual(expected, received)) {
       const error = new Error('Token CSRF invalido o ausente');
       error.status = 403;
+      error.publicCode = 'CSRF_INVALID';
       return next(error);
     }
     return next();
@@ -101,7 +96,7 @@ module.exports = {
   clearSessionCookies,
   createCsrfProtection,
   getCookie,
-  getOrCreateCsrfToken,
   parseCookieHeader,
+  setCsrfCookie,
   setSessionCookies
 };

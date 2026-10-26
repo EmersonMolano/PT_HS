@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import {
   Home,
   BarChart3,
@@ -11,10 +12,8 @@ import {
   Users,
   LogOut,
   Shield,
-  Wrench,
   Database,
   Activity,
-  Headphones,
   Loader2,
 } from 'lucide-react';
 import logoImage from '@/imports/aaa-Photoroom-1.png';
@@ -193,14 +192,6 @@ export function DashboardLayout({ session, onLogout }: DashboardLayoutProps) {
         requiredRoles: ['Administrator'],
         ariaLabel: t('nav.audit'),
       },
-      {
-        id: 'support-panel',
-        label: t('nav.supportPanel'),
-        icon: Wrench,
-        requiredPermission: 'tickets.manage',
-        requiredRoles: ['Administrator'],
-        ariaLabel: t('nav.supportPanel'),
-      },
     ];
 
     const baseItems: MenuItem[] = [
@@ -248,13 +239,6 @@ export function DashboardLayout({ session, onLogout }: DashboardLayoutProps) {
         ariaLabel: t('nav.goals'),
       },
       {
-        id: 'support',
-        label: t('nav.support'),
-        icon: Headphones,
-        requiredRoles: ['HomeUser', 'Guest'],
-        ariaLabel: t('nav.support'),
-      },
-      {
         id: 'settings',
         label: t('nav.settings'),
         icon: Settings,
@@ -277,7 +261,7 @@ export function DashboardLayout({ session, onLogout }: DashboardLayoutProps) {
 
   const menuItems = getMenuItems();
   const mobileNavigationIds = isAdministrator
-    ? ['admin-panel', 'users', 'audit', 'support-panel', 'settings']
+    ? ['admin-panel', 'users', 'audit', 'settings']
     : ['dashboard', 'homes', 'reports', 'goals', 'settings'];
   const mobileNavigationItems = mobileNavigationIds
     .map((id) => menuItems.find((item) => item.id === id))
@@ -333,9 +317,14 @@ export function DashboardLayout({ session, onLogout }: DashboardLayoutProps) {
   };
 
   // RF3.4 - Función para cerrar sesión de manera segura
-  const handleLogout = () => {
-    // RF19.1 - Registrar cierre de sesión en auditoría
-    onLogout();
+  const handleLogout = async () => {
+    try {
+      await onLogout();
+    } catch (error) {
+      toast.error(t('auth.logoutError'), {
+        description: error instanceof Error ? error.message : undefined,
+      });
+    }
   };
 
   const RoleBadge = () => (

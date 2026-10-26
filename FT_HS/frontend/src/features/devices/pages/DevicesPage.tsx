@@ -709,9 +709,7 @@ export function DeviceManagement({
                         ) : (
                           <Bluetooth className="mr-2 size-4" />
                         )}
-                        {bleDiscoveryRunning
-                          ? t('common.loading')
-                          : t('devices.discoverBleDevice')}
+                        {bleDiscoveryRunning ? t('common.loading') : t('devices.discoverBleDevice')}
                       </Button>
                     </div>
                     <div className="space-y-2 border-t pt-3">
@@ -726,7 +724,9 @@ export function DeviceManagement({
                         autoCapitalize="characters"
                         autoComplete="off"
                       />
-                      <p className="text-xs text-gray-500">{t('devices.registrationIdentityHelp')}</p>
+                      <p className="text-xs text-gray-500">
+                        {t('devices.registrationIdentityHelp')}
+                      </p>
                     </div>
                   </div>
                   <DialogFooter>
@@ -1165,16 +1165,16 @@ export function DeviceManagement({
                       </div>
                       {bleSsid && (
                         <div className="space-y-1 sm:col-span-2">
-                        <Label htmlFor="ble-wifi-password">{t('devices.blePassword')}</Label>
-                        <Input
-                          id="ble-wifi-password"
-                          type="password"
-                          value={blePassword}
-                          onChange={(event) => setBlePassword(event.target.value)}
-                          maxLength={63}
-                          autoComplete="new-password"
-                          required={blePasswordRequired}
-                        />
+                          <Label htmlFor="ble-wifi-password">{t('devices.blePassword')}</Label>
+                          <Input
+                            id="ble-wifi-password"
+                            type="password"
+                            value={blePassword}
+                            onChange={(event) => setBlePassword(event.target.value)}
+                            maxLength={63}
+                            autoComplete="new-password"
+                            required={blePasswordRequired}
+                          />
                           <p className="text-xs text-blue-800">
                             {t('devices.wifiPasswordRequired')}
                           </p>

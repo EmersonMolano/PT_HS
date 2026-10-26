@@ -52,6 +52,29 @@ test('lista usuarios con paginación y filtros validados', async () => {
   await assert.rejects(() => service.listUsers({ actorId, page: 0 }), (error) => error.status === 400);
 });
 
+test('consulta el resumen administrativo de hogares y dispositivos del usuario', async () => {
+  const calls = [];
+  const expected = {
+    userId: targetUserId,
+    username: 'usuario',
+    email: 'usuario@example.com',
+    homes: [],
+    devices: []
+  };
+  const service = new AccountAdminService({
+    userRepository: {
+      getManagedUserOverview: async (input) => { calls.push(input); return expected; }
+    }
+  });
+
+  const result = await service.getUserOverview({ actorId, targetUserId });
+  assert.deepEqual(result, expected);
+  assert.deepEqual(calls, [{ actorId, targetUserId }]);
+
+  const missing = new AccountAdminService({ userRepository: { getManagedUserOverview: async () => null } });
+  await assert.rejects(() => missing.getUserOverview({ actorId, targetUserId }), (error) => error.status === 404);
+});
+
 test('no revierte el cambio de estado si falla la notificación', async () => {
   let changed = false;
   const service = new AccountAdminService({

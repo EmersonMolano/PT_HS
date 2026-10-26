@@ -1,26 +1,68 @@
-﻿# Plan de trabajo y pendientes â€” HidroSmart
+# Plan de trabajo y pendientes â€” HidroSmart
 
-Ãšltima revisiÃ³n: 2026-09-15.
+Ãšltima revisiÃ³n: 2026-09-23.
 
 Este documento es el mapa operativo del proyecto. Distingue lo construido de lo que falta integrar, probar o endurecer. Las reglas protegidas por PostgreSQL no deben duplicarse en Node.js.
+
+## Actualización vigente 2026-09-23
+
+La base local tiene 245 changesets aplicados, 58 tablas de aplicación y 5
+vistas materializadas. No hay cambios Liquibase pendientes y las restricciones
+IoT quedaron validadas. En la última ejecución hubo 172 pruebas unitarias
+aprobadas y 4 pruebas de integración aprobadas; 2 escenarios se omitieron por
+no definir credenciales de usuario de integración.
+
+La base quedó con 0 hogares, 0 dispositivos y 0 lecturas después de limpiar
+los datos temporales de las pruebas. El circuito MQTT/PostgreSQL funciona, pero
+el ESP32 debe registrarse, vincularse y publicar nuevamente para poblar la
+interfaz.
 
 ## Estado actual
 
 | Ãrea | Estado | Nota |
 |---|---|---|
-| Base de datos | Operativa | Liquibase aplicado: 223 changesets; sin cambios pendientes |
+| Base de datos | Operativa | Liquibase aplicado: 245 changesets; sin cambios pendientes |
 | Backend HTTP | Base funcional | Rutas, JWT, RLS y RBAC implementados |
 | Frontend web | Base funcional | Consume `/api/v1`; quedan estados visuales, pruebas de rol y cobertura frontend |
 | MQTT | Ingesta local operativa | Topics, parser, deduplicaciÃ³n e ingesta PostgreSQL controlada |
 | IoT real | Parcial | Firmware, contrato BLE/MQTT y puente móvil presentes; falta cargarlo/probarlo en la placa y calibrar el sensor real |
 | SMTP | Integrado | Gmail configurable; eventos de cuenta aislados de la operaciÃ³n principal |
-| Pruebas | Backend aprobadas | Backend: 161 unitarias + integración local 6/6; quedan E2E de producción y pruebas con hardware real |
+| Pruebas | Backend aprobadas | Backend: 172 unitarias + integración local 4 aprobadas y 2 omitidas; quedan E2E de producción y pruebas con hardware real |
+
+## Corte de avance 2026-09-23
+
+El proyecto alcanza aproximadamente **80% de funcionalidad local comprobada**.
+La cifra no es cobertura de código ni significa que esté listo para producción.
+La preparación productiva permanece limitada por la prueba física continua del
+ESP32, la seguridad del broker y la ausencia de pruebas frontend/E2E.
+
+| Área | Avance estimado | Situación |
+|---|---:|---|
+| BD | 94% | 245 changesets aplicados, 58 tablas de aplicación, 5 vistas materializadas y restricciones IoT validadas. |
+| Backend | 91% | 172 unitarias, 4 integraciones aprobadas y MQTT/PostgreSQL operativos en local. |
+| Frontend web | 84% | Pantallas conectadas, lint, TypeScript y build aprobados. |
+| Mobile/BLE | 65% | Bundle y puente preparados; falta development build con hardware. |
+| Firmware/IoT | 60% | ID, sensor, NVS, BLE, Wi-Fi y MQTT implementados; falta transmisión sostenida real. |
+| Operación | 72% | Docker y validación automatizada; faltan TLS/ACL MQTT, backup/restore y E2E. |
+
+### Pendientes que bloquean el cierre
+
+1. Probar durante varios minutos ESP32/YF-S201 → Mosquitto → backend →
+   PostgreSQL → frontend y registrar que el contador de lecturas aumenta.
+2. Confirmar `ONLINE/OFFLINE`, `last_seen`, RSSI, IP, umbral y desaparición de
+   BLE cuando el Wi-Fi ya está conectado.
+3. Probar actuadores reales, ACK, timeout y auditoría.
+4. Recorrer manualmente los tres roles y los flujos de hogar, dispositivo,
+   consumo, alertas, reportes, metas y soporte.
+5. Endurecer Mosquitto, verificar Gmail, ejecutar backup/restore y hacer una
+   instalación limpia.
+6. Crear pruebas frontend/E2E, revisar accesibilidad, móvil real y tiempo real.
 
 ## Ya construido y verificado
 
 - [x] PostgreSQL, Liquibase, backend, frontend y Mosquitto en Docker Compose.
 - [x] Roles tÃ©cnicos `hidro_smart_admin`, `hidro_smart_app`, `hidro_smart_ingest` y `hidro_smart_readonly`.
-- [x] Roles funcionales `Administrator`, `Support`, `HomeUser` y `Guest`.
+- [x] Roles funcionales `Administrator`, `HomeUser` y `Guest`; la gestión de tickets está integrada en `Administrator`.
 - [x] Grants, RLS, funciones controladas, triggers, Ã­ndices, auditorÃ­a y alertas.
 - [x] Registro, login, JWT, refresh token, logout, cambio y recuperaciÃ³n de contraseÃ±a.
 - [x] VerificaciÃ³n de correo: alta en `Pending`, reenvÃ­o de token, activaciÃ³n y bloqueo de login sin verificar.
@@ -32,7 +74,7 @@ Este documento es el mapa operativo del proyecto. Distingue lo construido de lo 
 - [x] Contrato inicial compatible con ESP32: `deviceId`, `flowRateLpm`, `consumptionLiters`, `totalLiters`, `pulses`, `sampleIntervalSeconds`, `wifiRssiDbm` y `timestamp`.
 - [x] Prueba de humo MQTT con `ESP32-001`: Mosquitto recibió el mensaje y el backend lo validó/normalizó.
 - [x] Payload del ESP32 con `hardwareId`, `signalQuality` RSSI negativo y `mqttMessageId` persistido; el reenvío del mismo ID no duplica filas.
-- [x] Backend compilable, lint y 163 pruebas unitarias aprobadas.
+- [x] Backend compilable, lint y 174 pruebas unitarias aprobadas.
 
 ## Fase BK-01 â€” seguridad y contratos HTTP
 
@@ -91,7 +133,7 @@ Flujo objetivo: `ESP32 â†’ Mosquitto â†’ subscriber â†’ parser â
 
 ## Fase BK-05 â€” soporte, privacidad y reportes
 
-- [x] Separar operaciones de tickets propios y administraciÃ³n de Support mediante casos de uso y permisos distintos.
+- [x] Separar operaciones de tickets propios y administración mediante casos de uso y permisos distintos.
 - [x] Crear mÃ³dulo Privacy/ARCO: consentimientos, solicitudes propias, administraciÃ³n, respuesta, estado y paginaciÃ³n.
 - [x] Implementar exportaciÃ³n JSON del usuario autenticado sin hashes, tokens ni secretos y descarga resumida del consumo en PDF/Excel.
 - [x] Implementar recomendaciones propias: listado filtrable, resumen por hogar y actualizaciÃ³n de estado/utilidad protegidos por `reports.read` y RLS.
@@ -100,7 +142,7 @@ Flujo objetivo: `ESP32 â†’ Mosquitto â†’ subscriber â†’ parser â
 
 ## Fase BK-06 â€” dispositivos y actuadores
 
-Actualización 2026-09-15: `hardwareId`, estados de aprovisionamiento y la
+Actualización 2026-09-16: `hardwareId`, estados de aprovisionamiento y la
 telemetría del firmware nuevo ya recorren MQTT → backend → PostgreSQL →
 frontend. El frontend web y el puente móvil ya implementan el transporte BLE;
 sigue pendiente probarlo sobre la placa física.
@@ -157,3 +199,6 @@ Pendientes que siguen siendo reales: generaciÃ³n automÃ¡tica de recomendacio
 8. Actuadores reales y endurecimiento de Mosquitto.
 9. E2E, backup/restore y reorganizaciÃ³n final.
 - Corte y cambios verificados del 2026-09-14: `../../docs/cambios-2026-09-14.md`.
+> Corte vigente: consulta `../../docs/estado-verificado-2026-09-26.md` antes
+> de usar las cifras históricas de este plan. Liquibase tiene 245 cambiosets
+> aplicados en la verificación del 2026-09-26.

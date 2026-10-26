@@ -1,11 +1,16 @@
 # Integración ESP32 → BD → backend → frontend
 
-Fecha de actualización: 2026-09-15.
+Fecha de actualización: 2026-09-23.
 
 Este documento describe el flujo que queda conectado para el firmware nuevo del
 ESP32. Las credenciales Wi-Fi nunca pasan por PostgreSQL, el backend ni el
 frontend: se envían localmente por BLE al dispositivo y el ESP32 las conserva
 en su NVS.
+
+En la verificación del 2026-09-23 la infraestructura quedó saludable y las
+pruebas MQTT de inserción/idempotencia pasaron. La base no conserva datos IoT
+del ensayo porque los registros temporales se eliminan al finalizar; falta
+repetir el flujo con el ESP32 físico conectado de forma continua.
 
 ## Flujo de datos
 
@@ -56,7 +61,9 @@ El estado publica `deviceId`, `hardwareId`, `status`, `provisioningState`,
 `timestamp`, `firmwareVersion`, `lastIp`, `ssid` y RSSI. El backend acepta tanto
 `provisioningState` como `provisioningStatus` y los
 normaliza a `PENDING`, `BLE_READY`, `WIFI_CONNECTED`, `MQTT_CONNECTED`,
-`COMPLETE` o `FAILED`.
+`COMPLETE` o `FAILED`. En telemetría y estados, un `signalQuality` negativo
+se interpreta como RSSI en dBm y se convierte también a calidad porcentual;
+por ejemplo, `-70` se guarda como RSSI `-70` y calidad `60`.
 
 ### Base de datos
 
@@ -80,7 +87,7 @@ idempotencia por `mqttMessageId`. Los estados MQTT usan la sobrecarga de
 estado de aprovisionamiento.
 
 Liquibase ya aplicó los changesets DDL y de grants en la base local; el estado
-verificado es de 223 changesets aplicados.
+verificado es de 245 changesets aplicados.
 
 ### Backend
 
@@ -138,6 +145,11 @@ móvil, `HidroSmartWebView.jsx` traduce los mensajes de la WebView a
 `react-native-ble-plx`, por lo que el aprovisionamiento BLE funciona mediante un
 development build.
 
+Las pantallas Dashboard, Consumo y Dispositivos vuelven a consultar el backend
+cada 5 segundos para reflejar la última lectura persistida. No es una conexión
+MQTT directa del navegador: el flujo seguro sigue siendo ESP32 → Mosquitto →
+backend → PostgreSQL → frontend.
+
 ## Prueba local reproducible
 
 El ESP32 guarda hasta cinco perfiles, cada uno con su SSID, contraseÃ±a, host y
@@ -182,3 +194,6 @@ total_liters: 9.276
 - Añadir autenticación, ACL y TLS a Mosquitto antes de cualquier despliegue.
 - Validar el development build Android/iOS con el ESP32 físico; el código nativo
   ya está integrado, pero no se puede compilar iOS desde Windows.
+> Estado vigente 2026-09-26: la configuración del broker para el ESP32 sale de
+> `.env` y se transmite automáticamente por BLE; no se solicita IP al usuario.
+> Ver [`estado-verificado-2026-09-26.md`](./estado-verificado-2026-09-26.md).

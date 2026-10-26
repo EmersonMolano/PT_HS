@@ -1,8 +1,12 @@
 # Ambiente local
 
-Fecha de revisión: 2026-09-14.
+Fecha de revisión: 2026-09-23.
 
 La pila oficial de desarrollo se ejecuta desde el `docker-compose.yml` de la raíz. Los Compose individuales de BD y backend se conservan solo por compatibilidad.
+
+La referencia única de variables y conexión a PostgreSQL está en
+`../../docs/configuracion-entornos.md`. Desde Windows usa `localhost:5433`;
+dentro de Docker usa `postgres:5432`.
 
 ## Servicios
 
@@ -45,7 +49,7 @@ Mosquitto está configurado sin autenticación, sin TLS y sin persistencia para 
 
 ## Prueba funcional de roles
 
-La matriz de `Administrator`, `Support`, `HomeUser` y `Guest` está en
+La matriz de `Administrator`, `HomeUser` y `Guest` está en
 `tests/integration/roles-permissions.test.js`. El sembrador prepara cuentas
 exclusivas de integración y no usa usuarios reales de la aplicación.
 Configura `INTEGRATION_*_EMAIL`, `INTEGRATION_*_PASSWORD` e

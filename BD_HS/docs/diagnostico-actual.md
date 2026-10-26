@@ -1,10 +1,10 @@
 # Diagnóstico actual de BD_HS
 
-Fecha de revisión: 2026-09-14.
+Fecha de revisión: 2026-09-23.
 
 ## Resultado ejecutivo
 
-La configuración local de `hidro_smart` quedó verificada en la última ejecución con PostgreSQL 16 y Liquibase 5.0.2. El changelog actual contiene 223 changesets aplicados.
+La configuración local de `hidro_smart` quedó verificada en la última ejecución con PostgreSQL 16 y Liquibase 5.0.2. El changelog actual contiene 245 changesets aplicados.
 
 > Último estado comprobado: `validate`, `update` y `status` fueron exitosos; PostgreSQL estaba saludable, `hidro_smart_app` autenticaba correctamente y el backend respondía `/health` con HTTP 200. Si Docker Desktop no está iniciado, estas comprobaciones deben repetirse antes de aplicar cambios.
 
@@ -13,6 +13,10 @@ La configuración local de `hidro_smart` quedó verificada en la última ejecuci
 - El backend se conecta con el rol `hidro_smart_app`.
 - Liquibase se ejecuta con el perfil `tooling` y el rol administrador correspondiente.
 - Existen los roles `hidro_smart_admin`, `hidro_smart_liquibase`, `hidro_smart_app`, `hidro_smart_ingest` y `hidro_smart_readonly`.
+- La auditoría del esquema encontró 58 tablas de aplicación y 5 vistas
+  materializadas; no se identificaron tablas seguras para eliminar.
+- Las 15 restricciones de métricas IoT quedaron validadas y actualmente hay 0
+  restricciones `NOT VALID` en las tablas revisadas.
 - `user_account.user_account` acepta `Pending` para altas sin verificar y
   `user_account.user_profile` contiene avatar opcional y teléfono de hasta 60
   caracteres.
@@ -36,14 +40,14 @@ La base ya contiene objetos para:
 
 - `device.device`: identidad y código del dispositivo.
 - `device.device.location`: ubicación visible opcional, máximo 120 caracteres.
-- `device.home_device`: asociación del dispositivo con el hogar.
+- `home.home_device`: asociación del dispositivo con el hogar.
 - `consumption.sensor_reading`: lecturas de consumo.
 - `device.device_telemetry_history`: historial de salud/telemetría del dispositivo.
 - funciones y vistas de consumo que alimentan la API, incluida
   `consumption.fn_get_consumption_series(...)` para agrupaciones diaria, horaria,
   mensual y por ubicación.
 
-Los conteos de dispositivos y lecturas dependen de los datos cargados en la base de desarrollo; una instalación limpia puede mostrar cero registros. La capacidad de persistencia se verifica mediante la función de ingesta y las pruebas del backend.
+Los conteos de dispositivos y lecturas dependen de los datos cargados en la base de desarrollo; una instalación limpia puede mostrar cero registros. En el corte del 2026-09-23 hay 0 hogares, 0 dispositivos y 0 lecturas porque las pruebas limpian sus datos temporales. La capacidad de persistencia se verifica mediante la función de ingesta y las pruebas del backend.
 
 ## Estado de ingestión MQTT
 

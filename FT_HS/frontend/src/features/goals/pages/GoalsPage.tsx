@@ -7,7 +7,7 @@ import { Badge } from '@shared/ui/badge';
 import { Progress } from '@shared/ui/progress';
 import { Droplets, Target, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { goalsApi, consumptionApi } from '@shared/http/httpClient';
+import { goalsApi, consumptionApi, type BudgetStatus } from '@shared/http/httpClient';
 import { localDate } from '@shared/lib/dates';
 
 type Goal = {
@@ -26,6 +26,7 @@ export function GoalsConfig({ homeId }: { homeId?: string }) {
   const [consumption, setConsumption] = useState(0);
   const [consumptionLimit, setConsumptionLimit] = useState('');
   const [budgetLimit, setBudgetLimit] = useState('');
+  const [budgetStatus, setBudgetStatus] = useState<BudgetStatus | null>(null);
   const [period, setPeriod] = useState<'monthly' | 'weekly' | 'annual'>('monthly');
 
   const load = () => {
@@ -36,8 +37,9 @@ export function GoalsConfig({ homeId }: { homeId?: string }) {
     Promise.all([
       goalsApi.list(homeId),
       consumptionApi.summary(new URLSearchParams({ homeId, from, to }).toString()),
+      consumptionApi.budgetStatus(new URLSearchParams({ homeId }).toString()),
     ])
-      .then(async ([goalResponse, summaryResponse]) => {
+      .then(async ([goalResponse, summaryResponse, budgetResponse]) => {
         const loaded = goalResponse.data as Goal[];
         const progressResponses = await Promise.all(
           loaded.map((goal) => goalsApi.progress(goal.goalId).catch(() => null))
@@ -51,7 +53,14 @@ export function GoalsConfig({ homeId }: { homeId?: string }) {
         setGoals(loaded);
         setProgressByGoal(nextProgress);
         setConsumption(Number(summaryResponse.data.totalM3 || 0));
-        setConsumptionLimit(active ? String(active.targetM3) : '');
+        setBudgetStatus(budgetResponse.data);
+        setConsumptionLimit(
+          active
+            ? String(active.targetM3)
+            : budgetResponse.data
+              ? String(budgetResponse.data.expectedMonthlyLiters / 1000)
+              : ''
+        );
         setBudgetLimit(active?.targetBudget != null ? String(active.targetBudget) : '');
         setPeriod(active?.type === 'weekly' || active?.type === 'annual' ? active.type : 'monthly');
       })
@@ -116,6 +125,34 @@ export function GoalsConfig({ homeId }: { homeId?: string }) {
           Configura límites persistidos en el backend para el hogar seleccionado.
         </p>
       </div>
+      {budgetStatus && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Referencia del hogar</CardTitle>
+            <CardDescription>
+              Calculada con {budgetStatus.peopleCount} persona(s), {budgetStatus.daysInMonth} dias
+              del mes y{' '}
+              {budgetStatus.referenceSource === 'HOME_HISTORY'
+                ? `${budgetStatus.historyDays} dias de historial propio.`
+                : 'la referencia inicial.'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="rounded-lg border p-4">
+              <p className="text-sm text-gray-600">Referencia diaria</p>
+              <p className="text-xl">{budgetStatus.expectedDailyLiters.toFixed(0)} L</p>
+            </div>
+            <div className="rounded-lg border p-4">
+              <p className="text-sm text-gray-600">Referencia semanal</p>
+              <p className="text-xl">{budgetStatus.expectedWeeklyLiters.toFixed(0)} L</p>
+            </div>
+            <div className="rounded-lg border p-4">
+              <p className="text-sm text-gray-600">Referencia mensual</p>
+              <p className="text-xl">{(budgetStatus.expectedMonthlyLiters / 1000).toFixed(2)} m³</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>
@@ -173,6 +210,29 @@ export function GoalsConfig({ homeId }: { homeId?: string }) {
             <Button className="w-full" onClick={save}>
               Guardar meta
             </Button>
+            {budgetStatus && (
+              <div className="space-y-1 rounded-lg border bg-gray-50 p-3 text-sm">
+                <p>
+                  Tarifa de referencia:{' '}
+                  <strong>${budgetStatus.tariffM3.toLocaleString('es-CO')} / m³</strong>
+                </p>
+                <p>
+                  Costo estimado del mes:{' '}
+                  <strong>${budgetStatus.currentCost.toLocaleString('es-CO')}</strong>
+                </p>
+                <p>
+                  Litros restantes segun presupuesto:{' '}
+                  <strong>
+                    {budgetStatus.remainingLiters == null
+                      ? 'Configura un presupuesto'
+                      : `${budgetStatus.remainingLiters.toFixed(0)} L`}
+                  </strong>
+                </p>
+                <p className="text-xs text-gray-500">
+                  El costo no representa la factura final del prestador.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

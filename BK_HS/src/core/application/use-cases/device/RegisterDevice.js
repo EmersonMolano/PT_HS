@@ -6,18 +6,19 @@ class RegisterDevice {
     this.deviceRepository = deviceRepository;
   }
 
-  async execute({ userId, homeId, code, name, type, location, manufacturer, model, alertThreshold }) {
+  async execute({ userId, homeId, code, name, type, hardwareId, location, manufacturer, model, alertThreshold }) {
     if (!userId) throw new Error('El usuario autenticado es obligatorio');
     if (!this.isUuid(homeId)) {
       const error = new Error('homeId no es válido');
       error.status = 400;
       throw error;
     }
+    const normalizedHardwareId = Device.optionalHardwareId(hardwareId);
     const device = Device.create({
-      code: this.resolveCode(code),
+      code: this.resolveCode(code, normalizedHardwareId),
       name,
       type,
-      hardwareId: null,
+      hardwareId: normalizedHardwareId,
       location,
       manufacturer,
       model,
@@ -26,8 +27,9 @@ class RegisterDevice {
     return this.deviceRepository.register(device, userId, homeId);
   }
 
-  resolveCode(code) {
+  resolveCode(code, hardwareId = null) {
     if (typeof code === 'string' && code.trim()) return code.trim();
+    if (hardwareId) return hardwareId;
     return `ESP32-${crypto.randomBytes(6).toString('hex').toUpperCase()}`;
   }
 

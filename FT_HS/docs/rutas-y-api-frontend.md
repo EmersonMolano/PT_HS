@@ -1,6 +1,12 @@
 ﻿# Rutas de pantalla e integraciÃ³n API
 
-Ãšltima revisiÃ³n: 2026-09-14.
+Ãšltima revisiÃ³n: 2026-09-23.
+
+## Actualizacion vigente 2026-09-23
+
+El backend responde por HTTP y las respuestas vacias de hogares/dispositivos
+son coherentes con la base local limpia. El frontend no lee PostgreSQL ni
+publica directamente en MQTT.
 
 ## Rutas del navegador
 
@@ -18,9 +24,9 @@
 | `/app/reports` | Reportes y anÃ¡lisis disponibles | Autenticado |
 | `/app/goals` | Metas de ahorro | Autenticado y permiso `homes.manage` |
 | `/app/recommendations` | Tarjetas informativas de ahorro de agua | Autenticado y permiso `reports.read` |
-| `/app/alerts` | Alertas del hogar activo | Solo `Administrator`/`Support` con `alerts.manage`; no se muestra a `HomeUser`/`Guest` |
+| `/app/alerts` | Alertas del hogar activo | Solo `Administrator` con `alerts.manage`; no se muestra a `HomeUser`/`Guest` |
 | `/app/support` | Tickets propios, detalle, historial y respuestas | `HomeUser`/`Guest` autenticados |
-| `/app/support/management` | Bandeja de tickets, detalle, respuestas y actualizaciÃ³n de estado | `Administrator`/`Support` con `tickets.manage` |
+| `/app/support/management` | Bandeja de tickets, detalle, respuestas y actualización de estado | `Administrator` con `tickets.manage` |
 | `/app/settings` | Perfil, seguridad, preferencias y cuenta | Autenticado |
 | `/app/admin` | Panel administrativo | `Administrator` con `roles.manage` |
 | `/app/users` | GestiÃ³n de usuarios y roles | `Administrator` con `users.manage`/`roles.manage`; bÃºsqueda, filtro, paginaciÃ³n, estados y roles |
@@ -32,17 +38,15 @@ El acceso se obtiene iniciando sesiÃ³n con una cuenta cuyo rol funcional ya ex
 `GET /api/v1/users/me`. El frontend no permite elegir ni falsificar el rol: utiliza los
 roles y permisos devueltos por el backend, y la base de datos/RLS vuelve a validarlos.
 
-- `Administrator`: al iniciar sesiÃ³n entra a `/app/admin`; su menÃº solo contiene
-  Panel Administrador, GestiÃ³n de Usuarios, AuditorÃ­a y ConfiguraciÃ³n.
-- `Support`: al iniciar sesiÃ³n entra a `/app/support/management`; su menÃº solo
-  contiene Panel de Soporte y ConfiguraciÃ³n.
+- `Administrator`: al iniciar sesión entra a `/app/admin`; su menú incluye Panel Administrador,
+  Gestión de Usuarios, Auditoría, Tickets de soporte y Configuración.
 - `HomeUser`: conserva las vistas de hogares, dispositivos, consumo, reportes, metas,
   soporte propio y configuraciÃ³n. Las notificaciones se configuran dentro de ConfiguraciÃ³n.
 - `Guest`: conserva las vistas de consulta autorizada, soporte propio y configuraciÃ³n.
   Las notificaciones se configuran dentro de ConfiguraciÃ³n.
 
 Las vistas que no pertenecen al menÃº del rol tambiÃ©n quedan bloqueadas al intentar
-abrirlas directamente por URL. La asignaciÃ³n de `Administrator` o `Support` se hace desde
+abrirlas directamente por URL. La asignación de `Administrator` se hace desde
 `POST /api/v1/roles/users/:userId` con una cuenta que tenga `roles.manage`; despuÃ©s hay
 que cerrar sesiÃ³n e iniciar sesiÃ³n nuevamente para renovar los permisos.
 
@@ -82,12 +86,13 @@ Todas las APIs se encuentran en `frontend/src/shared/http/apiClient.ts` y `httpC
 | `userApi.notificationPreferences` | `GET /users/me/notifications` |
 | `userApi.updateNotificationPreferences` | `PUT /users/me/notifications` |
 | `userApi.listManagedUsers` | `GET /users` con bÃºsqueda, estado, paginaciÃ³n y ordenamiento |
+| `userApi.getManagedUserOverview` | `GET /users/:userId/overview`; hogares y dispositivos del usuario seleccionado |
 | `userApi.changeUserStatus` | `PATCH /users/:userId/status` |
 | `userApi.deleteUser` | `DELETE /users/:userId` |
 
 ### Hogares, dispositivos y consumo
 
-`/app/devices` consulta `GET /devices?homeId=...&page=...&pageSize=12&sort=...&order=...`. La pantalla muestra estados de carga, error con reintento y vacÃ­o; las acciones de registrar, vincular, editar ubicación/nombre, editar umbral y desvincular solo se muestran con `devices.manage`. La autorización de backend y RLS sigue siendo la barrera final.
+`/app/devices` consulta `GET /devices?homeId=...&page=...&pageSize=12&sort=...&order=...`. La pantalla muestra estados de carga, error con reintento y vacío; las acciones de vincular, editar nombre/ubicación y desvincular solo se muestran con `devices.manage`. El registro y la vinculación aceptan el `hardwareId` físico del ESP32; no solicitan una IP manual. Durante la configuración BLE, el host MQTT se toma automáticamente de `VITE_MQTT_DEVICE_HOST`. La autorización de backend y RLS sigue siendo la barrera final.
 
 `/app/homes` muestra las tarjetas de hogares en un carrusel horizontal responsive;
 la selección de hogar sigue alimentando el panel de miembros y las demás vistas.
@@ -97,7 +102,7 @@ La pantalla `/app/consumption` consulta directamente las lecturas persistidas de
 | API frontend | Endpoints principales |
 |---|---|
 | `homesApi` | `/homes`, `/homes/:homeId`, miembros y solicitudes de membresÃ­a |
-| `devicesApi` | `/devices`, registro con ubicaciÃ³n, vinculaciÃ³n por cÃ³digo, estado, configuraciÃ³n, desactivaciÃ³n y desvinculaciÃ³n |
+| `devicesApi` | `/devices`, registro por `hardwareId`, vinculación por `hardwareId` o código, estado, configuración, desactivación y desvinculación |
 | `actuatorsApi` | estados, historial de comandos y `POST /actuators/:deviceId/:actuator/commands` |
 | `consumptionApi` | `/consumption/summary`, `daily`, `hourly`, `monthly`, `cost` y `/consumption/advanced` |
 | `tariffApi` | `GET /tariffs/home/:homeId` |

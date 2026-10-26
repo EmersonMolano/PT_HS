@@ -12,6 +12,7 @@ export type NativeBleStatus = {
   savedNetworks?: number;
   wifiConnected?: boolean;
   mqttConnected?: boolean;
+  bleEnabled?: boolean;
   ssid?: string;
   ip?: string;
   rssi?: number;
@@ -66,9 +67,10 @@ export const deviceProvisioning = {
   provision(payload: {
     ssid: string;
     password: string;
-    mqttHost: string;
-    mqttPort: number;
+    mqttHost?: string;
+    mqttPort?: number;
     deviceCode?: string;
+    disableBleAfterProvisioning?: boolean;
   }) {
     sendNative('BLE_PROVISION', payload);
   },
@@ -98,9 +100,10 @@ export type NativeBleProvisioningConnection = {
   write: (payload: {
     ssid: string;
     password: string;
-    mqttHost: string;
-    mqttPort: number;
+    mqttHost?: string;
+    mqttPort?: number;
     deviceCode?: string;
+    disableBleAfterProvisioning?: boolean;
   }) => Promise<void>;
   disconnect: () => void;
 };

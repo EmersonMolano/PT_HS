@@ -5,7 +5,7 @@
  * como fuente de verdad en el navegador. Los roles de hogar (Owner, Member,
  * Guest) se tratan en su módulo y no deben mezclarse con estos roles globales.
  */
-export const SYSTEM_ROLES = ['Administrator', 'Support', 'HomeUser', 'Guest'] as const;
+export const SYSTEM_ROLES = ['Administrator', 'HomeUser', 'Guest'] as const;
 
 export type SystemRole = (typeof SYSTEM_ROLES)[number];
 
@@ -14,7 +14,7 @@ export type AuthorizationContext = {
   permissions: string[];
 };
 
-const rolePriority: SystemRole[] = ['Administrator', 'Support', 'HomeUser', 'Guest'];
+const rolePriority: SystemRole[] = ['Administrator', 'HomeUser', 'Guest'];
 
 export function normalizeRoles(roles: unknown): SystemRole[] {
   if (!Array.isArray(roles)) return [];
@@ -50,8 +50,6 @@ export function roleTranslationKey(role: SystemRole | null): string {
   switch (role) {
     case 'Administrator':
       return 'roles.administrator';
-    case 'Support':
-      return 'roles.support';
     case 'HomeUser':
       return 'roles.homeUser';
     case 'Guest':
@@ -65,8 +63,6 @@ export function roleBadgeClass(role: SystemRole | null): string {
   switch (role) {
     case 'Administrator':
       return 'bg-red-600';
-    case 'Support':
-      return 'bg-orange-600';
     case 'HomeUser':
       return 'bg-green-600';
     case 'Guest':

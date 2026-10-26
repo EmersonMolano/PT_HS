@@ -32,6 +32,7 @@ const userController = new UserController({
 const requireUsersManage = createRequirePermission({ permissionChecker: new PostgresPermissionChecker() })('users.manage');
 router.use(authenticate);
 router.get('/', requireUsersManage, asyncHandler((req, res) => userController.listUsers(req, res)));
+router.get('/:userId/overview', requireUsersManage, asyncHandler((req, res) => userController.getUserOverview(req, res)));
 router.get('/me', asyncHandler((req, res) => userController.getMe(req, res)));
 router.put('/me', asyncHandler((req, res) => userController.updateMe(req, res)));
 router.get('/me/preferences', asyncHandler((req, res) => userController.getPreferences(req, res)));

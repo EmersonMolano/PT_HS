@@ -15,11 +15,25 @@ import { formatCurrency } from '@shared/i18n/locale';
 import { useAuth } from '@app/providers/AuthProvider';
 import { localDate } from '@shared/lib/dates';
 
-type Home = { id: string; name: string; tier?: number | null };
+type Home = {
+  id: string;
+  name: string;
+  usageType?: 'RESIDENTIAL' | 'COMMERCIAL' | 'INDUSTRIAL';
+  tier?: number | null;
+};
 type ReportData = { totalM3?: number; totalCost?: number; readingCount?: number };
 type ReportTariff = {
+  usageType?: 'RESIDENTIAL' | 'COMMERCIAL' | 'INDUSTRIAL';
+  tier?: number | null;
   m3Value?: number;
+  basicM3Value?: number;
+  excessM3Value?: number;
+  referenceConsumptionM3?: number;
+  basicLimitM3?: number;
   fixedCharge?: number;
+  rateSource?: string;
+  unitBilling?: string;
+  unitSensor?: string;
   year?: number;
   month?: number;
   source?: string;
@@ -44,13 +58,19 @@ export function ReportsAnalytics({ homeId }: { homeId?: string }) {
     homesApi
       .list()
       .then(({ data }) => {
-        const loaded = (data as Array<{ homeId: string; name: string; tier?: number }>).map(
-          (home) => ({
-            id: String(home.homeId),
-            name: String(home.name),
-            tier: home.tier,
-          })
-        );
+        const loaded = (
+          data as Array<{
+            homeId: string;
+            name: string;
+            usageType?: 'RESIDENTIAL' | 'COMMERCIAL' | 'INDUSTRIAL';
+            tier?: number;
+          }>
+        ).map((home) => ({
+          id: String(home.homeId),
+          name: String(home.name),
+          usageType: home.usageType,
+          tier: home.tier,
+        }));
         setHomes(loaded);
         setSelectedHomeId((current) => current || loaded[0]?.id || '');
       })
@@ -290,6 +310,16 @@ export function ReportsAnalytics({ homeId }: { homeId?: string }) {
                 ? `${t('reports.fixedCharge')}: ${formatCurrency(tariff.fixedCharge, i18n.language, session?.preferences?.currency)}`
                 : t('reports.noCurrentRate')}
             </p>
+            {tariff && (
+              <p className="mt-1 text-xs text-gray-500">
+                {tariff.rateSource === 'NATIONAL_FALLBACK'
+                  ? t('reports.nationalReferenceRate')
+                  : t('reports.providerRate')}
+                {tariff.referenceConsumptionM3
+                  ? ` · ${t('reports.referenceConsumption')}: ${tariff.referenceConsumptionM3} m³`
+                  : ''}
+              </p>
+            )}
             {tariff?.year && tariff.month && (
               <p className="mt-1 text-xs text-gray-500">
                 {tariff.year}-{String(tariff.month).padStart(2, '0')}

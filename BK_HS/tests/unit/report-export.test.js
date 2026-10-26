@@ -14,12 +14,16 @@ test('buildConsumptionExcel genera un XLSX descargable', () => {
   const excel = buildConsumptionExcel(report);
   assert.equal(excel.subarray(0, 4).toString('hex'), '504b0304');
   assert.ok(excel.length > 500);
+  assert.match(excel.toString('utf8'), /Indicadores principales/);
+  assert.match(excel.toString('utf8'), /styles\.xml/);
 });
 
 test('buildConsumptionPdf genera un PDF descargable', () => {
   const pdf = buildConsumptionPdf(report);
   assert.equal(pdf.subarray(0, 8).toString('ascii'), '%PDF-1.4');
   assert.match(pdf.toString('ascii'), /HidroSmart - Reporte de consumo/);
+  assert.match(pdf.toString('ascii'), /Resumen de consumo/);
+  assert.match(pdf.toString('ascii'), /Helvetica-Bold/);
 });
 
 test('GenerateConsumptionReport conserva el usuario autenticado', async () => {

@@ -49,6 +49,7 @@ constexpr char BLE_SERVICE_UUID[] = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 constexpr char BLE_CONFIG_CHAR_UUID[] = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
 constexpr char BLE_STATUS_CHAR_UUID[] = "beb5483e-36e1-4688-b7f5-ea07361b26a9";
 constexpr uint8_t MAX_WIFI_NETWORKS = 5;
+constexpr uint8_t MAX_WIFI_SCAN_RESULTS = 12;
 constexpr unsigned long WIFI_TIMEOUT_MS = 15000UL;
 constexpr unsigned long WIFI_RETRY_INTERVAL_MS = 10000UL;
 constexpr unsigned long MQTT_RETRY_INTERVAL_MS = 5000UL;
@@ -463,6 +464,46 @@ void notifyStatus(const char* state) {
   setBleStatus(state, true);
 }
 
+void notifyWifiScanResults() {
+  const int discoveredCount = WiFi.scanNetworks(false, true);
+  JsonDocument document;
+  document["state"] = "wifi_scan_results";
+  document["hardwareId"] = hardwareId;
+  JsonArray networks = document["networks"].to<JsonArray>();
+
+  if (discoveredCount >= 0) {
+    for (int index = 0; index < discoveredCount && networks.size() < MAX_WIFI_SCAN_RESULTS; index++) {
+      const String ssid = WiFi.SSID(index);
+      if (ssid.isEmpty()) continue;
+
+      bool duplicate = false;
+      for (JsonObject network : networks) {
+        if (network["ssid"].as<String>() == ssid) {
+          duplicate = true;
+          break;
+        }
+      }
+      if (duplicate) continue;
+
+      JsonObject network = networks.add<JsonObject>();
+      network["ssid"] = ssid;
+      network["rssi"] = WiFi.RSSI(index);
+      network["secure"] = WiFi.encryptionType(index) != WIFI_AUTH_OPEN;
+    }
+  }
+
+  document["scanError"] = discoveredCount < 0;
+  String serialized;
+  serializeJson(document, serialized);
+  if (statusCharacteristic != nullptr) {
+    statusCharacteristic->setValue(serialized.c_str());
+    statusCharacteristic->notify();
+  }
+  Serial.print("[BLE] Redes Wi-Fi detectadas: ");
+  Serial.println(serialized);
+  WiFi.scanDelete();
+}
+
 void handleMqttCommand(char* topic, uint8_t* payload, unsigned int length) {
   if (String(topic) != deviceTopic(COMMANDS_SUFFIX)) return;
 
@@ -585,6 +626,12 @@ void handleProvisioningPayload(const String& serialized) {
   JsonDocument document;
   if (deserializeJson(document, serialized)) {
     notifyStatus("invalid_json");
+    return;
+  }
+
+  const String action = document["action"] | "";
+  if (action == "scan_wifi") {
+    notifyWifiScanResults();
     return;
   }
 

@@ -90,9 +90,11 @@ conexión incluyen `hardwareId`, `deviceCode`, `firmwareVersion`,
 `savedNetworks`, `wifiConnected` y `mqttConnected`; cuando corresponde,
 también incluyen `ssid`, `ip` y `rssi`.
 
-`mqtt_unreachable` no borra la red guardada y mantiene BLE disponible para
-corregir `mqttHost` o `mqttPort`. El firmware guarda como máximo cinco perfiles
-SSID, cada uno con su contraseña y configuración MQTT.
+`mqtt_unreachable` no borra la red guardada. BLE permanece disponible mientras
+el dispositivo espera completar su asociacion; al recibir `confirm_link`, el
+firmware cierra el provisionamiento y vuelve a habilitarlo tras `unlink`. El firmware
+guarda como máximo cinco perfiles SSID, cada uno con su contraseña y
+configuración MQTT.
 
 `signalQuality` conserva el RSSI en dBm (por ejemplo `-38`) para coincidir con
 el payload del ESP32. El backend también acepta el nombre anterior

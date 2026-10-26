@@ -20,6 +20,7 @@ BD_HS/docs/credenciales-locales.md
 **/*.pem
 **/*.key
 **/*.p12
+**/compile_commands.json
 BK_HS/storage/
 BK_HS/tmp/
 .vscode/

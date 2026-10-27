@@ -16,3 +16,21 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: false
+
+  - changeSet:
+      id: 20261027-preassigned-fourth-esp32-device-code
+      author: HidroSmart
+      labels: "dml,upsert,device,iot,provisioning"
+      comment: "Adds the physical board ID as its fourth selectable logical code."
+      changes:
+        - sqlFile:
+            path: 002_preassigned_fourth_esp32_device_code.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/02_dml/03_upserts/002_preassigned_fourth_esp32_device_code.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false

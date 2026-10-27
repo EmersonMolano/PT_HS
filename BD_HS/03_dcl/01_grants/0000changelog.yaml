@@ -987,3 +987,21 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: false
+
+  - changeSet:
+      id: 20261027-device-hardware-switch-grant
+      author: HidroSmart
+      labels: "dcl,grants,device,iot,hardware,security"
+      comment: "Allows the application to transfer one board between managed device codes."
+      changes:
+        - sqlFile:
+            path: 056_device_hardware_switch.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/03_dcl/01_grants/056_device_hardware_switch.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false

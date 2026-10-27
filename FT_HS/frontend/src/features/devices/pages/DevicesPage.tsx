@@ -374,12 +374,26 @@ export function DeviceManagement({
 
     const nextStatus = state ? BLE_BACKEND_STATUS[state] : 'BLE_READY';
     if (!provisioningDevice) return;
+    const reportedDeviceCode = String(status.deviceCode || '').trim();
+    if (!reportedDeviceCode || reportedDeviceCode.toUpperCase() !== provisioningDevice.code.toUpperCase()) {
+      return;
+    }
     let deviceForStatus = provisioningDevice;
     const reportedHardwareId = String(status.hardwareId || '').trim();
-    if (reportedHardwareId && reportedHardwareId !== provisioningDevice.hardwareId) {
+    const activeOnRequestedCode = [
+      'wifi_connected',
+      'mqtt_connected',
+      'provisioning_complete',
+      'waiting_link_confirmation',
+      'mqtt_unreachable',
+    ].includes(reportedState);
+    if (reportedHardwareId && reportedHardwareId !== provisioningDevice.hardwareId && activeOnRequestedCode) {
       const claimed = await claimHardware(reportedHardwareId, false);
       if (!claimed) return;
       deviceForStatus = { ...provisioningDevice, ...claimed };
+    }
+    if (reportedHardwareId && reportedHardwareId !== provisioningDevice.hardwareId && !activeOnRequestedCode) {
+      return;
     }
     if (!nextStatus) return;
 
@@ -439,18 +453,8 @@ export function DeviceManagement({
       return;
     }
 
-    const hardwareId = provisioningHardwareId.trim() || provisioningDevice.hardwareId?.trim() || '';
-    if (!hardwareId) {
-      toast.error(t('devices.claimHardwareFirst'));
-      return;
-    }
-
     setBleWriting(true);
     try {
-      if (provisioningDevice.hardwareId !== hardwareId) {
-        const claimed = await claimHardware(hardwareId, false);
-        if (!claimed || claimed.hardwareId !== hardwareId) return;
-      }
       await bleConnection.write({
         ssid: bleSsid.trim(),
         password: blePassword,

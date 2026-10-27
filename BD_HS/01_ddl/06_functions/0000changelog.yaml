@@ -1120,3 +1120,39 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: false
             stripComments: false
+
+  - changeSet:
+      id: 20261027-device-hardware-switch
+      author: HidroSmart
+      labels: "ddl,function,device,iot,provisioning,security"
+      comment: "Moves a single physical board between logical device codes owned by the same user."
+      changes:
+        - sqlFile:
+            path: 066_fn_switch_device_hardware.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/06_functions/066_fn_switch_device_hardware.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+
+  - changeSet:
+      id: 20261027-device-hardware-id-unique-guard
+      author: HidroSmart
+      labels: "ddl,function,device,iot,security"
+      comment: "Prevents late MQTT events from reclaiming hardware for a previous logical code."
+      changes:
+        - sqlFile:
+            path: 067_fn_keep_hardware_id_unique.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/06_functions/067_fn_keep_hardware_id_unique.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false

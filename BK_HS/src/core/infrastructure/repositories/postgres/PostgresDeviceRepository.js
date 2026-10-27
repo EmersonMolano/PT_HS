@@ -686,7 +686,7 @@ class PostgresDeviceRepository extends DeviceRepository {
     const result = await withTransaction(userId, async (client) => {
       const claimed = await client.query(
         `SELECT device_id
-           FROM device.fn_claim_provisioned_device($1::uuid, $2::varchar)`,
+           FROM device.fn_switch_device_hardware($1::uuid, $2::varchar)`,
         [deviceId, hardwareId],
       );
       if (!claimed.rows[0]) return claimed;

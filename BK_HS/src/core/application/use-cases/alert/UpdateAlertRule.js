@@ -10,6 +10,7 @@ class UpdateAlertRule {
     if (unit !== undefined && !UNITS.includes(unit)) throw this.badRequest('unit no es válida');
     if (active !== undefined && typeof active !== 'boolean') throw this.badRequest('active debe ser booleano');
     if (alertType !== undefined && unit !== undefined && TYPE_UNITS[alertType] !== unit) throw this.badRequest('unit no corresponde con alertType');
+    if (unit === 'minutes' && threshold !== undefined && Number(threshold) <= 0) throw this.badRequest('Duration threshold must be greater than zero');
     if ([alertType, threshold, unit, active].every((value) => value === undefined)) throw this.badRequest('Debe enviar al menos un campo para actualizar');
     return this.alertRepository.updateRule({ userId, ruleId, alertType, threshold: threshold === undefined ? undefined : Number(threshold), unit, active });
   }

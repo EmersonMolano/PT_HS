@@ -14,11 +14,11 @@ const { createRequirePermission } = require('./middleware/requirePermission');
 const { PostgresPermissionChecker } = require('../core/infrastructure/security/PostgresPermissionChecker');
 const { UserController } = require('./controllers/UserController');
 const { NotificationService } = require('../core/application/services/notifications/NotificationService');
-const { SmtpEmailSender } = require('../core/infrastructure/notifications/SmtpEmailSender');
+const { BrevoEmailSender } = require('../core/infrastructure/notifications/BrevoEmailSender');
 const { getEnv } = require('../config/env');
 const userRepository = new PostgresUserRepository();
 const env = getEnv();
-const notificationService = new NotificationService({ sender: new SmtpEmailSender({ smtp: env.smtp, resend: env.resend, brevo: env.brevo }), frontendUrl: env.frontendUrl, passwordResetUrl: env.passwordResetUrl });
+const notificationService = new NotificationService({ sender: new BrevoEmailSender({ brevo: env.brevo }), frontendUrl: env.frontendUrl, passwordResetUrl: env.passwordResetUrl });
 const userController = new UserController({
   getCurrentUser: new GetCurrentUser({ userRepository }),
   updateCurrentUser: new UpdateCurrentUser({ userRepository, notificationService }),

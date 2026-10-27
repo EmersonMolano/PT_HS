@@ -1,10 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { RequestPasswordReset } = require('../../src/core/application/use-cases/auth/RequestPasswordReset');
-const { SmtpEmailSender } = require('../../src/core/infrastructure/notifications/SmtpEmailSender');
+const { BrevoEmailSender } = require('../../src/core/infrastructure/notifications/BrevoEmailSender');
 const { NotificationService } = require('../../src/core/application/services/notifications/NotificationService');
 
-test('solicita recuperación solo con un correo electrónico válido', async () => {
+test('requests a reset only for a valid email address', async () => {
   const calls = [];
   const useCase = new RequestPasswordReset({
     authRepository: {
@@ -30,7 +30,7 @@ test('solicita recuperación solo con un correo electrónico válido', async () 
   await assert.rejects(() => useCase.execute({ email: 'usuario-invalido' }), (error) => error.status === 400);
 });
 
-test('mantiene una respuesta neutra para cuentas inexistentes y no intenta enviar un correo', async () => {
+test('keeps a neutral response for nonexistent accounts without sending email', async () => {
   let sent = false;
   const useCase = new RequestPasswordReset({
     authRepository: { createPasswordResetToken: async () => null },
@@ -43,17 +43,54 @@ test('mantiene una respuesta neutra para cuentas inexistentes y no intenta envia
   assert.equal(sent, false);
 });
 
-test('construye un enlace de recuperación seguro para el frontend', async () => {
-  const sent = [];
-  const sender = new SmtpEmailSender({
-    smtp: { host: 'smtp.gmail.com', port: 587, secure: false, user: '', password: '', from: 'HidroSmart <no-reply@gmail.com>' },
-    passwordResetUrl: 'http://localhost:5173/?from=email',
-    transportFactory: () => ({ sendMail: async (message) => sent.push(message), verify: async () => true })
+test('sends reset email through Brevo with a frontend login link', async () => {
+  const requests = [];
+  const sender = new BrevoEmailSender({
+    brevo: { apiKey: 'test-api-key', fromEmail: 'no-reply@example.com', fromName: 'HidroSmart' },
+    fetchImpl: async (url, options) => {
+      requests.push({ url, options });
+      return { ok: true, status: 201, text: async () => JSON.stringify({ messageId: 'test-message' }) };
+    }
   });
 
-  const notifications = new NotificationService({ sender, frontendUrl: 'http://localhost:5173', passwordResetUrl: 'http://localhost:5173/?from=email' });
+  const notifications = new NotificationService({
+    sender,
+    frontendUrl: 'http://localhost:5173',
+    passwordResetUrl: 'http://localhost:5173/?from=email'
+  });
   await notifications.sendPasswordReset({ recipient: 'usuario@ejemplo.com', resetToken: 'token_seguro' });
-  assert.equal(sent[0].to, 'usuario@ejemplo.com');
-  assert.match(sent[0].text, /from=email/);
-  assert.match(sent[0].text, /resetToken=token_seguro/);
+
+  const payload = JSON.parse(requests[0].options.body);
+  const link = payload.textContent.match(/https?:\/\/[^\s]+/)[0];
+  const resetUrl = new URL(link);
+  assert.equal(requests[0].url, 'https://api.brevo.com/v3/smtp/email');
+  assert.equal(payload.to[0].email, 'usuario@ejemplo.com');
+  assert.equal(resetUrl.pathname, '/login');
+  assert.equal(resetUrl.searchParams.get('resetToken'), 'token_seguro');
+});
+
+test('sends verification email through Brevo with the verification link', async () => {
+  const requests = [];
+  const sender = new BrevoEmailSender({
+    brevo: { apiKey: 'test-api-key', fromEmail: 'no-reply@example.com' },
+    fetchImpl: async (url, options) => {
+      requests.push({ url, options });
+      return { ok: true, status: 201, text: async () => JSON.stringify({ messageId: 'test-message' }) };
+    }
+  });
+  const notifications = new NotificationService({
+    sender,
+    frontendUrl: 'https://pt-hs.pages.dev',
+    passwordResetUrl: 'https://pt-hs.pages.dev/login'
+  });
+
+  await notifications.sendEmailVerification({ recipient: 'usuario@ejemplo.com', token: 'verify-token' });
+
+  const payload = JSON.parse(requests[0].options.body);
+  const link = payload.textContent.match(/https?:\/\/[^\s]+/)[0];
+  const verificationUrl = new URL(link);
+  assert.equal(requests[0].url, 'https://api.brevo.com/v3/smtp/email');
+  assert.equal(payload.to[0].email, 'usuario@ejemplo.com');
+  assert.equal(verificationUrl.pathname, '/verify-email');
+  assert.equal(verificationUrl.searchParams.get('token'), 'verify-token');
 });

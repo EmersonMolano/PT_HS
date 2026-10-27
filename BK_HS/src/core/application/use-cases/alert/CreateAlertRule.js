@@ -17,6 +17,8 @@ class CreateAlertRule {
     if (!Number.isFinite(Number(threshold)) || Number(threshold) < 0) throw this.badRequest('threshold debe ser un número mayor o igual a cero');
     if (!UNITS.includes(unit)) throw this.badRequest('unit no es válida');
     if (TYPE_UNITS[alertType] !== unit) throw this.badRequest('unit no corresponde con alertType');
+    if (TYPE_UNITS[alertType] !== unit) throw this.badRequest('unit no corresponde con alertType');
+    if (['leak_detected', 'no_reading'].includes(alertType) && Number(threshold) <= 0) throw this.badRequest('Duration threshold must be greater than zero');
     if (typeof active !== 'boolean') throw this.badRequest('active debe ser booleano');
   }
 

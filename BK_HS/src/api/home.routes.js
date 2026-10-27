@@ -17,13 +17,13 @@ const { PostgresHomeRepository } = require('../core/infrastructure/repositories/
 const { HomeController } = require('./controllers/HomeController');
 const { PostgresPermissionChecker } = require('../core/infrastructure/security/PostgresPermissionChecker');
 const { NotificationService } = require('../core/application/services/notifications/NotificationService');
-const { SmtpEmailSender } = require('../core/infrastructure/notifications/SmtpEmailSender');
+const { BrevoEmailSender } = require('../core/infrastructure/notifications/BrevoEmailSender');
 const { getEnv } = require('../config/env');
 
 const homeRepository = new PostgresHomeRepository();
 const env = getEnv();
 const notificationService = new NotificationService({
-  sender: new SmtpEmailSender({ smtp: env.smtp, resend: env.resend, brevo: env.brevo }),
+  sender: new BrevoEmailSender({ brevo: env.brevo }),
   frontendUrl: env.frontendUrl,
   passwordResetUrl: env.passwordResetUrl
 });

@@ -18,8 +18,9 @@
 
 El broker Mosquitto de `docker-compose.yml` es para desarrollo: no tiene TLS ni
 autenticación por dispositivo. La pila local no debe publicarse directamente a
-Internet. Antes de una publicación real se requiere una infraestructura con
-HTTPS, DNS, certificados, firewall, MQTT autenticado, ACL por topic y TLS.
+Internet. El backend y el firmware ya tienen una ruta de conexión MQTT con TLS
+para Flespi, pero el despliegue real sigue necesitando tokens individuales,
+ACLs revisadas y una prueba física de ESP32.
 
 ## Validación pendiente para Cloudflare Pages y Render
 

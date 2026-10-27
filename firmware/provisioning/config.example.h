@@ -2,14 +2,25 @@
 
 #define HIDROSMART_WIFI_SSID "CAMBIA_WIFI_SSID"
 #define HIDROSMART_WIFI_PASSWORD "CAMBIA_WIFI_PASSWORD"
-// Nombre DNS estable de la red local. Debe resolver hacia el PC/servidor que
-// publica Mosquitto; no uses "mosquitto", que solo existe dentro de Docker.
-#define HIDROSMART_MQTT_HOST "hidrosmart-broker.local"
-#define HIDROSMART_MQTT_PORT 1883
-// For Flespi production set TLS to 1, host to mqtt.flespi.io and port to 8883.
-// Keep TLS off only for the isolated local Mosquitto development broker.
 #ifndef HIDROSMART_MQTT_USE_TLS
 #define HIDROSMART_MQTT_USE_TLS 0
+#endif
+// The Flespi PlatformIO profile enables TLS and selects its public endpoint.
+// The default profile remains for the isolated local Mosquitto broker.
+#ifndef HIDROSMART_MQTT_HOST
+#if HIDROSMART_MQTT_USE_TLS
+#define HIDROSMART_MQTT_HOST "mqtt.flespi.io"
+#else
+// This DNS name must resolve to the local Mosquitto host from the ESP32 Wi-Fi.
+#define HIDROSMART_MQTT_HOST "hidrosmart-broker.local"
+#endif
+#endif
+#ifndef HIDROSMART_MQTT_PORT
+#if HIDROSMART_MQTT_USE_TLS
+#define HIDROSMART_MQTT_PORT 8883
+#else
+#define HIDROSMART_MQTT_PORT 1883
+#endif
 #endif
 // Vacio: usa el hardwareId HS-XXXXXX generado por el ESP32.
 // Para una placa preasignada, usa UN codigo por ESP32, por ejemplo

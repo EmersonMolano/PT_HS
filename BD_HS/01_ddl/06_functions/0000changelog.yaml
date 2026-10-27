@@ -1084,3 +1084,39 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: false
+
+  - changeSet:
+      id: 20261026-home-default-alert-rules
+      author: Hidro_Smarth
+      labels: "BD-01-dev,ddl,function,home,alerts"
+      comment: "Creates editable daily and monthly alert defaults together with each new home."
+      changes:
+        - sqlFile:
+            path: 064_fn_home_creation_default_alerts.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/06_functions/064_fn_home_creation_default_alerts.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+
+  - changeSet:
+      id: 20261026-live-pending-alert-count
+      author: Hidro_Smarth
+      labels: "BD-01-dev,ddl,function,alerts,consistency"
+      comment: "Returns the current pending alert count instead of a stale materialized-view snapshot."
+      changes:
+        - sqlFile:
+            path: 065_fn_get_home_pending_alerts_live.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/06_functions/065_fn_get_home_pending_alerts_live.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false

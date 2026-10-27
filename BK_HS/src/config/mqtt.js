@@ -26,8 +26,10 @@ function getMqttConfig(env = process.env) {
     throw new Error('Falta la variable MQTT_BROKER_URL');
   }
 
+  let parsedBrokerUrl;
   try {
-    const protocol = new URL(brokerUrl).protocol;
+    parsedBrokerUrl = new URL(brokerUrl);
+    const protocol = parsedBrokerUrl.protocol;
     if (!['mqtt:', 'mqtts:', 'ws:', 'wss:'].includes(protocol)) {
       throw new Error('protocolo no soportado');
     }
@@ -37,6 +39,16 @@ function getMqttConfig(env = process.env) {
 
   const username = env.MQTT_USERNAME || undefined;
   const password = env.MQTT_PASSWORD || undefined;
+
+  if (parsedBrokerUrl.username || parsedBrokerUrl.password) {
+    throw new Error('Do not put credentials in MQTT_BROKER_URL; use MQTT_USERNAME and MQTT_PASSWORD');
+  }
+  if (env.NODE_ENV === 'production' && !['mqtts:', 'wss:'].includes(parsedBrokerUrl.protocol)) {
+    throw new Error('Production MQTT_BROKER_URL must use TLS (mqtts:// or wss://)');
+  }
+  if (env.NODE_ENV === 'production' && !username) {
+    throw new Error('Production MQTT_USERNAME must contain a broker credential');
+  }
 
   const qos = getPositiveInteger(env.MQTT_QOS, 1, 'MQTT_QOS');
   if (qos > 2) {

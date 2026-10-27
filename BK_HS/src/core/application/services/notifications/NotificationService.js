@@ -2,7 +2,7 @@ class NotificationService {
   constructor({ sender, frontendUrl, passwordResetUrl }) {
     this.sender = sender;
     this.frontendUrl = frontendUrl;
-    this.passwordResetUrl = passwordResetUrl || frontendUrl;
+    this.passwordResetUrl = new URL('/login', passwordResetUrl || frontendUrl).toString();
   }
 
   isConfigured() { return this.sender.isConfigured(); }

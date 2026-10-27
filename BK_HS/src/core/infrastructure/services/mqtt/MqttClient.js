@@ -13,7 +13,8 @@ class MqttClient {
     if (this.client) return this.client;
 
     const config = this.configFactory();
-    this.logger.info(`[MQTT] Conectando al broker: ${config.brokerUrl}`);
+    const broker = new URL(config.brokerUrl);
+    this.logger.info(`[MQTT] Conectando al broker: ${broker.protocol}//${broker.host}`);
     this.client = this.mqttModule.connect(config.brokerUrl, config.options);
 
     this.client.on('connect', () => this.logger.info('[MQTT] Broker conectado correctamente'));

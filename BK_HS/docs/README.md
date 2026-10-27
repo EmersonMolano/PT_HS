@@ -46,6 +46,12 @@ publica comandos de vínculo o desvínculo. El contrato del ESP32 está en
 Solo actívalo temporalmente si se está migrando una placa antigua sin
 `mqttMessageId`.
 
+En producción, `MQTT_BROKER_URL` debe usar `mqtts://` o `wss://` y
+`MQTT_USERNAME` debe contener una credencial con ACL limitada en el broker.
+Flespi se usa por TLS; no guardes sus tokens en `.env.example`, firmware
+compartido, logs ni commits. La prueba de conexión opcional se documenta en
+[HU-16](../../docs/hu-16-alertas-web-mqtt-despliegue.md).
+
 ## Variables importantes
 
 Usa `.env.example` como referencia. Las variables mínimas son `DB_*`,

@@ -4,6 +4,7 @@
 #include <Preferences.h>
 #include <PubSubClient.h>
 #include <WiFi.h>
+#include <WiFiClientSecure.h>
 #include <cstring>
 #include <esp_system.h>
 #include <string>
@@ -31,6 +32,14 @@
 
 #ifndef HIDROSMART_MQTT_KEEPALIVE_SECONDS
 #define HIDROSMART_MQTT_KEEPALIVE_SECONDS 30
+#endif
+
+#ifndef HIDROSMART_MQTT_USE_TLS
+#define HIDROSMART_MQTT_USE_TLS 0
+#endif
+
+#if HIDROSMART_MQTT_USE_TLS
+#include "flespi_root_ca.h"
 #endif
 
 namespace {
@@ -65,6 +74,7 @@ struct WifiCredential {
 };
 
 WiFiClient wifiClient;
+WiFiClientSecure secureWifiClient;
 PubSubClient mqttClient(wifiClient);
 Preferences preferences;
 NimBLECharacteristic* configCharacteristic = nullptr;
@@ -523,6 +533,20 @@ bool connectMqtt() {
   const String offlinePayload = statusPayload("OFFLINE");
   auto attemptConnect = [&]() -> bool {
     mqttClient.disconnect();
+#if HIDROSMART_MQTT_USE_TLS
+    if (std::strlen(HIDROSMART_MQTT_USERNAME) == 0) {
+      Serial.println("[MQTT] TLS requiere un token Flespi por dispositivo en config.h.");
+      return false;
+    }
+    if (time(nullptr) < 1735689600) {
+      Serial.println("[MQTT] Esperando sincronizacion NTP para validar el certificado TLS.");
+      return false;
+    }
+    secureWifiClient.setCACert(HIDROSMART_FLESPI_ROOT_CA);
+    mqttClient.setClient(secureWifiClient);
+#else
+    mqttClient.setClient(wifiClient);
+#endif
     mqttClient.setServer(mqttHost.c_str(), mqttPort);
     mqttClient.setCallback(handleMqttCommand);
     Serial.print("[MQTT] Intentando conectar a ");
@@ -531,10 +555,11 @@ bool connectMqtt() {
     Serial.println(mqttPort);
 
     if (std::strlen(HIDROSMART_MQTT_USERNAME) > 0) {
-      return mqttClient.connect(
-        clientId.c_str(), HIDROSMART_MQTT_USERNAME, HIDROSMART_MQTT_PASSWORD,
-        statusTopic.c_str(), 1, true, offlinePayload.c_str()
-      );
+      const char* mqttPassword = std::strlen(HIDROSMART_MQTT_PASSWORD) > 0
+        ? HIDROSMART_MQTT_PASSWORD
+        : nullptr;
+      return mqttClient.connect(clientId.c_str(), HIDROSMART_MQTT_USERNAME,
+        mqttPassword, statusTopic.c_str(), 1, true, offlinePayload.c_str());
     }
     return mqttClient.connect(
       clientId.c_str(), statusTopic.c_str(), 1, true, offlinePayload.c_str()

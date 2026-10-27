@@ -13,22 +13,105 @@ class PostgresAlertRepository {
     return result.rows[0] ? this.mapThreshold(result.rows[0]) : null;
   }
 
-  async saveThresholdConfiguration({ userId, homeId, dailyLimit, monthlyLimit, active }) {
-    const result = await withTransaction(userId, (client) => client.query(
-      `INSERT INTO alert_rate.threshold_configuration (home_id, daily_limit, monthly_limit, active, updated_by)
-       VALUES ($1::uuid, $2::decimal, $3::decimal, $4::boolean, $5::uuid)
-       ON CONFLICT (home_id) DO UPDATE SET daily_limit = EXCLUDED.daily_limit, monthly_limit = EXCLUDED.monthly_limit, active = EXCLUDED.active, updated_at = now(), updated_by = EXCLUDED.updated_by
-       RETURNING config_id, home_id, daily_limit, monthly_limit, active, updated_at, updated_by`,
-      [homeId, dailyLimit, monthlyLimit, active, userId]
-    ));
-    return this.mapThreshold(result.rows[0]);
+  async saveThresholdConfiguration({ userId, homeId, dailyLimit, monthlyLimit, active = true }) {
+    const row = await withTransaction(userId, async (client) => {
+      const result = await client.query(
+        `INSERT INTO alert_rate.threshold_configuration (home_id, daily_limit, monthly_limit, active, updated_by)
+         VALUES ($1::uuid, $2::decimal, $3::decimal, $4::boolean, $5::uuid)
+         ON CONFLICT (home_id) DO UPDATE
+           SET daily_limit = EXCLUDED.daily_limit,
+               monthly_limit = EXCLUDED.monthly_limit,
+               active = EXCLUDED.active,
+               updated_at = now(),
+               updated_by = EXCLUDED.updated_by
+         RETURNING config_id, home_id, daily_limit, monthly_limit, active, updated_at, updated_by`,
+        [homeId, dailyLimit ?? null, monthlyLimit ?? null, active, userId]
+      );
+
+      // The reading trigger evaluates alert_rule. Keep those rules in the same
+      // transaction as the editable threshold configuration.
+      await this.syncLimitRule(client, {
+        homeId,
+        alertType: 'daily_limit',
+        threshold: dailyLimit,
+        unit: 'm3_day',
+        active,
+        userId
+      });
+      await this.syncLimitRule(client, {
+        homeId,
+        alertType: 'monthly_limit',
+        threshold: monthlyLimit,
+        unit: 'm3_month',
+        active,
+        userId
+      });
+
+      return result.rows[0];
+    });
+    return this.mapThreshold(row);
+  }
+
+  async syncLimitRule(client, { homeId, alertType, threshold, unit, active, userId }) {
+    const existing = await client.query(
+      `SELECT rule_id
+         FROM alert_rate.alert_rule
+        WHERE home_id = $1::uuid AND alert_type = $2::varchar
+        ORDER BY active DESC, created_at DESC, rule_id
+        LIMIT 1
+        FOR UPDATE`,
+      [homeId, alertType]
+    );
+
+    // Deactivate first to respect the partial unique index on active rules.
+    await client.query(
+      `UPDATE alert_rate.alert_rule
+          SET active = FALSE, updated_at = now()
+        WHERE home_id = $1::uuid AND alert_type = $2::varchar AND active = TRUE`,
+      [homeId, alertType]
+    );
+
+    if (threshold === undefined || threshold === null) return;
+
+    if (existing.rows[0]) {
+      await client.query(
+        `UPDATE alert_rate.alert_rule
+            SET threshold = $2::decimal,
+                unit = $3::varchar,
+                active = $4::boolean,
+                updated_at = now()
+          WHERE rule_id = $1::uuid`,
+        [existing.rows[0].rule_id, threshold, unit, active]
+      );
+      return;
+    }
+
+    await client.query(
+      `INSERT INTO alert_rate.alert_rule (home_id, alert_type, threshold, unit, active, created_by)
+       VALUES ($1::uuid, $2::varchar, $3::decimal, $4::varchar, $5::boolean, $6::uuid)`,
+      [homeId, alertType, threshold, unit, active, userId]
+    );
   }
 
   async deleteThresholdConfiguration({ userId, homeId }) {
-    const result = await withTransaction(userId, (client) => client.query(
-      'DELETE FROM alert_rate.threshold_configuration WHERE home_id = $1::uuid RETURNING config_id', [homeId]
-    ));
-    if (!result.rows[0]) { const error = new Error('Configuración de umbrales no encontrada'); error.status = 404; throw error; }
+    await withTransaction(userId, async (client) => {
+      const result = await client.query(
+        'DELETE FROM alert_rate.threshold_configuration WHERE home_id = $1::uuid RETURNING config_id',
+        [homeId]
+      );
+      if (!result.rows[0]) {
+        const error = new Error('Configuración de umbrales no encontrada');
+        error.status = 404;
+        throw error;
+      }
+      await client.query(
+        `UPDATE alert_rate.alert_rule
+            SET active = FALSE, updated_at = now()
+          WHERE home_id = $1::uuid
+            AND alert_type IN ('daily_limit', 'monthly_limit')`,
+        [homeId]
+      );
+    });
   }
 
   mapRule(row) {

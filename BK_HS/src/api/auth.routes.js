@@ -15,7 +15,7 @@ const { GetPasswordResetContext } = require('../core/application/use-cases/auth/
 const { ResendEmailVerification } = require('../core/application/use-cases/auth/ResendEmailVerification');
 const { VerifyEmail } = require('../core/application/use-cases/auth/VerifyEmail');
 const { NotificationService } = require('../core/application/services/notifications/NotificationService');
-const { SmtpEmailSender } = require('../core/infrastructure/notifications/SmtpEmailSender');
+const { BrevoEmailSender } = require('../core/infrastructure/notifications/BrevoEmailSender');
 const { getEnv } = require('../config/env');
 const { AuthController } = require('./controllers/AuthController');
 const { createAuthRateLimiter, createCredentialRateLimiter } = require('./middleware/authRateLimit');
@@ -43,11 +43,7 @@ const userRateLimiter = createAuthRateLimiter({
   keyGenerator: (req) => `user:${req.user.id}`
 });
 const notificationService = new NotificationService({
-  sender: new SmtpEmailSender({
-    smtp: env.smtp,
-    resend: env.resend,
-    brevo: env.brevo
-  }),
+  sender: new BrevoEmailSender({ brevo: env.brevo }),
   frontendUrl: env.frontendUrl,
   passwordResetUrl: env.passwordResetUrl
 });

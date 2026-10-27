@@ -4,7 +4,7 @@
 
 src/core/infrastructure contiene adaptadores que conectan los puertos de
 application con servicios concretos. Aquí viven SQL, pools PostgreSQL,
-publicación y suscripción MQTT, JWT, bcrypt, SMTP y almacenamiento de reportes.
+publicación y suscripción MQTT, JWT, bcrypt, correo Brevo y almacenamiento de reportes.
 
 Un cambio de proveedor debe concentrarse aquí: por ejemplo, otro broker MQTT o
 motor de base de datos no debería obligar a reescribir los casos de uso.
@@ -13,7 +13,7 @@ motor de base de datos no debería obligar a reescribir los casos de uso.
 
 ### Configuración y base de datos
 
-- **env.js:** valida y normaliza variables de entorno, cookies, JWT, SMTP, jobs y base de datos.
+- **env.js:** valida y normaliza variables de entorno, cookies, JWT, Brevo, jobs y base de datos.
 - **mqtt.js:** normaliza URL, credenciales, QoS, límite de payload y compatibilidad MQTT.
 - **db.js:** crea los pools PostgreSQL normal e ingest y expone transacciones con contexto.
 
@@ -45,7 +45,10 @@ motor de base de datos no debería obligar a reescribir los casos de uso.
 
 ### Notificaciones
 
-- **SmtpEmailSender.js:** envía correo SMTP a través del puerto de notificaciones.
+- **BrevoEmailSender.js:** envía correos transaccionales de verificación, recuperación y avisos por la API HTTPS de Brevo.
+
+Brevo es el único proveedor activo para correo. SMTP y Resend no forman parte
+del runtime del backend.
 
 ### Servicios MQTT y reportes
 

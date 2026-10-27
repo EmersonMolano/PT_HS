@@ -82,6 +82,11 @@ La configuración BLE admite `ssid`, `password`, `mqttHost`, `mqttPort` y
 `deviceCode`. No incluye ni publica contraseñas MQTT; esas se compilan en
 `config.h` cuando el broker las requiere.
 
+Al cambiar solo el `deviceCode`, la app puede enviar `password` vacía porque
+el firmware no devuelve la contraseña Wi-Fi por BLE. Si el SSID ya está
+guardado, el ESP32 reutiliza la contraseña almacenada y mantiene la conexión
+Wi-Fi existente cuando ya está conectado a esa red.
+
 Para Flespi, el ESP32 usa MQTT sobre TLS en `mqtt.flespi.io:8883`, valida el
 certificado con el CA público incluido en `provisioning/flespi_root_ca.h` y
 autentica con un token ACL exclusivo para la placa. La contraseña MQTT puede

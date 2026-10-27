@@ -692,17 +692,55 @@ void handleProvisioningPayload(const String& serialized) {
     return;
   }
 
+  const String previousDeviceCode = deviceCode;
+  String effectivePassword = password;
+  String savedPassword;
+  bool hasSavedNetwork = false;
+  for (uint8_t index = 0; index < knownNetworkCount; index++) {
+    if (knownNetworks[index].ssid == ssid) {
+      savedPassword = knownNetworks[index].password;
+      hasSavedNetwork = true;
+      break;
+    }
+  }
+
+  // The app intentionally leaves this field empty when it has no new Wi-Fi
+  // password to send. Reuse the password already stored on the ESP32 for that
+  // SSID instead of trying to join a secured network with an empty password.
+  if (effectivePassword.isEmpty() && hasSavedNetwork) {
+    effectivePassword = savedPassword;
+    Serial.println("[WIFI] Se conserva la contrasena guardada para esta red.");
+  }
+
+  const bool wifiAlreadyOnRequestedNetwork = WiFi.status() == WL_CONNECTED &&
+    (connectedSsid == ssid || WiFi.SSID() == ssid);
+  const bool passwordUnchanged = password.isEmpty() ||
+    (hasSavedNetwork && password == savedPassword);
+  const bool keepCurrentWifiConnection = wifiAlreadyOnRequestedNetwork && passwordUnchanged;
+  const bool deviceCodeChanging = !requestedDeviceCode.equalsIgnoreCase(previousDeviceCode);
+
+  if (deviceCodeChanging && mqttClient.connected()) {
+    const String previousStatusTopic = deviceTopic(STATUS_SUFFIX);
+    const String previousOfflinePayload = statusPayload("OFFLINE");
+    mqttClient.publish(previousStatusTopic.c_str(), previousOfflinePayload.c_str(), true);
+    mqttClient.disconnect();
+  }
+
   deviceCode = requestedDeviceCode;
   notifyStatus("configuration_received");
   notifyStatus("wifi_connecting");
-  if (!connectToWifi(ssid, password, WIFI_TIMEOUT_MS)) {
+  if (keepCurrentWifiConnection) {
+    connectedSsid = ssid;
+    Serial.println("[WIFI] La placa ya esta en esa red; se conserva la conexion.");
+  } else if (!connectToWifi(ssid, effectivePassword, WIFI_TIMEOUT_MS)) {
     notifyStatus("wifi_failed");
+    deviceCode = previousDeviceCode;
     return;
   }
 
   mqttHost = newMqttHost;
   mqttPort = static_cast<uint16_t>(requestedPort);
-  saveNetwork(ssid, password, mqttHost, mqttPort);
+  saveNetwork(ssid, effectivePassword, mqttHost, mqttPort);
   saveMqttConfiguration(mqttHost, mqttPort);
   notifyStatus("wifi_connected");
 

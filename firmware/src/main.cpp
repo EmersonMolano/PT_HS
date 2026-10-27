@@ -39,6 +39,12 @@
 #endif
 
 #if HIDROSMART_MQTT_USE_TLS
+// The secure firmware profile is pinned to Flespi so a device token cannot be
+// sent to a broker selected through stale NVS or BLE provisioning data.
+#undef HIDROSMART_MQTT_HOST
+#define HIDROSMART_MQTT_HOST "mqtt.flespi.io"
+#undef HIDROSMART_MQTT_PORT
+#define HIDROSMART_MQTT_PORT 8883
 #include "flespi_root_ca.h"
 #endif
 
@@ -430,8 +436,13 @@ bool connectKnownWifi() {
   activeKnownNetworkIndex = -1;
   for (uint8_t index = 0; index < knownNetworkCount; index++) {
     if (connectToWifi(knownNetworks[index].ssid, knownNetworks[index].password, WIFI_TIMEOUT_MS)) {
+#if HIDROSMART_MQTT_USE_TLS
+      mqttHost = HIDROSMART_MQTT_HOST;
+      mqttPort = HIDROSMART_MQTT_PORT;
+#else
       mqttHost = knownNetworks[index].mqttHost.isEmpty() ? String(HIDROSMART_MQTT_HOST) : knownNetworks[index].mqttHost;
       mqttPort = knownNetworks[index].mqttPort == 0 ? HIDROSMART_MQTT_PORT : knownNetworks[index].mqttPort;
+#endif
       saveNetwork(knownNetworks[index].ssid, knownNetworks[index].password, mqttHost, mqttPort);
       saveMqttConfiguration(mqttHost, mqttPort);
       activeKnownNetworkIndex = static_cast<int8_t>(index);
@@ -527,6 +538,12 @@ void handleMqttCommand(char* topic, uint8_t* payload, unsigned int length) {
 
 bool connectMqtt() {
   if (WiFi.status() != WL_CONNECTED || mqttHost.isEmpty()) return false;
+#if HIDROSMART_MQTT_USE_TLS
+  if (mqttHost != HIDROSMART_MQTT_HOST || mqttPort != HIDROSMART_MQTT_PORT) {
+    Serial.println("[MQTT] El perfil TLS solo permite mqtt.flespi.io:8883.");
+    return false;
+  }
+#endif
 
   const String clientId = deviceCode + "-" + String(bootId);
   const String statusTopic = deviceTopic(STATUS_SUFFIX);
@@ -664,6 +681,12 @@ void handleProvisioningPayload(const String& serialized) {
     notifyStatus("invalid_configuration");
     return;
   }
+#if HIDROSMART_MQTT_USE_TLS
+  if (newMqttHost != HIDROSMART_MQTT_HOST || requestedPort != HIDROSMART_MQTT_PORT) {
+    notifyStatus("mqtt_unreachable");
+    return;
+  }
+#endif
   if (!isSafeDeviceCode(requestedDeviceCode)) {
     notifyStatus("invalid_device_code");
     return;

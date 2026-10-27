@@ -81,3 +81,11 @@ pairing ni PIN.
 La configuración BLE admite `ssid`, `password`, `mqttHost`, `mqttPort` y
 `deviceCode`. No incluye ni publica contraseñas MQTT; esas se compilan en
 `config.h` cuando el broker las requiere.
+
+Para Flespi, el ESP32 usa MQTT sobre TLS en `mqtt.flespi.io:8883`, valida el
+certificado con el CA público incluido en `provisioning/flespi_root_ca.h` y
+autentica con un token ACL exclusivo para la placa. La contraseña MQTT puede
+quedar vacía cuando el token se envía como usuario. Asigna ACL del dispositivo
+solo a sus topics: publicar telemetría/estado propios y suscribirse a comandos
+propios. El backend usa otro token con permisos de suscripción y publicación
+limitados a sus funciones.

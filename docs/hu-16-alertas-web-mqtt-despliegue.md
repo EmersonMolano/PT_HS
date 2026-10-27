@@ -50,6 +50,12 @@ MQTT_PASSWORD=
 
 Asigna un token de backend separado de los tokens del ESP32. Restringe el backend a suscripciones de telemetría/estado y publicación de comandos/configuración. Cada placa debe tener credenciales propias y ACL limitada a su identificador de dispositivo. No reutilices el token de backend en firmware ni guardes credenciales en Git.
 
+El bundle móvil envía `mqtt.flespi.io:8883` cuando no hay otra configuración
+del host del dispositivo. Si se configura Flespi explícitamente, usa ese mismo
+host y puerto en `MQTT_DEVICE_HOST` y `MQTT_DEVICE_PORT` durante el build. El
+perfil `esp32dev-flespi` fija ese endpoint y rechaza un broker distinto. Cada
+ESP32 requiere su propio token ACL en `provisioning/config.h`.
+
 El entorno local conserva Mosquitto sin TLS dentro de la red de desarrollo. No expongas ese broker local a Internet.
 
 ## Despliegue de la web

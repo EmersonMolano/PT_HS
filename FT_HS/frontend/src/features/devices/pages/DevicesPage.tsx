@@ -142,7 +142,10 @@ export function DeviceManagement({
   const [blePassword, setBlePassword] = useState('');
   const [showBlePassword, setShowBlePassword] = useState(false);
   const [provisioningUnlinked, setProvisioningUnlinked] = useState(false);
-  const claimingHardwareIdRef = useRef<string | null>(null);
+  const claimingHardwareRef = useRef<{
+    hardwareId: string;
+    promise: Promise<Partial<Device> | null>;
+  } | null>(null);
   const devicesRequestInFlightRef = useRef(false);
   const devicesViewKeyRef = useRef('');
   const selectedHome = homes.find((home) => home.homeId === homeId);
@@ -315,34 +318,44 @@ export function DeviceManagement({
     setShowBlePassword(false);
   };
 
-  const claimHardware = async (hardwareIdOverride?: string, showSuccess = true) => {
-    if (!provisioningDevice) return null;
+  const claimHardware = (
+    hardwareIdOverride?: string,
+    showSuccess = true
+  ): Promise<Partial<Device> | null> => {
+    if (!provisioningDevice) return Promise.resolve(null);
     const hardwareId = (hardwareIdOverride || provisioningHardwareId).trim();
-    if (!hardwareId) return null;
+    if (!hardwareId) return Promise.resolve(null);
     if (provisioningDevice.hardwareId === hardwareId) {
-      return { hardwareId } as Partial<Device>;
+      return Promise.resolve({ hardwareId } as Partial<Device>);
     }
-    if (claimingHardwareIdRef.current === hardwareId) return null;
+    if (claimingHardwareRef.current?.hardwareId === hardwareId) {
+      return claimingHardwareRef.current.promise;
+    }
 
-    claimingHardwareIdRef.current = hardwareId;
-    try {
-      const response = await devicesApi.claimHardware(provisioningDevice.deviceId, hardwareId);
-      const updated = response.data as Partial<Device>;
-      setProvisioningHardwareId(String(updated.hardwareId || hardwareId));
-      setDevices((current) =>
-        current.map((device) =>
-          device.deviceId === provisioningDevice.deviceId ? { ...device, ...updated } : device
-        )
-      );
-      setProvisioningDevice((current) => (current ? { ...current, ...updated } : current));
-      if (showSuccess) toast.success(t('devices.hardwareClaimed'));
-      return updated;
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : t('devices.hardwareClaimError'));
-      return null;
-    } finally {
-      claimingHardwareIdRef.current = null;
-    }
+    const promise = (async (): Promise<Partial<Device> | null> => {
+      try {
+        const response = await devicesApi.claimHardware(provisioningDevice.deviceId, hardwareId);
+        const updated = response.data as Partial<Device>;
+        setProvisioningHardwareId(String(updated.hardwareId || hardwareId));
+        setDevices((current) =>
+          current.map((device) =>
+            device.deviceId === provisioningDevice.deviceId ? { ...device, ...updated } : device
+          )
+        );
+        setProvisioningDevice((current) => (current ? { ...current, ...updated } : current));
+        if (showSuccess) toast.success(t('devices.hardwareClaimed'));
+        return updated;
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : t('devices.hardwareClaimError'));
+        return null;
+      } finally {
+        if (claimingHardwareRef.current?.hardwareId === hardwareId) {
+          claimingHardwareRef.current = null;
+        }
+      }
+    })();
+    claimingHardwareRef.current = { hardwareId, promise };
+    return promise;
   };
 
   const applyBleStatus = async (status: BleProvisioningStatus) => {
@@ -416,13 +429,7 @@ export function DeviceManagement({
 
   const sendBleConfiguration = async () => {
     if (!bleConnection) return;
-    if (
-      !provisioningDevice?.hardwareId ||
-      provisioningDevice.hardwareId !== provisioningHardwareId.trim()
-    ) {
-      toast.error(t('devices.claimHardwareFirst'));
-      return;
-    }
+    if (!provisioningDevice) return;
     if (!bleSsid.trim()) {
       toast.error(t('devices.bleInvalidConfiguration'));
       return;
@@ -432,8 +439,18 @@ export function DeviceManagement({
       return;
     }
 
+    const hardwareId = provisioningHardwareId.trim() || provisioningDevice.hardwareId?.trim() || '';
+    if (!hardwareId) {
+      toast.error(t('devices.claimHardwareFirst'));
+      return;
+    }
+
     setBleWriting(true);
     try {
+      if (provisioningDevice.hardwareId !== hardwareId) {
+        const claimed = await claimHardware(hardwareId, false);
+        if (!claimed || claimed.hardwareId !== hardwareId) return;
+      }
       await bleConnection.write({
         ssid: bleSsid.trim(),
         password: blePassword,

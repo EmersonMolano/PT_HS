@@ -37,6 +37,12 @@ conectividad del WebView y aprovisionamiento BLE de un ESP32 desde Android.
 La app no debe enviar una orden para apagar BLE al terminar de enviar Wi-Fi:
 la confirmación del backend es la autoridad para cambiar ese estado.
 
+Si no se configura un broker, el aprovisionamiento usa Flespi (`mqtt.flespi.io`,
+puerto `8883`). Para el perfil local de Mosquitto, define
+`MQTT_DEVICE_HOST=hidrosmart-broker.local` y `MQTT_DEVICE_PORT=1883` en el
+`.env` raíz antes de preparar el bundle. El token MQTT no se envía por BLE: se
+configura por dispositivo en el firmware mediante `provisioning/config.h`.
+
 Los UUID deben mantenerse alineados con firmware/mqtt/contract.md y el
 firmware cargado en la placa.
 

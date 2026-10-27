@@ -442,7 +442,7 @@
     "wifiNetwork": "Rete Wi-Fi",
     "wifiIp": "IP locale",
     "wifiPassword": "Password Wi-Fi",
-    "wifiPasswordNotShown": "Non viene mostrata per sicurezza; inseriscine una nuova solo per cambiare rete",
+    "wifiPasswordNotShown": "La password salvata non viene mostrata; inseriscine una nuova solo per cambiare rete. Usa il pulsante con l'occhio per mostrarla o nasconderla.",
     "wifiConfigured": "Wi-Fi configurato",
     "deviceSettingsSaved": "Configurazione del dispositivo salvata",
     "deviceSettingsError": "Impossibile salvare la configurazione del dispositivo",

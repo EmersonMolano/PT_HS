@@ -20,6 +20,8 @@ import {
   Clock3,
   Cpu,
   Droplets,
+  Eye,
+  EyeOff,
   Gauge,
   History,
   Loader2,
@@ -138,6 +140,7 @@ export function DeviceManagement({
   const [bleWriting, setBleWriting] = useState(false);
   const [bleSsid, setBleSsid] = useState('');
   const [blePassword, setBlePassword] = useState('');
+  const [showBlePassword, setShowBlePassword] = useState(false);
   const [provisioningUnlinked, setProvisioningUnlinked] = useState(false);
   const claimingHardwareIdRef = useRef<string | null>(null);
   const devicesRequestInFlightRef = useRef(false);
@@ -297,6 +300,7 @@ export function DeviceManagement({
     setBleState('');
     setBleSsid('');
     setBlePassword('');
+    setShowBlePassword(false);
     setProvisioningUnlinked(!device.homeId);
   };
 
@@ -306,6 +310,7 @@ export function DeviceManagement({
     setProvisioningDevice(null);
     setProvisioningUnlinked(false);
     setBlePassword('');
+    setShowBlePassword(false);
   };
 
   const claimHardware = async (hardwareIdOverride?: string, showSuccess = true) => {
@@ -1063,14 +1068,31 @@ export function DeviceManagement({
                         </div>
                         <div className="space-y-1 sm:col-span-2">
                           <Label htmlFor="ble-wifi-password">{t('devices.blePassword')}</Label>
-                          <Input
-                            id="ble-wifi-password"
-                            type="password"
-                            value={blePassword}
-                            onChange={(event) => setBlePassword(event.target.value)}
-                            maxLength={63}
-                            autoComplete="new-password"
-                          />
+                          <div className="relative">
+                            <Input
+                              id="ble-wifi-password"
+                              type={showBlePassword ? 'text' : 'password'}
+                              value={blePassword}
+                              onChange={(event) => setBlePassword(event.target.value)}
+                              maxLength={63}
+                              autoComplete="new-password"
+                              className="pr-12"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowBlePassword((visible) => !visible)}
+                              className="absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded text-gray-500 hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                              aria-label={t(showBlePassword ? 'common.hide' : 'common.show')}
+                              aria-pressed={showBlePassword}
+                              title={t(showBlePassword ? 'common.hide' : 'common.show')}
+                            >
+                              {showBlePassword ? (
+                                <EyeOff aria-hidden="true" className="size-4" />
+                              ) : (
+                                <Eye aria-hidden="true" className="size-4" />
+                              )}
+                            </button>
+                          </div>
                           <p className="text-xs text-blue-800">
                             {t('devices.wifiPasswordNotShown')}
                           </p>

@@ -443,7 +443,7 @@
     "wifiNetwork": "Wi-Fi network",
     "wifiIp": "Local IP",
     "wifiPassword": "Wi-Fi password",
-    "wifiPasswordNotShown": "Not shown for security; enter a new one only to change the network",
+    "wifiPasswordNotShown": "The saved password is not shown; enter a new one only to change networks. Use the eye button to show or hide it.",
     "wifiConfigured": "Wi-Fi configured",
     "deviceSettingsSaved": "Device configuration saved",
     "deviceSettingsError": "The device configuration could not be saved",

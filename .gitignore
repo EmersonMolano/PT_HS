@@ -24,5 +24,6 @@ BD_HS/docs/credenciales-locales.md
 BK_HS/storage/
 BK_HS/tmp/
 backups/
+otras_implementaciones/
 .vscode/
 firmware/provisioning/config.h

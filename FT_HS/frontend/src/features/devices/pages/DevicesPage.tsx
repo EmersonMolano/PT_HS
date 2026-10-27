@@ -264,12 +264,14 @@ export function DeviceManagement({
     event.preventDefault();
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
+    const identifier = String(form.get('code') || '')
+      .trim()
+      .toUpperCase();
     try {
       const response = await devicesApi.link({
         homeId,
-        code: String(form.get('code') || '')
-          .trim()
-          .toUpperCase(),
+        code: identifier,
+        hardwareId: identifier,
       });
       toast.success(t('devices.deviceLinked'));
       setLinkOpen(false);

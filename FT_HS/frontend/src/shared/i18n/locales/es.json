@@ -369,7 +369,7 @@
     "registrationIdentityHelp": "Ingresa el ID lógico asignado al ESP32. La identidad física se detectará al conectarlo por Bluetooth o MQTT.",
     "deviceId": "ID del Dispositivo",
     "deviceCodePlaceholder": "Ej.: HS-7A3F91C8D2E4",
-    "deviceCodeFormatHelp": "Usa el código lógico preasignado del ESP32.",
+    "deviceCodeFormatHelp": "Acepta un código lógico (HS-7A3F91C8D2E4, HS-B6E04D79A153 o HS-2C8A5F01E7B9) o el ID físico del ESP32.",
     "hardwareId": "Identidad de hardware",
     "hardwareIdPlaceholder": "Ej: HS-A1B2C3",
     "hardwareIdFormatHelp": "Usa el ID físico del ESP32, por ejemplo HS-141F47470968.",

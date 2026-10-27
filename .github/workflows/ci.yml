@@ -1,0 +1,78 @@
+name: HidroSmart CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - dev
+      - qa
+      - staging
+      - 'hu-**'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend checks and unit tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: BK_HS
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: BK_HS/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run test:integration
+
+  frontend:
+    name: Frontend build, unit tests and browser E2E
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: FT_HS/Web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: FT_HS/Web/package-lock.json
+      - run: npm ci
+      - run: npm run test
+      - run: npm run build
+        env:
+          VITE_API_URL: https://pt-hs.onrender.com/api/v1
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: frontend-playwright-report
+          path: FT_HS/Web/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  firmware:
+    name: ESP32 local and Flespi TLS builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install PlatformIO
+        run: python -m pip install --upgrade platformio
+      - name: Compile local and TLS firmware profiles
+        run: |
+          pio run -d firmware -e esp32dev
+          pio run -d firmware -e esp32dev-flespi

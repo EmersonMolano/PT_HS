@@ -33,7 +33,7 @@ class AlertController {
   async updateRule(req, res) { const { alertType, threshold, unit, active } = req.body || {}; const result = await this.updateAlertRule.execute({ userId: req.user.id, ruleId: req.params.ruleId, alertType, threshold, unit, active }); res.json({ data: result }); }
   async deleteRule(req, res) { await this.deleteAlertRule.execute({ userId: req.user.id, ruleId: req.params.ruleId }); res.status(204).send(); }
   async getThreshold(req, res) { const result = await this.getThresholdConfiguration.execute({ userId: req.user.id, homeId: req.params.homeId }); res.json({ data: result }); }
-  async saveThreshold(req, res) { const { dailyLimit, monthlyLimit } = req.body || {}; const result = await this.saveThresholdConfiguration.execute({ userId: req.user.id, homeId: req.params.homeId, dailyLimit, monthlyLimit }); res.json({ data: result }); }
+  async saveThreshold(req, res) { const { dailyLimit, monthlyLimit, active = true } = req.body || {}; const result = await this.saveThresholdConfiguration.execute({ userId: req.user.id, homeId: req.params.homeId, dailyLimit, monthlyLimit, active }); res.json({ data: result }); }
   async deleteThreshold(req, res) { await this.deleteThresholdConfiguration.execute({ userId: req.user.id, homeId: req.params.homeId }); res.status(204).send(); }
 }
 

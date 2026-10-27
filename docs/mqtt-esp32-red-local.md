@@ -75,3 +75,8 @@ docker compose exec mosquitto mosquitto_sub -h localhost -p 1883 -t "hidrosmart/
 ## Límite de seguridad del perfil local
 
 El Mosquitto del Compose de desarrollo permite conexiones anónimas y usa el puerto sin TLS. Definir `MQTT_USERNAME` y `MQTT_PASSWORD` en el backend no convierte automáticamente ese broker en un broker autenticado, ni configura credenciales del ESP32. No publiques este perfil en Internet. Producción requiere usuario por dispositivo, ACL por topic, TLS y certificados configurados en el broker y el firmware.
+
+El firmware incluye un perfil TLS para Flespi en el puerto `8883`. Consulta la
+[guía HU-16](hu-16-alertas-web-mqtt-despliegue.md) y el
+[README del firmware](../firmware/README.md) para preparar un token ACL por
+placa. La conexión física aún debe validarse con los tokens y el ESP32 reales.

@@ -52,9 +52,19 @@ El host debe ser visible desde la Wi-Fi del ESP32; no uses `localhost` ni
 `mosquitto`, pues solo funcionan dentro del equipo o la red Docker. Para la red
 local usa un nombre DNS/mDNS estable o una reserva DHCP gestionada.
 
-El broker integrado sirve solo para desarrollo sin TLS. Las macros
-`HIDROSMART_MQTT_USERNAME` y `HIDROSMART_MQTT_PASSWORD` permiten que el
-firmware use un broker autenticado cuando se configure infraestructura segura.
+El broker Mosquitto integrado sirve solo para desarrollo sin TLS. Para Flespi,
+usa `mqtt.flespi.io:8883`, cambia `HIDROSMART_MQTT_USE_TLS` a `1` y configura
+un token ACL exclusivo de esta placa en `HIDROSMART_MQTT_USERNAME`. Flespi
+acepta el token como usuario y deja la contraseña vacía. El firmware valida el
+certificado contra el ancla pública GlobalSign Root CA R6 de
+[`provisioning/flespi_root_ca.h`](provisioning/flespi_root_ca.h); no usa
+`setInsecure`. La conexión TLS espera la sincronización NTP para validar las
+fechas del certificado.
+
+Construye un firmware por dispositivo con token y ACL distintos. No subas
+`config.h` ni distribuyas el mismo binario con credenciales compartidas. El
+token del backend debe ser distinto y tener permisos limitados a los topics
+que el backend necesita.
 
 ## Hardware de referencia
 

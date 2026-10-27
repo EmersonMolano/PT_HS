@@ -33,14 +33,15 @@ test('crea y actualiza una regla de alerta válida', async () => {
   const update = new UpdateAlertRule({ alertRepository: repository });
   const updated = await update.execute({ userId: 'user', ruleId: alertId, active: false });
   assert.equal(updated.active, false);
+  assert.throws(() => update.execute({ userId: 'user', ruleId: alertId, alertType: 'no_reading', unit: 'minutes', threshold: 0 }), (error) => error.status === 400);
 });
 
 test('rechaza reglas con tipo, unidad o umbral inválidos', async () => {
   const useCase = new CreateAlertRule({ alertRepository: { createRule: async () => null } });
   assert.throws(() => useCase.execute({ userId: 'user', homeId, alertType: 'unknown', threshold: 1, unit: 'm3_day' }), (error) => error.status === 400);
   assert.throws(() => useCase.execute({ userId: 'user', homeId, alertType: 'daily_limit', threshold: -1, unit: 'm3_day' }), (error) => error.status === 400);
-  assert.throws(() => useCase.execute({ userId: 'user', homeId, alertType: 'daily_limit', threshold: 1, unit: 'm3_month' }), /unit no corresponde/);
-  assert.throws(() => useCase.execute({ userId: 'user', homeId, alertType: 'leak_detected', threshold: 30, unit: 'm3_day' }), /unit no corresponde/);
+  assert.throws(() => useCase.execute({ userId: 'user', homeId, alertType: 'monthly_limit', threshold: 1, unit: 'm3_day' }), (error) => error.status === 400);
+  assert.throws(() => useCase.execute({ userId: 'user', homeId, alertType: 'no_reading', threshold: 0, unit: 'minutes' }), (error) => error.status === 400);
 });
 
 test('guarda umbrales diarios y mensuales válidos', async () => {

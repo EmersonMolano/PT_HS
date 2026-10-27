@@ -139,6 +139,12 @@ function getEnv() {
     ? { rejectUnauthorized: true }
     : false;
 
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const passwordResetUrl = new URL(
+    '/login',
+    process.env.PASSWORD_RESET_URL || frontendUrl
+  ).toString();
+
   return {
     nodeEnv,
 
@@ -151,8 +157,7 @@ function getEnv() {
     corsOrigin:
       process.env.CORS_ORIGIN || 'http://localhost:5173',
 
-    frontendUrl:
-      process.env.FRONTEND_URL || 'http://localhost:5173',
+    frontendUrl,
 
     brevo: {
       apiKey: process.env.BREVO_API_KEY,
@@ -160,24 +165,7 @@ function getEnv() {
       fromName: process.env.BREVO_FROM_NAME || 'HidroSmart'
     },
 
-    resend: {
-      apiKey: process.env.RESEND_API_KEY,
-      from: process.env.RESEND_FROM
-    },
-
-    smtp: {
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: Number(process.env.SMTP_PORT || 587),
-      secure: process.env.SMTP_SECURE === 'true',
-      user: process.env.SMTP_USER,
-      password: process.env.SMTP_PASSWORD,
-      from: process.env.SMTP_FROM || process.env.SMTP_USER
-    },
-
-    passwordResetUrl:
-      process.env.PASSWORD_RESET_URL ||
-      process.env.FRONTEND_URL ||
-      'http://localhost:5173',
+    passwordResetUrl,
 
     materializedViewsRefreshMs: Number(
       process.env.MATERIALIZED_VIEWS_REFRESH_MS || 300000

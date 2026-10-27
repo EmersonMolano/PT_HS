@@ -9,7 +9,8 @@
 - Vinculación de ESP32 por código lógico y `hardwareId`, aprovisionamiento
   Wi-Fi/MQTT por BLE y telemetría MQTT cada cinco segundos.
 - Desvinculación que reactiva BLE sin borrar la red Wi-Fi guardada.
-- Web React/Vite y adaptador móvil Expo/React Native en el mismo proyecto.
+- Web React/Vite independiente en `FT_HS/Web` y app Expo/React Native en
+  `FT_HS/frontend`, ambas dentro del mismo repositorio.
 - Docker local para PostgreSQL, migraciones Liquibase, Mosquitto, backend y
   frontend.
 
@@ -43,7 +44,8 @@
    de error visibles; las validaciones puras ya tienen pruebas unitarias.
 3. Ejecutar una prueba de carga reproducible con cuentas de prueba y telemetría
    simultánea, midiendo latencia, errores, conexiones y consumo de recursos.
-4. Completar la prueba física del ESP32: aprovisionamiento, MQTT seguro,
+4. Completar la prueba física del ESP32: aprovisionamiento, MQTT TLS contra
+   Flespi con ACL individual,
    lecturas cada cinco segundos, actualización del dashboard y desvinculación.
    Calibrar el caudalímetro y confirmar que BLE vuelve a anunciarse al final.
 5. Verificar login, refresh, CSRF y logout en un navegador con Cloudflare Pages

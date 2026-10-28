@@ -57,6 +57,8 @@ type Device = {
   name: string;
   type?: string;
   location?: string | null;
+  manufacturer?: string | null;
+  model?: string | null;
   hardwareId?: string | null;
   status: string;
   connectivityStatus?: string;
@@ -119,7 +121,11 @@ export function DeviceManagement({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [linkOpen, setLinkOpen] = useState(false);
   const [editName, setEditName] = useState('');
+  const [editType, setEditType] = useState('');
   const [editLocation, setEditLocation] = useState('');
+  const [editManufacturer, setEditManufacturer] = useState('');
+  const [editModel, setEditModel] = useState('');
+  const [editAlertThreshold, setEditAlertThreshold] = useState('');
   const [locationOption, setLocationOption] = useState('');
   const [otherLocation, setOtherLocation] = useState('');
   const [historyDevice, setHistoryDevice] = useState<Device | null>(null);
@@ -298,7 +304,15 @@ export function DeviceManagement({
         : '';
     setProvisioningDevice(device);
     setEditName(device.name);
+    setEditType(device.type || 'water_sensor');
     setEditLocation(savedLocation);
+    setEditManufacturer(device.manufacturer || '');
+    setEditModel(device.model || '');
+    setEditAlertThreshold(
+      device.alertThreshold === null || device.alertThreshold === undefined
+        ? ''
+        : String(device.alertThreshold)
+    );
     setLocationOption(selectedLocation);
     setOtherLocation(selectedLocation === OTHER_LOCATION_OPTION ? savedLocation : '');
     setProvisioningHardwareId(device.hardwareId || '');
@@ -483,7 +497,11 @@ export function DeviceManagement({
     try {
       const deviceResponse = await devicesApi.update(provisioningDevice.deviceId, {
         name: editName.trim(),
+        type: editType.trim(),
         location: savedLocation || null,
+        manufacturer: editManufacturer.trim() || undefined,
+        model: editModel.trim() || undefined,
+        alertThreshold: editAlertThreshold.trim() ? Number(editAlertThreshold) : undefined,
       });
       const updated = deviceResponse.data as Partial<Device>;
       setEditLocation(savedLocation);
@@ -1013,28 +1031,40 @@ export function DeviceManagement({
                       maxLength={100}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="device-settings-location">{t('devices.location')}</Label>
-                    <select
-                      id="device-settings-location"
-                      className="h-10 w-full rounded-md border px-3"
-                      value={locationOption}
-                      onChange={(event) => {
-                        const nextLocation = event.target.value;
-                        setLocationOption(nextLocation);
-                        setEditLocation(
-                          nextLocation === OTHER_LOCATION_OPTION ? otherLocation : nextLocation
-                        );
-                      }}
-                    >
-                      <option value="">Selecciona una ubicación</option>
-                      {DEVICE_LOCATION_OPTIONS.map((location) => (
-                        <option key={location} value={location}>
-                          {location}
-                        </option>
-                      ))}
-                      <option value={OTHER_LOCATION_OPTION}>Otro</option>
-                    </select>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="device-settings-type">{t('devices.deviceType')}</Label>
+                      <Input
+                        id="device-settings-type"
+                        value={editType}
+                        onChange={(event) => setEditType(event.target.value)}
+                        required
+                        maxLength={50}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="device-settings-location">{t('devices.location')}</Label>
+                      <select
+                        id="device-settings-location"
+                        className="h-10 w-full rounded-md border px-3"
+                        value={locationOption}
+                        onChange={(event) => {
+                          const nextLocation = event.target.value;
+                          setLocationOption(nextLocation);
+                          setEditLocation(
+                            nextLocation === OTHER_LOCATION_OPTION ? otherLocation : nextLocation
+                          );
+                        }}
+                      >
+                        <option value="">Selecciona una ubicación</option>
+                        {DEVICE_LOCATION_OPTIONS.map((location) => (
+                          <option key={location} value={location}>
+                            {location}
+                          </option>
+                        ))}
+                        <option value={OTHER_LOCATION_OPTION}>Otro</option>
+                      </select>
+                    </div>
                   </div>
                   {locationOption === OTHER_LOCATION_OPTION && (
                     <div className="space-y-2">
@@ -1054,6 +1084,48 @@ export function DeviceManagement({
                       />
                     </div>
                   )}
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="device-settings-manufacturer">
+                        {t('devices.manufacturer')}
+                      </Label>
+                      <Input
+                        id="device-settings-manufacturer"
+                        value={editManufacturer}
+                        onChange={(event) => setEditManufacturer(event.target.value)}
+                        maxLength={100}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="device-settings-model">{t('devices.model')}</Label>
+                      <Input
+                        id="device-settings-model"
+                        value={editModel}
+                        onChange={(event) => setEditModel(event.target.value)}
+                        maxLength={100}
+                      />
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="device-settings-alert-threshold">
+                        {t('devices.alertThreshold')}
+                      </Label>
+                      <Input
+                        id="device-settings-alert-threshold"
+                        type="number"
+                        min="0.001"
+                        step="0.001"
+                        value={editAlertThreshold}
+                        onChange={(event) => setEditAlertThreshold(event.target.value)}
+                        aria-describedby="device-settings-alert-threshold-help"
+                      />
+                      <p
+                        id="device-settings-alert-threshold-help"
+                        className="text-xs text-gray-500"
+                      >
+                        {t('devices.alertThresholdHelp')}
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-2 rounded-lg border bg-slate-50 p-3">
@@ -1066,7 +1138,20 @@ export function DeviceManagement({
                       <span className="text-gray-500">{t('devices.wifiNetwork')}:</span>{' '}
                       {bleSsid || provisioningDevice.wifiSsid || '—'}
                     </p>
+                    <p className="mt-1">
+                      <span className="text-gray-500">{t('devices.logicalDeviceCode')}:</span>{' '}
+                      <span className="font-mono">{provisioningDevice.code}</span>
+                    </p>
+                    <p className="mt-1">
+                      <span className="text-gray-500">{t('devices.hardwareId')}:</span>{' '}
+                      <span className="font-mono">{provisioningDevice.hardwareId || '—'}</span>
+                    </p>
                   </div>
+                  {!provisioningUnlinked && (
+                    <p className="text-xs text-gray-500">
+                      {t('devices.wifiReconfigureRequiresUnlink')}
+                    </p>
+                  )}
                 </div>
 
                 {(provisioningUnlinked ||
@@ -1183,7 +1268,7 @@ export function DeviceManagement({
                   <History className="mr-2 size-4" />
                   {t('devices.viewHistory')}
                 </Button>
-                <Button type="submit" disabled={provisioningSaving || provisioningUnlinked}>
+                <Button type="submit" disabled={provisioningSaving}>
                   {provisioningSaving ? t('common.loading') : t('common.save')}
                 </Button>
               </DialogFooter>

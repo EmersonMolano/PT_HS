@@ -574,8 +574,17 @@ export const devicesApi = {
       `/devices/${encodeURIComponent(deviceId)}/telemetry${suffix}`
     );
   },
-  update: (deviceId: number | string, payload: unknown) =>
-    apiClient.put<{ data: unknown }>(`/devices/${deviceId}`, payload),
+  update: (
+    deviceId: number | string,
+    payload: {
+      name?: string;
+      type?: string;
+      location?: string | null;
+      manufacturer?: string;
+      model?: string;
+      alertThreshold?: number;
+    }
+  ) => apiClient.put<{ data: unknown }>(`/devices/${deviceId}`, payload),
   updateConfig: (deviceId: number | string, payload: unknown) =>
     apiClient.put<{ data: unknown }>(`/devices/${deviceId}/config`, payload),
   updateStatus: (deviceId: number | string, payload: unknown) =>

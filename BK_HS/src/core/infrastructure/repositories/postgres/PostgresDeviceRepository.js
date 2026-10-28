@@ -455,6 +455,7 @@ class PostgresDeviceRepository extends DeviceRepository {
     userId,
     deviceId,
     name,
+    type,
     location,
     manufacturer,
     model,
@@ -464,10 +465,11 @@ class PostgresDeviceRepository extends DeviceRepository {
       client.query(
         `UPDATE device.device
           SET name = COALESCE($2::varchar, name),
-              location = COALESCE($3::varchar, location),
-              manufacturer = COALESCE($4::varchar, manufacturer),
-              model = COALESCE($5::varchar, model),
-              umbral_alerta = COALESCE($6::decimal, umbral_alerta),
+              type = COALESCE($3::varchar, type),
+              location = COALESCE($4::varchar, location),
+              manufacturer = COALESCE($5::varchar, manufacturer),
+              model = COALESCE($6::varchar, model),
+              umbral_alerta = COALESCE($7::decimal, umbral_alerta),
               updated_at = now()
         WHERE device_id = $1::uuid
         RETURNING device_id, code, name, type, location, manufacturer, model,
@@ -477,6 +479,7 @@ class PostgresDeviceRepository extends DeviceRepository {
         [
           deviceId,
           name ?? null,
+          type ?? null,
           location ?? null,
           manufacturer ?? null,
           model ?? null,

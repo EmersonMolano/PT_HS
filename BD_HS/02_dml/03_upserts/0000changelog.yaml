@@ -46,9 +46,21 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: false
+
+  - changeSet:
+      id: 20261028-sync-existing-esp32-group-home-links
+      author: HidroSmart
+      labels: "dml,device,iot,logical-group,home,reconciliation"
+      comment: "Propagates existing active home assignments to every member of the physical ESP32 group."
+      changes:
+        - sqlFile:
+            path: 004_sync_esp32_logical_group_home_links.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
       rollback:
         - sqlFile:
-            path: ../../05_rollbacks/02_dml/03_upserts/003_esp32_logical_device_group.rollback.sql
+            path: ../../05_rollbacks/02_dml/03_upserts/004_sync_esp32_logical_group_home_links.rollback.sql
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: false

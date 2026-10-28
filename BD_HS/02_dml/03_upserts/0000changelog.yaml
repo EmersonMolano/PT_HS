@@ -46,6 +46,12 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/02_dml/03_upserts/003_esp32_logical_device_group.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
 
   - changeSet:
       id: 20261028-sync-existing-esp32-group-home-links

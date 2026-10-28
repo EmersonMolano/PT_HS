@@ -1168,6 +1168,12 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: false
             stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/06_functions/068_fn_multi_logical_esp32.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
 
   - changeSet:
       id: 20261028-clear-device-provisioning-error-on-recovery

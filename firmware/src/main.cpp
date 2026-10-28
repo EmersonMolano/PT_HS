@@ -60,6 +60,14 @@ constexpr char NVS_DEVICE_CODE_KEY[] = "deviceCode";
 constexpr char NVS_BLE_LOCKED_KEY[] = "bleLocked";
 constexpr char NVS_LINKED_HOME_KEY[] = "linkedHome";
 constexpr char NVS_TOTAL_LITERS_KEY[] = "totalLiters";
+constexpr char PRIMARY_LOGICAL_DEVICE_CODE[] = "HS-7A3F91C8D2E4";
+constexpr const char* LOGICAL_DEVICE_CODES[] = {
+  "HS-7A3F91C8D2E4",
+  "HS-B6E04D79A153",
+  "HS-2C8A5F01E7B9",
+  "HS-141F47470968",
+};
+constexpr size_t LOGICAL_DEVICE_COUNT = sizeof(LOGICAL_DEVICE_CODES) / sizeof(LOGICAL_DEVICE_CODES[0]);
 constexpr char BLE_SERVICE_UUID[] = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 constexpr char BLE_CONFIG_CHAR_UUID[] = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
 constexpr char BLE_STATUS_CHAR_UUID[] = "beb5483e-36e1-4688-b7f5-ea07361b26a9";
@@ -96,12 +104,14 @@ uint16_t mqttPort = HIDROSMART_MQTT_PORT;
 
 volatile uint32_t pulseCount = 0;
 uint32_t sequence = 0;
+uint32_t pendingTelemetrySequence = 0;
 uint32_t bootId = 0;
 float totalLiters = 0.0f;
 float lastPersistedTotalLiters = 0.0f;
 uint32_t pendingPulses = 0;
 float pendingConsumptionLiters = 0.0f;
 float pendingSampleSeconds = 0.0f;
+String pendingTelemetryTimestamp;
 unsigned long lastSampleAt = 0;
 unsigned long lastTotalSaveAt = 0;
 unsigned long lastWifiAttemptAt = 0;
@@ -162,6 +172,13 @@ bool isSafeDeviceCode(const String& value) {
   return true;
 }
 
+bool isLogicalDeviceCode(const String& value) {
+  for (size_t index = 0; index < LOGICAL_DEVICE_COUNT; index++) {
+    if (value.equalsIgnoreCase(LOGICAL_DEVICE_CODES[index])) return true;
+  }
+  return false;
+}
+
 String getHardwareId() {
   const uint64_t chipId = ESP.getEfuseMac();
   char id[20];
@@ -169,8 +186,8 @@ String getHardwareId() {
   return String(id);
 }
 
-String deviceTopic(const char* suffix) {
-  return String("hidrosmart/devices/") + deviceCode + suffix;
+String deviceTopic(const char* logicalCode, const char* suffix) {
+  return String("hidrosmart/devices/") + logicalCode + suffix;
 }
 
 String isoTimestamp() {
@@ -182,7 +199,7 @@ String isoTimestamp() {
   return String(value);
 }
 
-String statusPayload(const char* status) {
+String statusPayload(const char* logicalCode, const char* status) {
   const String timestamp = isoTimestamp();
   const String ip = WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString() : "";
   const String activeSsid = WiFi.status() == WL_CONNECTED && connectedSsid.isEmpty()
@@ -199,7 +216,7 @@ String statusPayload(const char* status) {
       ? "MQTT_CONNECTED"
       : (wifiConnected ? "WIFI_CONNECTED" : (bleAdvertising ? "BLE_READY" : "PENDING")));
   JsonDocument document;
-  document["deviceId"] = deviceCode;
+  document["deviceId"] = logicalCode;
   document["hardwareId"] = hardwareId;
   document["status"] = status;
   document["provisioningState"] = provisioningState;
@@ -343,10 +360,11 @@ void loadConfiguration() {
     }
   }
 
-  if (deviceCode.isEmpty() && isConfiguredText(HIDROSMART_DEVICE_CODE)) {
+  if (deviceCode.isEmpty() && isConfiguredText(HIDROSMART_DEVICE_CODE) &&
+      isLogicalDeviceCode(HIDROSMART_DEVICE_CODE)) {
     deviceCode = HIDROSMART_DEVICE_CODE;
   }
-  if (deviceCode.isEmpty()) deviceCode = hardwareId;
+  if (!isLogicalDeviceCode(deviceCode)) deviceCode = PRIMARY_LOGICAL_DEVICE_CODE;
 
   if (mqttHost.isEmpty()) mqttHost = HIDROSMART_MQTT_HOST;
   if (mqttPort == 0) mqttPort = HIDROSMART_MQTT_PORT;
@@ -488,7 +506,14 @@ void notifyStatus(const char* state) {
 }
 
 void handleMqttCommand(char* topic, uint8_t* payload, unsigned int length) {
-  if (String(topic) != deviceTopic(COMMANDS_SUFFIX)) return;
+  bool knownLogicalTopic = false;
+  for (size_t index = 0; index < LOGICAL_DEVICE_COUNT; index++) {
+    if (String(topic) == deviceTopic(LOGICAL_DEVICE_CODES[index], COMMANDS_SUFFIX)) {
+      knownLogicalTopic = true;
+      break;
+    }
+  }
+  if (!knownLogicalTopic) return;
 
   String serialized;
   serialized.reserve(length + 1);
@@ -545,9 +570,9 @@ bool connectMqtt() {
   }
 #endif
 
-  const String clientId = deviceCode + "-" + String(bootId);
-  const String statusTopic = deviceTopic(STATUS_SUFFIX);
-  const String offlinePayload = statusPayload("OFFLINE");
+  const String clientId = String("HidroSmart-") + hardwareId + "-" + String(bootId);
+  const String statusTopic = deviceTopic(PRIMARY_LOGICAL_DEVICE_CODE, STATUS_SUFFIX);
+  const String offlinePayload = statusPayload(PRIMARY_LOGICAL_DEVICE_CODE, "OFFLINE");
   auto attemptConnect = [&]() -> bool {
     mqttClient.disconnect();
 #if HIDROSMART_MQTT_USE_TLS
@@ -618,16 +643,29 @@ bool connectMqtt() {
     }
   }
 
-  const String onlinePayload = statusPayload("ONLINE");
-  const bool published = mqttClient.publish(statusTopic.c_str(), onlinePayload.c_str(), true);
-  const String commandsTopic = deviceTopic(COMMANDS_SUFFIX);
-  const bool subscribed = mqttClient.subscribe(commandsTopic.c_str(), 1);
+  bool allSubscribed = true;
+  for (size_t index = 0; index < LOGICAL_DEVICE_COUNT; index++) {
+    const char* logicalCode = LOGICAL_DEVICE_CODES[index];
+    const String commandsTopic = deviceTopic(logicalCode, COMMANDS_SUFFIX);
+    allSubscribed = mqttClient.subscribe(commandsTopic.c_str(), 1) && allSubscribed;
+  }
+  bool allPublished = true;
+  for (size_t index = 0; index < LOGICAL_DEVICE_COUNT; index++) {
+    const char* logicalCode = LOGICAL_DEVICE_CODES[index];
+    const String currentStatusTopic = deviceTopic(logicalCode, STATUS_SUFFIX);
+    const String onlinePayload = statusPayload(logicalCode, "ONLINE");
+    // Solo el estado principal queda retenido y tiene LWT. Los alias publican
+    // estados en vivo sin dejar un ONLINE obsoleto si la placa se desconecta.
+    const bool retainStatus = std::strcmp(logicalCode, PRIMARY_LOGICAL_DEVICE_CODE) == 0;
+    allPublished = mqttClient.publish(currentStatusTopic.c_str(), onlinePayload.c_str(), retainStatus) && allPublished;
+  }
   Serial.print("[MQTT] Conectado a ");
   Serial.print(mqttHost);
   Serial.print(':');
   Serial.println(mqttPort);
-  if (!subscribed) Serial.println("[MQTT] No se pudo suscribir al canal de comandos");
-  return published && subscribed;
+  if (!allSubscribed) Serial.println("[MQTT] No se pudo suscribir a todos los canales de comandos");
+  if (!allPublished) Serial.println("[MQTT] No se pudo publicar el estado de todos los IDs logicos");
+  return allPublished && allSubscribed;
 }
 
 bool publishTelemetry(uint32_t pulses, float flowRateLpm, float consumptionLiters, float intervalSeconds) {
@@ -636,28 +674,42 @@ bool publishTelemetry(uint32_t pulses, float flowRateLpm, float consumptionLiter
     return false;
   }
 
-  const uint32_t currentSequence = ++sequence;
-  const String messageId = deviceCode + "-" + String(bootId) + "-" + String(currentSequence);
-  const String timestamp = isoTimestamp();
-  const String topic = deviceTopic(TELEMETRY_SUFFIX);
+  if (pendingTelemetrySequence == 0) {
+    pendingTelemetrySequence = ++sequence;
+    pendingTelemetryTimestamp = isoTimestamp();
+  }
+  const uint32_t currentSequence = pendingTelemetrySequence;
+  const String timestamp = pendingTelemetryTimestamp;
   char payload[512];
+  bool allPublished = true;
+  for (size_t index = 0; index < LOGICAL_DEVICE_COUNT; index++) {
+    const char* logicalCode = LOGICAL_DEVICE_CODES[index];
+    const String messageId = String(logicalCode) + "-" + String(bootId) + "-" + String(currentSequence);
+    const String topic = deviceTopic(logicalCode, TELEMETRY_SUFFIX);
+    snprintf(
+      payload,
+      sizeof(payload),
+      "{\"mqttMessageId\":\"%s\",\"deviceId\":\"%s\",\"hardwareId\":\"%s\",\"timestamp\":\"%s\","
+      "\"flowRateLpm\":%.3f,\"consumptionLiters\":%.5f,\"totalLiters\":%.5f,"
+      "\"pulses\":%lu,\"sampleIntervalSeconds\":%.3f,\"wifiRssiDbm\":%ld,\"signalQuality\":%ld}",
+      messageId.c_str(), logicalCode, hardwareId.c_str(), timestamp.c_str(), flowRateLpm,
+      consumptionLiters, totalLiters, pulses, intervalSeconds, static_cast<long>(WiFi.RSSI()),
+      static_cast<long>(WiFi.RSSI())
+    );
 
-  snprintf(
-    payload,
-    sizeof(payload),
-    "{\"mqttMessageId\":\"%s\",\"deviceId\":\"%s\",\"hardwareId\":\"%s\",\"timestamp\":\"%s\","
-    "\"flowRateLpm\":%.3f,\"consumptionLiters\":%.5f,\"totalLiters\":%.5f,"
-    "\"pulses\":%lu,\"sampleIntervalSeconds\":%.3f,\"wifiRssiDbm\":%ld,\"signalQuality\":%ld}",
-    messageId.c_str(), deviceCode.c_str(), hardwareId.c_str(), timestamp.c_str(), flowRateLpm,
-    consumptionLiters, totalLiters, pulses, intervalSeconds, static_cast<long>(WiFi.RSSI()),
-    static_cast<long>(WiFi.RSSI())
-  );
-
-  const bool published = mqttClient.publish(topic.c_str(), payload, false);
-  Serial.print("[MQTT] ");
-  Serial.print(published ? "Telemetria enviada: " : "Error enviando telemetria: ");
-  Serial.println(payload);
-  return published;
+    const bool published = mqttClient.publish(topic.c_str(), payload, false);
+    allPublished = published && allPublished;
+    Serial.print("[MQTT] ");
+    Serial.print(published ? "Telemetria enviada: " : "Error enviando telemetria: ");
+    Serial.print(logicalCode);
+    Serial.print(" | ");
+    Serial.println(payload);
+  }
+  if (allPublished) {
+    pendingTelemetrySequence = 0;
+    pendingTelemetryTimestamp = "";
+  }
+  return allPublished;
 }
 
 void handleProvisioningPayload(const String& serialized) {
@@ -687,7 +739,7 @@ void handleProvisioningPayload(const String& serialized) {
     return;
   }
 #endif
-  if (!isSafeDeviceCode(requestedDeviceCode)) {
+  if (!isSafeDeviceCode(requestedDeviceCode) || !isLogicalDeviceCode(requestedDeviceCode)) {
     notifyStatus("invalid_device_code");
     return;
   }
@@ -717,15 +769,6 @@ void handleProvisioningPayload(const String& serialized) {
   const bool passwordUnchanged = password.isEmpty() ||
     (hasSavedNetwork && password == savedPassword);
   const bool keepCurrentWifiConnection = wifiAlreadyOnRequestedNetwork && passwordUnchanged;
-  const bool deviceCodeChanging = !requestedDeviceCode.equalsIgnoreCase(previousDeviceCode);
-
-  if (deviceCodeChanging && mqttClient.connected()) {
-    const String previousStatusTopic = deviceTopic(STATUS_SUFFIX);
-    const String previousOfflinePayload = statusPayload("OFFLINE");
-    mqttClient.publish(previousStatusTopic.c_str(), previousOfflinePayload.c_str(), true);
-    mqttClient.disconnect();
-  }
-
   deviceCode = requestedDeviceCode;
   notifyStatus("configuration_received");
   notifyStatus("wifi_connecting");

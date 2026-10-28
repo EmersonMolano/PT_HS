@@ -16,6 +16,12 @@ BD_HS/docs/credenciales-locales.md
 **/.vite/
 **/.expo/
 **/.pio/
+**/.gradle-user-home/
+**/.cxx/
+**/.cxx.*/
+**/.expo-export-*/
+**/.web-dist/
+**/test-results/
 **/*.log
 **/*.pem
 **/*.key

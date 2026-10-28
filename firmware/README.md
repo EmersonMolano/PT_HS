@@ -1,5 +1,19 @@
 # Firmware ESP32
 
+## Grupo logico ESP32-HS-01
+
+Esta placa publica cada muestra para cuatro IDs: `HS-7A3F91C8D2E4`,
+`HS-B6E04D79A153`, `HS-2C8A5F01E7B9` y `HS-141F47470968`. El primero es el
+ID principal y contabiliza los litros del medidor. Los otros tres reciben el
+estado y el caudal en vivo con consumo contabilizado en cero, para conservar
+el total real del hogar. Vincular o desvincular cualquiera de ellos actua
+sobre el grupo completo.
+
+La ACL del token de Flespi debe permitir publicar `telemetry` y `status` para
+los cuatro IDs y suscribirse a `commands` para los cuatro. Solo el estado del
+ID principal queda retenido; los estados de alias son en vivo. El backend usa
+su propio token.
+
 Firmware Arduino/PlatformIO del sensor HidroSmart. Lee un caudalímetro,
 conserva redes Wi-Fi en NVS, se aprovisiona por BLE y publica telemetría MQTT.
 

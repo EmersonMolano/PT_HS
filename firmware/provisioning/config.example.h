@@ -24,7 +24,8 @@
 #endif
 // Vacio: usa el hardwareId HS-XXXXXX generado por el ESP32.
 // Para una placa preasignada, usa UN codigo por ESP32, por ejemplo
-// "HS-7A3F91C8D2E4", "HS-B6E04D79A153" o "HS-2C8A5F01E7B9".
+// "HS-7A3F91C8D2E4", "HS-B6E04D79A153", "HS-2C8A5F01E7B9"
+// o "HS-141F47470968". Una sola placa publica para los cuatro IDs.
 // No reutilices el mismo codigo en dos placas.
 #define HIDROSMART_DEVICE_CODE ""
 // Use one dedicated Flespi ACL token per ESP32 as the MQTT username.

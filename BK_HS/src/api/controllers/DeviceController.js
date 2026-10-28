@@ -232,6 +232,7 @@ class DeviceController {
       homeId: req.params.homeId,
     });
 
+    let bleCommandPublished = false;
     if (
       unlinked?.deviceCode &&
       this.deviceCommandPublisher &&
@@ -243,6 +244,7 @@ class DeviceController {
           { command: "unlink", reason: "device_unlinked" },
           { qos: 1, retain: false },
         );
+        bleCommandPublished = true;
       } catch (error) {
         // La desvinculaciÃ³n ya fue confirmada en BD. El ESP32 podrÃ¡ recibir
         // el comando en el siguiente intento de conexiÃ³n MQTT.
@@ -252,7 +254,13 @@ class DeviceController {
         );
       }
     }
-    res.status(204).send();
+    res.status(200).json({
+      data: {
+        unlinkedDeviceCodes: unlinked.deviceCodes || [unlinked.deviceCode],
+        logicalGroup: unlinked.logicalGroup === true,
+        bleCommandPublished,
+      },
+    });
   }
 
   async delete(req, res) {

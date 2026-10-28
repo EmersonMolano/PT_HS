@@ -50,8 +50,14 @@ class PostgresDeviceRepository extends DeviceRepository {
           `SELECT EXISTS (
              SELECT 1
                FROM home.home_device hd
-              WHERE hd.device_id = $1::uuid
-                AND hd.status = 'Active'
+              WHERE hd.status = 'Active'
+                AND (hd.device_id = $1::uuid OR hd.device_id IN (
+                  SELECT sibling.device_id
+                    FROM device.logical_device_group_member current_member
+                    JOIN device.logical_device_group_member sibling
+                      ON sibling.group_key = current_member.group_key
+                   WHERE current_member.device_id = $1::uuid
+                ))
            ) AS linked_to_home`,
           [deviceRow.device_id],
         );
@@ -735,9 +741,10 @@ class PostgresDeviceRepository extends DeviceRepository {
   async unlinkFromHome({ userId, deviceId, homeId }) {
     const result = await withTransaction(userId, async (client) => {
       const linked = await client.query(
-        `SELECT d.code AS device_code
+        `SELECT d.code AS device_code, gm.group_key
            FROM home.home_device hd
            JOIN device.device d ON d.device_id = hd.device_id
+           LEFT JOIN device.logical_device_group_member gm ON gm.device_id = d.device_id
           WHERE hd.device_id = $1::uuid
             AND hd.home_id = $2::uuid
           LIMIT 1`,
@@ -745,18 +752,39 @@ class PostgresDeviceRepository extends DeviceRepository {
       );
       if (!linked.rowCount) return { rows: [] };
 
+      if (linked.rows[0].group_key) {
+        await client.query(
+          'SELECT pg_advisory_xact_lock(hashtext($1::text))',
+          [linked.rows[0].group_key],
+        );
+      }
+
+      const groupMembers = linked.rows[0].group_key
+        ? await client.query(
+            `SELECT d.device_id, d.code
+               FROM device.logical_device_group_member gm
+               JOIN device.device d ON d.device_id = gm.device_id
+              WHERE gm.group_key = $1::varchar
+              ORDER BY gm.is_primary DESC, d.code`,
+            [linked.rows[0].group_key],
+          )
+        : { rows: [{ device_id: deviceId, code: linked.rows[0].device_code }] };
+      const groupDeviceIds = groupMembers.rows.map((row) => row.device_id);
+
       const deleted = await client.query(
         `DELETE FROM home.home_device
-          WHERE device_id = $1::uuid
+          WHERE device_id = ANY($1::uuid[])
             AND home_id = $2::uuid
           RETURNING home_id, device_id`,
-        [deviceId, homeId],
+        [groupDeviceIds, homeId],
       );
       if (!deleted.rowCount) return deleted;
       // La capa HTTP trabaja con propiedades camelCase. Mantener este
       // contrato permite al controlador publicar el comando MQTT `unlink`
       // después de retirar la asociación en la base de datos.
       deleted.rows[0].deviceCode = linked.rows[0].device_code;
+      deleted.rows[0].deviceCodes = groupMembers.rows.map((row) => row.code);
+      deleted.rows[0].logicalGroup = Boolean(linked.rows[0].group_key);
       return deleted;
     });
 

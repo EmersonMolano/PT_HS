@@ -34,3 +34,21 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: false
+
+  - changeSet:
+      id: 20261028-esp32-hs01-logical-device-group
+      author: HidroSmart
+      labels: "dml,upsert,device,iot,logical-group"
+      comment: "Groups the four preassigned logical IDs under one physical ESP32."
+      changes:
+        - sqlFile:
+            path: 003_esp32_logical_device_group.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/02_dml/03_upserts/003_esp32_logical_device_group.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false

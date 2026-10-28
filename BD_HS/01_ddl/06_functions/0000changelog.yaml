@@ -1156,3 +1156,21 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: false
+
+  - changeSet:
+      id: 20261028-multi-logical-esp32-support
+      author: HidroSmart
+      labels: "ddl,function,device,iot,logical-group,telemetry,unlink"
+      comment: "Supports four logical device IDs on one ESP32 and keeps household consumption single-counted."
+      changes:
+        - sqlFile:
+            path: 068_fn_multi_logical_esp32.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/06_functions/068_fn_multi_logical_esp32.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false

@@ -142,6 +142,7 @@ export function DeviceManagement({
   const [blePassword, setBlePassword] = useState('');
   const [showBlePassword, setShowBlePassword] = useState(false);
   const [provisioningUnlinked, setProvisioningUnlinked] = useState(false);
+  const [unlinkingDeviceId, setUnlinkingDeviceId] = useState<string | null>(null);
   const claimingHardwareRef = useRef<{
     hardwareId: string;
     promise: Promise<Partial<Device> | null>;
@@ -501,25 +502,41 @@ export function DeviceManagement({
   };
 
   const unlink = async (device: Device, keepProvisioningOpen = false) => {
+    if (!homeId || unlinkingDeviceId) return;
+    setUnlinkingDeviceId(device.deviceId);
     try {
-      await devicesApi.unlink(device.deviceId, homeId);
+      const response = await devicesApi.unlink(device.deviceId, homeId);
+      const affectedCodes = response.data?.unlinkedDeviceCodes?.length
+        ? response.data.unlinkedDeviceCodes
+        : [device.code];
+      const affectedCodeSet = new Set(affectedCodes);
       setProvisioningUnlinked(
-        (current) => current || provisioningDevice?.deviceId === device.deviceId
+        (current) => current || affectedCodeSet.has(provisioningDevice?.code || '')
       );
       setProvisioningDevice((current) =>
-        current?.deviceId === device.deviceId ? { ...current, homeId: '' } : current
+        current && affectedCodeSet.has(current.code) ? { ...current, homeId: '' } : current
       );
       if (keepProvisioningOpen) {
         setDevices((current) =>
           current.map((item) =>
-            item.deviceId === device.deviceId ? { ...item, homeId: '' } : item
+            affectedCodeSet.has(item.code) ? { ...item, homeId: '' } : item
           )
         );
       }
       if (!keepProvisioningOpen) await loadDevices(homeId, page);
-      toast.success(t('devices.deviceUnlinked'));
+      if (response.data?.bleCommandPublished) {
+        toast.success(
+          response.data.logicalGroup
+            ? t('devices.deviceGroupUnlinked')
+            : t('devices.deviceUnlinked')
+        );
+      } else {
+        toast.warning(t('devices.deviceUnlinkedBlePending'));
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t('devices.unlinkError'));
+    } finally {
+      setUnlinkingDeviceId(null);
     }
   };
 
@@ -917,9 +934,18 @@ export function DeviceManagement({
                             variant="outline"
                             size="sm"
                             onClick={() => void unlink(device)}
+                            disabled={unlinkingDeviceId !== null}
                           >
-                            <Trash2 className="size-4" />
-                            <span className="ml-2">{t('devices.unlinkDevice')}</span>
+                            {unlinkingDeviceId === device.deviceId ? (
+                              <Loader2 className="size-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="size-4" />
+                            )}
+                            <span className="ml-2">
+                              {unlinkingDeviceId === device.deviceId
+                                ? t('devices.unlinkingDevice')
+                                : t('devices.unlinkDevice')}
+                            </span>
                           </Button>
                         )}
                       </div>
@@ -1139,7 +1165,7 @@ export function DeviceManagement({
                     type="button"
                     variant="outline"
                     onClick={() => provisioningDevice && void unlink(provisioningDevice, true)}
-                    disabled={provisioningUnlinked}
+                    disabled={provisioningUnlinked || unlinkingDeviceId !== null}
                   >
                     <Trash2 className="mr-2 size-4" />
                     {t('devices.unlinkDevice')}

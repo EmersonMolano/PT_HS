@@ -593,7 +593,13 @@ export const devicesApi = {
   deactivate: (deviceId: number | string) =>
     apiClient.post<void>(`/devices/${deviceId}/deactivate`),
   unlink: (deviceId: number | string, homeId: number | string) =>
-    apiClient.delete<void>(`/devices/${deviceId}/home/${homeId}`),
+    apiClient.delete<{
+      data: {
+        unlinkedDeviceCodes: string[];
+        logicalGroup: boolean;
+        bleCommandPublished: boolean;
+      };
+    }>(`/devices/${deviceId}/home/${homeId}`),
   delete: (deviceId: number | string) => apiClient.delete<void>(`/devices/${deviceId}`),
 };
 

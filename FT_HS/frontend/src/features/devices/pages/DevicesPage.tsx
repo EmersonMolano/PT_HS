@@ -121,10 +121,7 @@ export function DeviceManagement({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [linkOpen, setLinkOpen] = useState(false);
   const [editName, setEditName] = useState('');
-  const [editType, setEditType] = useState('');
   const [editLocation, setEditLocation] = useState('');
-  const [editManufacturer, setEditManufacturer] = useState('');
-  const [editModel, setEditModel] = useState('');
   const [editAlertThreshold, setEditAlertThreshold] = useState('');
   const [locationOption, setLocationOption] = useState('');
   const [otherLocation, setOtherLocation] = useState('');
@@ -304,10 +301,7 @@ export function DeviceManagement({
         : '';
     setProvisioningDevice(device);
     setEditName(device.name);
-    setEditType(device.type || 'water_sensor');
     setEditLocation(savedLocation);
-    setEditManufacturer(device.manufacturer || '');
-    setEditModel(device.model || '');
     setEditAlertThreshold(
       device.alertThreshold === null || device.alertThreshold === undefined
         ? ''
@@ -390,7 +384,10 @@ export function DeviceManagement({
     const nextStatus = state ? BLE_BACKEND_STATUS[state] : 'BLE_READY';
     if (!provisioningDevice) return;
     const reportedDeviceCode = String(status.deviceCode || '').trim();
-    if (!reportedDeviceCode || reportedDeviceCode.toUpperCase() !== provisioningDevice.code.toUpperCase()) {
+    if (
+      !reportedDeviceCode ||
+      reportedDeviceCode.toUpperCase() !== provisioningDevice.code.toUpperCase()
+    ) {
       return;
     }
     let deviceForStatus = provisioningDevice;
@@ -402,12 +399,20 @@ export function DeviceManagement({
       'waiting_link_confirmation',
       'mqtt_unreachable',
     ].includes(reportedState);
-    if (reportedHardwareId && reportedHardwareId !== provisioningDevice.hardwareId && activeOnRequestedCode) {
+    if (
+      reportedHardwareId &&
+      reportedHardwareId !== provisioningDevice.hardwareId &&
+      activeOnRequestedCode
+    ) {
       const claimed = await claimHardware(reportedHardwareId, false);
       if (!claimed) return;
       deviceForStatus = { ...provisioningDevice, ...claimed };
     }
-    if (reportedHardwareId && reportedHardwareId !== provisioningDevice.hardwareId && !activeOnRequestedCode) {
+    if (
+      reportedHardwareId &&
+      reportedHardwareId !== provisioningDevice.hardwareId &&
+      !activeOnRequestedCode
+    ) {
       return;
     }
     if (!nextStatus) return;
@@ -450,7 +455,14 @@ export function DeviceManagement({
       if (connection.initialStatus) await applyBleStatus(connection.initialStatus);
       toast.success(t('devices.bleConnected'));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : t('devices.bleConnectionError'));
+      const detail = error instanceof Error ? error.message : '';
+      const adapterUnavailable =
+        /bluetooth adapter not available|no bluetooth adapter|bluetooth.*unavailable/i.test(detail);
+      toast.error(
+        adapterUnavailable
+          ? t('devices.bleAdapterUnavailable')
+          : detail || t('devices.bleConnectionError')
+      );
     } finally {
       setBleConnecting(false);
     }
@@ -497,10 +509,7 @@ export function DeviceManagement({
     try {
       const deviceResponse = await devicesApi.update(provisioningDevice.deviceId, {
         name: editName.trim(),
-        type: editType.trim(),
         location: savedLocation || null,
-        manufacturer: editManufacturer.trim() || undefined,
-        model: editModel.trim() || undefined,
         alertThreshold: editAlertThreshold.trim() ? Number(editAlertThreshold) : undefined,
       });
       const updated = deviceResponse.data as Partial<Device>;
@@ -536,9 +545,7 @@ export function DeviceManagement({
       );
       if (keepProvisioningOpen) {
         setDevices((current) =>
-          current.map((item) =>
-            affectedCodeSet.has(item.code) ? { ...item, homeId: '' } : item
-          )
+          current.map((item) => (affectedCodeSet.has(item.code) ? { ...item, homeId: '' } : item))
         );
       }
       if (!keepProvisioningOpen) await loadDevices(homeId, page);
@@ -1031,40 +1038,28 @@ export function DeviceManagement({
                       maxLength={100}
                     />
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="device-settings-type">{t('devices.deviceType')}</Label>
-                      <Input
-                        id="device-settings-type"
-                        value={editType}
-                        onChange={(event) => setEditType(event.target.value)}
-                        required
-                        maxLength={50}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="device-settings-location">{t('devices.location')}</Label>
-                      <select
-                        id="device-settings-location"
-                        className="h-10 w-full rounded-md border px-3"
-                        value={locationOption}
-                        onChange={(event) => {
-                          const nextLocation = event.target.value;
-                          setLocationOption(nextLocation);
-                          setEditLocation(
-                            nextLocation === OTHER_LOCATION_OPTION ? otherLocation : nextLocation
-                          );
-                        }}
-                      >
-                        <option value="">Selecciona una ubicación</option>
-                        {DEVICE_LOCATION_OPTIONS.map((location) => (
-                          <option key={location} value={location}>
-                            {location}
-                          </option>
-                        ))}
-                        <option value={OTHER_LOCATION_OPTION}>Otro</option>
-                      </select>
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="device-settings-location">{t('devices.location')}</Label>
+                    <select
+                      id="device-settings-location"
+                      className="h-10 w-full rounded-md border px-3"
+                      value={locationOption}
+                      onChange={(event) => {
+                        const nextLocation = event.target.value;
+                        setLocationOption(nextLocation);
+                        setEditLocation(
+                          nextLocation === OTHER_LOCATION_OPTION ? otherLocation : nextLocation
+                        );
+                      }}
+                    >
+                      <option value="">Selecciona una ubicación</option>
+                      {DEVICE_LOCATION_OPTIONS.map((location) => (
+                        <option key={location} value={location}>
+                          {location}
+                        </option>
+                      ))}
+                      <option value={OTHER_LOCATION_OPTION}>Otro</option>
+                    </select>
                   </div>
                   {locationOption === OTHER_LOCATION_OPTION && (
                     <div className="space-y-2">
@@ -1084,47 +1079,22 @@ export function DeviceManagement({
                       />
                     </div>
                   )}
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="device-settings-manufacturer">
-                        {t('devices.manufacturer')}
-                      </Label>
-                      <Input
-                        id="device-settings-manufacturer"
-                        value={editManufacturer}
-                        onChange={(event) => setEditManufacturer(event.target.value)}
-                        maxLength={100}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="device-settings-model">{t('devices.model')}</Label>
-                      <Input
-                        id="device-settings-model"
-                        value={editModel}
-                        onChange={(event) => setEditModel(event.target.value)}
-                        maxLength={100}
-                      />
-                    </div>
-                    <div className="space-y-2 sm:col-span-2">
-                      <Label htmlFor="device-settings-alert-threshold">
-                        {t('devices.alertThreshold')}
-                      </Label>
-                      <Input
-                        id="device-settings-alert-threshold"
-                        type="number"
-                        min="0.001"
-                        step="0.001"
-                        value={editAlertThreshold}
-                        onChange={(event) => setEditAlertThreshold(event.target.value)}
-                        aria-describedby="device-settings-alert-threshold-help"
-                      />
-                      <p
-                        id="device-settings-alert-threshold-help"
-                        className="text-xs text-gray-500"
-                      >
-                        {t('devices.alertThresholdHelp')}
-                      </p>
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="device-settings-alert-threshold">
+                      {t('devices.alertThreshold')}
+                    </Label>
+                    <Input
+                      id="device-settings-alert-threshold"
+                      type="number"
+                      min="0.001"
+                      step="0.001"
+                      value={editAlertThreshold}
+                      onChange={(event) => setEditAlertThreshold(event.target.value)}
+                      aria-describedby="device-settings-alert-threshold-help"
+                    />
+                    <p id="device-settings-alert-threshold-help" className="text-xs text-gray-500">
+                      {t('devices.alertThresholdHelp')}
+                    </p>
                   </div>
                 </div>
 

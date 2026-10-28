@@ -981,6 +981,10 @@ void setup() {
   mqttClient.setKeepAlive(HIDROSMART_MQTT_KEEPALIVE_SECONDS);
   mqttClient.setBufferSize(768);
 
+  // Anuncia BLE antes de intentar redes NVS. Cada red puede tardar hasta 15 s;
+  // el dispositivo queda descubrible mientras prueba Wi-Fi y el broker.
+  applyBlePolicy();
+
   if (connectKnownWifi()) {
     if (!connectMqtt()) {
       Serial.println("[MQTT] Mosquitto no disponible; se activa Bluetooth para corregir la configuracion.");

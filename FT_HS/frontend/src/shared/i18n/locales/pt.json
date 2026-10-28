@@ -514,7 +514,8 @@
       "Cocina": "Cozinha",
       "Jardín": "Jardim",
       "Baño": "Banheiro"
-    }
+    },
+    "bleAdapterUnavailable": "Este computador não detecta um adaptador Bluetooth. Ative o Bluetooth ou use o app HidroSmart em um celular compatível."
   },
   "reports": {
     "homesLoadError": "Não foi possível carregar as casas",

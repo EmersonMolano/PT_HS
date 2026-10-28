@@ -578,10 +578,7 @@ export const devicesApi = {
     deviceId: number | string,
     payload: {
       name?: string;
-      type?: string;
       location?: string | null;
-      manufacturer?: string;
-      model?: string;
       alertThreshold?: number;
     }
   ) => apiClient.put<{ data: unknown }>(`/devices/${deviceId}`, payload),

@@ -516,7 +516,8 @@
       "Cocina": "Cocina",
       "Jardín": "Jardín",
       "Baño": "Baño"
-    }
+    },
+    "bleAdapterUnavailable": "Este equipo no detecta un adaptador Bluetooth. Activa Bluetooth o usa la app HidroSmart en un teléfono compatible."
   },
   "reports": {
     "homesLoadError": "No se pudieron cargar los hogares",

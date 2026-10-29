@@ -8,7 +8,7 @@ const homeId = '223e4567-e89b-12d3-a456-426614174000';
 test('publica unlink por MQTT después de desvincular el dispositivo', async () => {
   let publication;
   let responseStatus;
-  let responseSent = false;
+  let responseBody;
   const controller = new DeviceController({
     unlinkDeviceFromHome: {
       execute: async () => ({ deviceCode: 'HS-7A3F91C8D2E4' })
@@ -24,9 +24,9 @@ test('publica unlink por MQTT después de desvincular el dispositivo', async () 
     status: (status) => {
       responseStatus = status;
       return {
-        send: () => {
-          responseSent = true;
-        }
+        json: (body) => {
+          responseBody = body;
+        },
       };
     }
   };
@@ -41,6 +41,12 @@ test('publica unlink por MQTT después de desvincular el dispositivo', async () 
     { command: 'unlink', reason: 'device_unlinked' },
     { qos: 1, retain: false }
   ]);
-  assert.equal(responseStatus, 204);
-  assert.equal(responseSent, true);
+  assert.equal(responseStatus, 200);
+  assert.deepEqual(responseBody, {
+    data: {
+      unlinkedDeviceCodes: ['HS-7A3F91C8D2E4'],
+      logicalGroup: false,
+      bleCommandPublished: true,
+    },
+  });
 });

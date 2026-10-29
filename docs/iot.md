@@ -16,13 +16,14 @@ Cada placa conserva un `hardwareId` inmutable derivado del eFuse, con formato
 se vincula a un hogar y se usa en los topics MQTT. No se deben reutilizar
 códigos entre placas.
 
-Códigos preasignados para pruebas:
+Código lógico preasignado para la placa de pruebas:
 
 ```text
 HS-7A3F91C8D2E4
-HS-B6E04D79A153
-HS-2C8A5F01E7B9
 ```
+
+Cada placa usa un solo `deviceCode` lógico. El `hardwareId` físico se detecta
+desde el eFuse y se asocia a ese registro durante el aprovisionamiento.
 
 ## Flujo de vinculación
 
@@ -74,6 +75,10 @@ hidrosmart/devices/{deviceCode}/telemetry
 hidrosmart/devices/{deviceCode}/status
 hidrosmart/devices/{deviceCode}/commands
 ```
+
+El token Flespi de esta placa debe permitir `Publish` en los topics `status` y
+`telemetry`, y `Subscribe` en `commands`, bajo el código
+`HS-7A3F91C8D2E4`.
 
 La telemetría incluye `mqttMessageId`, `hardwareId`, `timestamp`,
 `flowRateLpm`, `consumptionLiters`, `totalLiters`, `pulses` y calidad Wi-Fi.

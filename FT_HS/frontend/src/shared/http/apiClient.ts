@@ -574,8 +574,23 @@ export const devicesApi = {
       `/devices/${encodeURIComponent(deviceId)}/telemetry${suffix}`
     );
   },
-  update: (deviceId: number | string, payload: unknown) =>
-    apiClient.put<{ data: unknown }>(`/devices/${deviceId}`, payload),
+  setMeasurement: (deviceId: string, enabled: boolean) =>
+    apiClient.post<{
+      data: {
+        deviceId: string;
+        commandId: string;
+        requestedMeasurementEnabled: boolean;
+        acceptedAt: string;
+      };
+    }>(`/devices/${encodeURIComponent(deviceId)}/measurement`, { enabled }),
+  update: (
+    deviceId: number | string,
+    payload: {
+      name?: string;
+      location?: string | null;
+      alertThreshold?: number;
+    }
+  ) => apiClient.put<{ data: unknown }>(`/devices/${deviceId}`, payload),
   updateConfig: (deviceId: number | string, payload: unknown) =>
     apiClient.put<{ data: unknown }>(`/devices/${deviceId}/config`, payload),
   updateStatus: (deviceId: number | string, payload: unknown) =>
@@ -593,7 +608,13 @@ export const devicesApi = {
   deactivate: (deviceId: number | string) =>
     apiClient.post<void>(`/devices/${deviceId}/deactivate`),
   unlink: (deviceId: number | string, homeId: number | string) =>
-    apiClient.delete<void>(`/devices/${deviceId}/home/${homeId}`),
+    apiClient.delete<{
+      data: {
+        unlinkedDeviceCodes: string[];
+        logicalGroup: boolean;
+        bleCommandPublished: boolean;
+      };
+    }>(`/devices/${deviceId}/home/${homeId}`),
   delete: (deviceId: number | string) => apiClient.delete<void>(`/devices/${deviceId}`),
 };
 

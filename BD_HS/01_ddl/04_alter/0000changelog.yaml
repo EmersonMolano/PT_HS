@@ -514,6 +514,12 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/04_alter/032_home_mini_reference_profile.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
 
   - changeSet:
       id: 20260923-validate-iot-metric-constraints
@@ -532,9 +538,21 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: false
+
+  - changeSet:
+      id: 20261028-device-measurement-state
+      author: HidroSmart
+      labels: "ddl,alter,device,iot,measurement,measurement-toggle-v1"
+      comment: "Stores whether each IoT device measurement is enabled and when its latest state was confirmed."
+      changes:
+        - sqlFile:
+            path: 034_device_measurement_state.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
       rollback:
         - sqlFile:
-            path: ../../05_rollbacks/01_ddl/04_alter/032_home_mini_reference_profile.rollback.sql
+            path: ../../05_rollbacks/01_ddl/04_alter/034_device_measurement_state.rollback.sql
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: false

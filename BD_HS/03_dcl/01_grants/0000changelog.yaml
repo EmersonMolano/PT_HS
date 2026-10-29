@@ -987,3 +987,57 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: false
+
+  - changeSet:
+      id: 20261027-device-hardware-switch-grant
+      author: HidroSmart
+      labels: "dcl,grants,device,iot,hardware,security"
+      comment: "Allows the application to transfer one board between managed device codes."
+      changes:
+        - sqlFile:
+            path: 056_device_hardware_switch.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/03_dcl/01_grants/056_device_hardware_switch.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+
+  - changeSet:
+      id: 20261028-device-logical-group-read-grant
+      author: HidroSmart
+      labels: "dcl,grants,device,iot,logical-group,security"
+      comment: "Allows the API to resolve logical group membership for status and unlink operations."
+      changes:
+        - sqlFile:
+            path: 057_device_logical_group_member.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/03_dcl/01_grants/057_device_logical_group_member.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+
+  - changeSet:
+      id: 20261028-device-measurement-state-grant
+      author: HidroSmart
+      labels: "dcl,grants,device,iot,measurement,measurement-toggle-v1,security"
+      comment: "Allows the backend to persist the ESP32 confirmed measurement state through a controlled function."
+      changes:
+        - sqlFile:
+            path: 058_device_measurement_state.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/03_dcl/01_grants/058_device_measurement_state.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false

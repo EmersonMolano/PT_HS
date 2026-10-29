@@ -1006,6 +1006,9 @@ export function DeviceManagement({
                                 )}
                                 {t(measurementEnabled ? 'devices.pauseMeasurement' : 'devices.resumeMeasurement')}
                               </Button>
+                              <p className="w-full text-xs leading-relaxed text-slate-500">
+                                {t('devices.measurementMonitoringHint')}
+                              </p>
                             </div>
                           );
                         })()}

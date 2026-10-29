@@ -1,5 +1,14 @@
 # Firmware ESP32
 
+## Dispositivo lógico
+
+La placa usa un solo código lógico preasignado: `HS-7A3F91C8D2E4`. Cada muestra,
+estado y comando utiliza ese dispositivo. El `hardwareId` físico se obtiene
+del eFuse y se mantiene separado del código lógico.
+
+La ACL del token de Flespi debe permitir publicar `telemetry` y `status` y
+suscribirse a `commands` para `HS-7A3F91C8D2E4`. El backend usa su propio token.
+
 Firmware Arduino/PlatformIO del sensor HidroSmart. Lee un caudalímetro,
 conserva redes Wi-Fi en NVS, se aprovisiona por BLE y publica telemetría MQTT.
 

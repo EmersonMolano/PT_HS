@@ -198,3 +198,21 @@
             path: ../../05_rollbacks/01_ddl/03_tables/010_Actuators.rollback.sql
             relativeToChangelogFile: true
             stripComments: false
+
+  - changeSet:
+      id: 20261028-device-logical-group-members
+      author: HidroSmart
+      labels: "ddl,table,device,iot,logical-group"
+      comment: "Stores logical device codes that share one physical ESP32."
+      changes:
+        - sqlFile:
+            path: 011_Device_logical_group.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/03_tables/011_Device_logical_group.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false

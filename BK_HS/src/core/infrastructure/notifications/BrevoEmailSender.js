@@ -1,11 +1,23 @@
 class BrevoEmailSender {
-  constructor({ brevo = {}, fetchImpl = globalThis.fetch } = {}) {
+  constructor({ brevo = {}, fetchImpl = globalThis.fetch, logger = console } = {}) {
     this.brevo = brevo;
     this.fetchImpl = fetchImpl;
+    this.logger = logger;
+  }
+
+  configurationStatus() {
+    const missing = [];
+    if (typeof this.brevo.apiKey !== 'string' || !this.brevo.apiKey.trim()) {
+      missing.push('BREVO_API_KEY');
+    }
+    if (typeof this.brevo.fromEmail !== 'string' || !this.brevo.fromEmail.trim()) {
+      missing.push('BREVO_FROM_EMAIL');
+    }
+    return { configured: missing.length === 0, missing };
   }
 
   isConfigured() {
-    return Boolean(this.brevo.apiKey && this.brevo.fromEmail);
+    return this.configurationStatus().configured;
   }
 
   async verifyConfiguration() {
@@ -33,14 +45,14 @@ class BrevoEmailSender {
     const response = await this.fetchImpl('https://api.brevo.com/v3/smtp/email', {
       method: 'POST',
       headers: {
-        'api-key': this.brevo.apiKey,
+        'api-key': this.brevo.apiKey.trim(),
         'Content-Type': 'application/json',
         Accept: 'application/json'
       },
       body: JSON.stringify({
         sender: {
           name: this.brevo.fromName || 'HidroSmart',
-          email: this.brevo.fromEmail
+          email: this.brevo.fromEmail.trim()
         },
         to: [{ email: normalizedRecipient }],
         subject,
@@ -65,6 +77,8 @@ class BrevoEmailSender {
       error.status = 502;
       throw error;
     }
+
+    this.logger.info?.(`[BREVO] Solicitud aceptada (messageId=${result.messageId || 'sin id'})`);
 
     return {
       messageId: result.messageId,

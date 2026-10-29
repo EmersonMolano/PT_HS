@@ -528,6 +528,13 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/06_functions/031_fn_timezone_policy_alignment.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+
   - changeSet:
       id: 20260901-fn-active-password-policy
       author: Hidro_Smarth
@@ -544,12 +551,6 @@ databaseChangeLog:
             path: ../../05_rollbacks/01_ddl/06_functions/032_fn_active_password_policy.rollback.sql
             relativeToChangelogFile: true
             splitStatements: false
-            stripComments: false
-      rollback:
-        - sqlFile:
-            path: ../../05_rollbacks/01_ddl/06_functions/031_fn_timezone_policy_alignment.rollback.sql
-            relativeToChangelogFile: true
-            splitStatements: true
             stripComments: false
 
   - changeSet:
@@ -1116,6 +1117,114 @@ databaseChangeLog:
       rollback:
         - sqlFile:
             path: ../../05_rollbacks/01_ddl/06_functions/065_fn_get_home_pending_alerts_live.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+
+  - changeSet:
+      id: 20261027-device-hardware-switch
+      author: HidroSmart
+      labels: "ddl,function,device,iot,provisioning,security"
+      comment: "Moves a single physical board between logical device codes owned by the same user."
+      changes:
+        - sqlFile:
+            path: 066_fn_switch_device_hardware.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/06_functions/066_fn_switch_device_hardware.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+
+  - changeSet:
+      id: 20261027-device-hardware-id-unique-guard
+      author: HidroSmart
+      labels: "ddl,function,device,iot,security"
+      comment: "Prevents late MQTT events from reclaiming hardware for a previous logical code."
+      changes:
+        - sqlFile:
+            path: 067_fn_keep_hardware_id_unique.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/06_functions/067_fn_keep_hardware_id_unique.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+
+  - changeSet:
+      id: 20261028-multi-logical-esp32-support
+      author: HidroSmart
+      labels: "ddl,function,device,iot,logical-group,telemetry,unlink"
+      comment: "Supports four logical device IDs on one ESP32 and keeps household consumption single-counted."
+      changes:
+        - sqlFile:
+            path: 068_fn_multi_logical_esp32.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/06_functions/068_fn_multi_logical_esp32.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+
+  - changeSet:
+      id: 20261028-clear-device-provisioning-error-on-recovery
+      author: HidroSmart
+      labels: "ddl,function,device,iot,provisioning,consistency"
+      comment: "Clears stale provisioning errors when MQTT reports a successful recovery state."
+      changes:
+        - sqlFile:
+            path: 069_fn_clear_device_provisioning_error.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/06_functions/069_fn_clear_device_provisioning_error.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+
+  - changeSet:
+      id: 20261028-ignore-suspended-device-mqtt-status
+      author: HidroSmart
+      labels: "ddl,function,device,iot,provisioning,status,stale-message"
+      comment: "Ignores MQTT status and Wi-Fi reports for suspended devices and stale retained messages."
+      changes:
+        - sqlFile:
+            path: 070_fn_ignore_suspended_device_mqtt_status.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/06_functions/070_fn_ignore_suspended_device_mqtt_status.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+
+  - changeSet:
+      id: 20261028-device-measurement-state-ingest
+      author: HidroSmart
+      labels: "ddl,function,device,iot,measurement,measurement-toggle-v1,status"
+      comment: "Persists ESP32 confirmed measurement pause/resume state and rejects stale status events."
+      changes:
+        - sqlFile:
+            path: 071_fn_record_device_measurement_state.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/06_functions/071_fn_record_device_measurement_state.rollback.sql
             relativeToChangelogFile: true
             splitStatements: false
             stripComments: false

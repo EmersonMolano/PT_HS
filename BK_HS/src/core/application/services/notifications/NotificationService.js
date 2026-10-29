@@ -10,6 +10,9 @@ class NotificationService {
   async sendPasswordReset({ recipient, resetToken }) {
     const resetUrl = new URL(this.passwordResetUrl);
     resetUrl.searchParams.set('resetToken', resetToken);
+    // El correo se muestra solo como referencia en el formulario de recuperación.
+    // El token sigue siendo el único dato que autoriza el cambio de contraseña.
+    resetUrl.searchParams.set('email', recipient);
     return this.sendTemplate({ recipient, subject: 'Restablece tu contraseña de HidroSmart', title: 'Recuperación de contraseña',
       paragraphs: ['Recibimos una solicitud para restablecer la contraseña de tu cuenta.'], buttonText: 'Restablecer contraseña',
       buttonUrl: resetUrl.toString(), footer: 'Este enlace vence en una hora. Si no hiciste la solicitud, puedes ignorar este correo.' });

@@ -1,3 +1,5 @@
+const { isValidEmail } = require('../../../../shared/validation');
+
 class RequestPasswordReset {
   constructor({ authRepository, tokenService, notificationService, logger = console }) {
     this.authRepository = authRepository;
@@ -8,7 +10,7 @@ class RequestPasswordReset {
 
   async execute({ email }) {
     const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail) || normalizedEmail.length > 150) {
+    if (!isValidEmail(normalizedEmail)) {
       this.badRequest('El correo electrónico es obligatorio y debe ser válido');
     }
 

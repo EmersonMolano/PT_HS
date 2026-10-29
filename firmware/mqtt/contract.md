@@ -1,5 +1,14 @@
 # Contrato MQTT del ESP32
 
+## Un dispositivo lógico por placa
+
+El ESP32 usa únicamente el código lógico `HS-7A3F91C8D2E4` y publica una
+lectura por intervalo en su tópico `telemetry`. El `hardwareId` derivado del
+eFuse identifica la placa física y no sustituye el código lógico.
+
+La ACL Flespi del ESP32 debe permitir publicar `status` y `telemetry` y
+suscribirse a `commands` para ese código. El backend conserva un token separado.
+
 ## Topics
 
 ```text
@@ -45,7 +54,7 @@ consumptionLiters = flowRateLpm × segundos / 60
 
 El estado MQTT es retenido y contiene, entre otros, `deviceId`, `hardwareId`,
 `status`, `provisioningState`, `timestamp`, `firmwareVersion`, `lastIp`,
-`linkedToHome`, `bleLocked`, `ssid` y `wifiRssiDbm`.
+`linkedToHome`, `measurementEnabled`, `bleLocked`, `ssid` y `wifiRssiDbm`.
 
 El campo `status` utiliza `ONLINE` u `OFFLINE`. `provisioningState` expresa
 `PENDING`, `BLE_READY`, `WIFI_CONNECTED`, `MQTT_CONNECTED` o `COMPLETE`.
@@ -58,12 +67,31 @@ El backend publica JSON en `commands`:
 { "command": "confirm_link" }
 ```
 
+Para pausar o reanudar la toma de lecturas, el backend envía:
+
+```json
+{
+  "command": "set_measurement",
+  "enabled": false,
+  "commandId": "uuid-de-la-orden",
+  "timestamp": "2026-10-28T12:00:00Z"
+}
+```
+
+El ESP32 persiste el valor de `enabled`, detiene o reactiva la interrupción del
+caudalímetro y responde publicando su estado actualizado con
+`measurementEnabled`. Wi-Fi y MQTT permanecen conectados para poder reanudar
+la medición remotamente. El estado de la interfaz cambia cuando llega esa
+confirmación por `status`; la aceptación del publish MQTT por sí sola no
+confirma que la placa ejecutó la orden.
+
 | Comando | Efecto |
 | --- | --- |
 | `confirm_link` | Marca hogar asociado y detiene BLE. |
 | `unlink` | Elimina asociación, conserva Wi-Fi y vuelve a anunciar BLE. |
 | `enable_ble` | Habilita BLE para configuración. |
 | `disable_ble` | Solo se acepta si la placa ya está asociada. |
+| `set_measurement` | Pausa o reanuda las lecturas según el booleano `enabled`; no apaga la placa ni MQTT. |
 
 ## BLE
 
@@ -81,6 +109,11 @@ pairing ni PIN.
 La configuración BLE admite `ssid`, `password`, `mqttHost`, `mqttPort` y
 `deviceCode`. No incluye ni publica contraseñas MQTT; esas se compilan en
 `config.h` cuando el broker las requiere.
+
+Al cambiar solo el `deviceCode`, la app puede enviar `password` vacía porque
+el firmware no devuelve la contraseña Wi-Fi por BLE. Si el SSID ya está
+guardado, el ESP32 reutiliza la contraseña almacenada y mantiene la conexión
+Wi-Fi existente cuando ya está conectado a esa red.
 
 Para Flespi, el ESP32 usa MQTT sobre TLS en `mqtt.flespi.io:8883`, valida el
 certificado con el CA público incluido en `provisioning/flespi_root_ca.h` y

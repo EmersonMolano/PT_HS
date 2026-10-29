@@ -1,3 +1,4 @@
+const { randomUUID } = require("node:crypto");
 const {
   DeviceResponse,
 } = require("../../core/application/dtos/responses/DeviceResponse");
@@ -154,6 +155,8 @@ class DeviceController {
         wifiRssiDbm: device.wifiRssiDbm,
         signalQuality: device.signalQuality,
         batteryLevel: device.batteryLevel,
+        measurementEnabled: device.measurementEnabled,
+        measurementUpdatedAt: device.measurementUpdatedAt,
         hardwareId: device.hardwareId,
         provisioningStatus: device.provisioningStatus,
         provisioningError: device.provisioningError,
@@ -183,6 +186,45 @@ class DeviceController {
       order: req.query.order || "desc",
     });
     res.json({ data: result.items, pagination: result.pagination });
+  }
+
+  async setMeasurement(req, res) {
+    if (typeof req.body?.enabled !== "boolean") {
+      return res.status(400).json({ error: "enabled debe ser booleano" });
+    }
+
+    const device = await this.getDevice.execute({
+      userId: req.user.id,
+      deviceId: req.params.deviceId,
+    });
+    if (device.connectivityStatus !== "ONLINE") {
+      return res.status(409).json({ error: "El dispositivo debe estar en línea para recibir la orden" });
+    }
+    if (!this.deviceCommandPublisher || !this.deviceCommandsTopic) {
+      return res.status(503).json({ error: "El servicio de comandos MQTT no está disponible" });
+    }
+
+    const commandId = randomUUID();
+    const acceptedAt = new Date().toISOString();
+    await this.deviceCommandPublisher.publish(
+      this.deviceCommandsTopic(device.code),
+      {
+        command: "set_measurement",
+        enabled: req.body.enabled,
+        commandId,
+        timestamp: acceptedAt,
+      },
+      { qos: 1, retain: false },
+    );
+
+    return res.status(202).json({
+      data: {
+        deviceId: device.id,
+        commandId,
+        requestedMeasurementEnabled: req.body.enabled,
+        acceptedAt,
+      },
+    });
   }
 
   async update(req, res) {
@@ -232,6 +274,7 @@ class DeviceController {
       homeId: req.params.homeId,
     });
 
+    let bleCommandPublished = false;
     if (
       unlinked?.deviceCode &&
       this.deviceCommandPublisher &&
@@ -243,6 +286,7 @@ class DeviceController {
           { command: "unlink", reason: "device_unlinked" },
           { qos: 1, retain: false },
         );
+        bleCommandPublished = true;
       } catch (error) {
         // La desvinculaciÃ³n ya fue confirmada en BD. El ESP32 podrÃ¡ recibir
         // el comando en el siguiente intento de conexiÃ³n MQTT.
@@ -252,7 +296,13 @@ class DeviceController {
         );
       }
     }
-    res.status(204).send();
+    res.status(200).json({
+      data: {
+        unlinkedDeviceCodes: unlinked.deviceCodes || [unlinked.deviceCode],
+        logicalGroup: unlinked.logicalGroup === true,
+        bleCommandPublished,
+      },
+    });
   }
 
   async delete(req, res) {

@@ -53,7 +53,7 @@ function normalizedErrorStatus(error) {
 }
 
 function errorCode(status) {
-  return ({ 400: 'BAD_REQUEST', 401: 'UNAUTHORIZED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 409: 'CONFLICT', 413: 'PAYLOAD_TOO_LARGE', 422: 'UNPROCESSABLE_ENTITY', 429: 'TOO_MANY_REQUESTS', 500: 'INTERNAL_SERVER_ERROR' })[status] || 'HTTP_ERROR';
+  return ({ 400: 'BAD_REQUEST', 401: 'UNAUTHORIZED', 403: 'FORBIDDEN', 404: 'NOT_FOUND', 409: 'CONFLICT', 413: 'PAYLOAD_TOO_LARGE', 422: 'UNPROCESSABLE_ENTITY', 429: 'TOO_MANY_REQUESTS', 500: 'INTERNAL_SERVER_ERROR', 503: 'SERVICE_UNAVAILABLE' })[status] || 'HTTP_ERROR';
 }
 
 function getPagination(query = {}) {
@@ -81,6 +81,7 @@ function paginate(items, query = {}, { sortFields = [], filter = null } = {}) {
 
 function databaseErrorStatus(error) {
   const statuses = {
+    '42P01': 503,
     '22P02': 400,
     '22001': 400,
     '23502': 400,
@@ -101,6 +102,7 @@ function databaseErrorStatus(error) {
 
 function databaseErrorMessage(error) {
   const messages = {
+    '42P01': 'La base de datos requiere una migración antes de completar esta operación',
     '22P02': 'El formato de un dato no es válido',
     '22001': 'Un dato supera la longitud permitida',
     '23502': 'Falta un dato obligatorio',

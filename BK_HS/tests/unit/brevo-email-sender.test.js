@@ -52,6 +52,28 @@ test('requires complete Brevo configuration and never falls back to another prov
   );
 });
 
+test('uses the requested recipient for different Gmail accounts', async () => {
+  const recipients = [];
+  const sender = new BrevoEmailSender({
+    brevo: {
+      apiKey: 'test-api-key',
+      fromEmail: 'notifications@example.test'
+    },
+    fetchImpl: async (_url, options) => {
+      recipients.push(JSON.parse(options.body).to[0].email);
+      return { ok: true, status: 201, text: async () => JSON.stringify({ messageId: 'test-message' }) };
+    },
+    logger: { info() {} }
+  });
+
+  await Promise.all([
+    sender.send({ recipient: 'cuenta.uno@gmail.com', subject: 'Prueba', text: 'Prueba' }),
+    sender.send({ recipient: 'cuenta.dos@gmail.com', subject: 'Prueba', text: 'Prueba' })
+  ]);
+
+  assert.deepEqual(recipients.sort(), ['cuenta.dos@gmail.com', 'cuenta.uno@gmail.com']);
+});
+
 test('does not expose the Brevo API key when the provider rejects a request', async () => {
   const sender = new BrevoEmailSender({
     brevo: { apiKey: 'private-test-key', fromEmail: 'notifications@example.test' },

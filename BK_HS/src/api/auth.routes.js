@@ -42,8 +42,13 @@ const userRateLimiter = createAuthRateLimiter({
   limit: env.authRateLimitMax,
   keyGenerator: (req) => `user:${req.user.id}`
 });
+const emailSender = new BrevoEmailSender({ brevo: env.brevo });
+const brevoStatus = emailSender.configurationStatus();
+if (!brevoStatus.configured) {
+  console.error(`[BREVO] Correos deshabilitados; configura: ${brevoStatus.missing.join(', ')}`);
+}
 const notificationService = new NotificationService({
-  sender: new BrevoEmailSender({ brevo: env.brevo }),
+  sender: emailSender,
   frontendUrl: env.frontendUrl,
   passwordResetUrl: env.passwordResetUrl
 });

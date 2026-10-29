@@ -8,7 +8,7 @@ function assertReportedDevice(context, reportedDeviceId) {
   }
 }
 
-async function handleReading({ topic, message, context, logger = console, readingRepository = null, ingestReading = null, maxPayloadBytes, allowLegacyTelemetry = true }) {
+async function handleReading({ topic, message, context, logger = console, readingRepository = null, ingestReading = null, deviceRepository = null, maxPayloadBytes, allowLegacyTelemetry = true }) {
   const topicContext = context || getTopicContext(topic);
   if (!topicContext || topicContext.type !== 'telemetry') {
     throw new Error(`Topic MQTT de telemetría inválido: ${topic}`);
@@ -67,6 +67,28 @@ async function handleReading({ topic, message, context, logger = console, readin
     : readingRepository
       ? await readingRepository.ingestTelemetry(persistenceInput)
       : null;
+
+  // Una lectura MQTT válida confirma que el dispositivo está conectado.
+  // Refresca presencia también por telemetría para no depender únicamente
+  // de la entrega del tópico status/LWT.
+  if (deviceRepository && typeof deviceRepository.recordMqttStatus === 'function') {
+    try {
+      await deviceRepository.recordMqttStatus({
+        deviceCode: reading.deviceId,
+        connectivityStatus: 'ONLINE',
+        eventAt: reading.timestamp,
+        firmwareVersion: null,
+        wifiRssiDbm: reading.wifiRssiDbm,
+        signalQuality: reading.signalQuality,
+        batteryLevel: reading.batteryLevel,
+        lastIp: null,
+        wifiSsid: null,
+        hardwareId: reading.hardwareId,
+      });
+    } catch (error) {
+      logger.warn('[MQTT] No se pudo refrescar presencia desde telemetria:', error.message);
+    }
+  }
 
   const result = { ...reading, persistence };
   logger.info('[MQTT] Lectura de telemetría recibida', result);

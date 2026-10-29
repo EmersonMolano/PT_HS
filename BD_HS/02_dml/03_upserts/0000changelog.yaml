@@ -16,3 +16,93 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: false
+
+  - changeSet:
+      id: 20261027-preassigned-fourth-esp32-device-code
+      author: HidroSmart
+      labels: "dml,upsert,device,iot,provisioning"
+      comment: "Adds the physical board ID as its fourth selectable logical code."
+      changes:
+        - sqlFile:
+            path: 002_preassigned_fourth_esp32_device_code.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/02_dml/03_upserts/002_preassigned_fourth_esp32_device_code.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+
+  - changeSet:
+      id: 20261028-esp32-hs01-logical-device-group
+      author: HidroSmart
+      labels: "dml,upsert,device,iot,logical-group"
+      comment: "Groups the four preassigned logical IDs under one physical ESP32."
+      changes:
+        - sqlFile:
+            path: 003_esp32_logical_device_group.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/02_dml/03_upserts/003_esp32_logical_device_group.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+
+  - changeSet:
+      id: 20261028-sync-existing-esp32-group-home-links
+      author: HidroSmart
+      labels: "dml,device,iot,logical-group,home,reconciliation"
+      comment: "Propagates existing active home assignments to every member of the physical ESP32 group."
+      changes:
+        - sqlFile:
+            path: 004_sync_esp32_logical_group_home_links.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/02_dml/03_upserts/004_sync_esp32_logical_group_home_links.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+
+  - changeSet:
+      id: 20261028-restore-single-esp32-device
+      author: HidroSmart
+      labels: "dml,device,iot,provisioning,single-device"
+      comment: "Restores the preassigned ESP32 to one logical device while preserving telemetry history."
+      changes:
+        - sqlFile:
+            path: 005_restore_single_esp32_device.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/02_dml/03_upserts/005_restore_single_esp32_device.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+
+  - changeSet:
+      id: 20261028-clean-retired-esp32-alias-state
+      author: HidroSmart
+      labels: "dml,device,iot,provisioning,cleanup"
+      comment: "Clears stale connection and location metadata from the three retired ESP32 aliases."
+      changes:
+        - sqlFile:
+            path: 006_clean_retired_esp32_alias_state.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/02_dml/03_upserts/006_clean_retired_esp32_alias_state.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false

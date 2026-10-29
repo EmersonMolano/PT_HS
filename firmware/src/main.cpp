@@ -60,6 +60,7 @@ constexpr char NVS_DEVICE_CODE_KEY[] = "deviceCode";
 constexpr char NVS_BLE_LOCKED_KEY[] = "bleLocked";
 constexpr char NVS_LINKED_HOME_KEY[] = "linkedHome";
 constexpr char NVS_TOTAL_LITERS_KEY[] = "totalLiters";
+constexpr char NVS_MEASUREMENT_ENABLED_KEY[] = "measurementOn";
 constexpr char PRIMARY_LOGICAL_DEVICE_CODE[] = "HS-7A3F91C8D2E4";
 constexpr const char* LOGICAL_DEVICE_CODES[] = {
   "HS-7A3F91C8D2E4",
@@ -72,6 +73,8 @@ constexpr uint8_t MAX_WIFI_NETWORKS = 5;
 constexpr unsigned long WIFI_TIMEOUT_MS = 15000UL;
 constexpr unsigned long WIFI_RETRY_INTERVAL_MS = 10000UL;
 constexpr unsigned long MQTT_RETRY_INTERVAL_MS = 5000UL;
+constexpr unsigned long NTP_WARNING_INTERVAL_MS = 30000UL;
+constexpr time_t MIN_VALID_EPOCH = 1735689600;
 constexpr unsigned long TOTAL_SAVE_INTERVAL_MS = 300000UL;
 constexpr float TOTAL_SAVE_MIN_DELTA_LITERS = 1.0f;
 constexpr uint8_t CONFIG_BUTTON_PIN = 0;
@@ -113,6 +116,7 @@ unsigned long lastSampleAt = 0;
 unsigned long lastTotalSaveAt = 0;
 unsigned long lastWifiAttemptAt = 0;
 unsigned long lastMqttAttemptAt = 0;
+unsigned long lastNtpWarningAt = 0;
 bool bleInitialized = false;
 bool bleAdvertising = false;
 volatile bool bleClientConnected = false;
@@ -121,6 +125,8 @@ volatile bool pendingBlePayloadReady = false;
 portMUX_TYPE blePayloadMux = portMUX_INITIALIZER_UNLOCKED;
 bool bleLocked = false;
 bool linkedToHome = false;
+bool measurementEnabled = true;
+bool flowInterruptAttached = false;
 int8_t activeKnownNetworkIndex = -1;
 bool configButtonPressed = false;
 bool configButtonHandled = false;
@@ -131,6 +137,8 @@ void stopProvisioningBLE();
 void notifyStatus(const char* state);
 void saveBleLock(bool locked);
 void saveLinkedToHome(bool linked);
+void saveMeasurementEnabled(bool enabled);
+void setMeasurementEnabled(bool enabled);
 void applyBlePolicy();
 
 bool takePendingBlePayload(String& payload) {
@@ -221,6 +229,7 @@ String statusPayload(const char* logicalCode, const char* status) {
   document["firmwareVersion"] = HIDROSMART_FIRMWARE_VERSION;
   document["lastIp"] = ip;
   document["linkedToHome"] = linkedToHome;
+  document["measurementEnabled"] = measurementEnabled;
   document["bleLocked"] = bleLocked;
   if (!activeSsid.isEmpty()) document["ssid"] = activeSsid;
   document["wifiRssiDbm"] = WiFi.RSSI();
@@ -343,6 +352,7 @@ void loadConfiguration() {
   deviceCode = preferences.getString(NVS_DEVICE_CODE_KEY, "");
   bleLocked = preferences.getBool(NVS_BLE_LOCKED_KEY, false);
   linkedToHome = preferences.getBool(NVS_LINKED_HOME_KEY, false);
+  measurementEnabled = preferences.getBool(NVS_MEASUREMENT_ENABLED_KEY, true);
   totalLiters = preferences.isKey(NVS_TOTAL_LITERS_KEY)
     ? preferences.getFloat(NVS_TOTAL_LITERS_KEY, 0.0f)
     : 0.0f;
@@ -413,12 +423,82 @@ void saveLinkedToHome(bool linked) {
   preferences.end();
 }
 
+void saveMeasurementEnabled(bool enabled) {
+  preferences.begin(NVS_NAMESPACE, false);
+  preferences.putBool(NVS_MEASUREMENT_ENABLED_KEY, enabled);
+  preferences.end();
+}
+
 void saveTotalLiters() {
   preferences.begin(NVS_NAMESPACE, false);
   preferences.putFloat(NVS_TOTAL_LITERS_KEY, totalLiters);
   preferences.end();
   lastPersistedTotalLiters = totalLiters;
   lastTotalSaveAt = millis();
+}
+
+void setMeasurementEnabled(bool enabled) {
+  if (measurementEnabled == enabled) return;
+
+  if (!enabled) {
+    if (flowInterruptAttached) {
+      detachInterrupt(digitalPinToInterrupt(HIDROSMART_FLOW_PIN));
+      flowInterruptAttached = false;
+    }
+    noInterrupts();
+    pulseCount = 0;
+    interrupts();
+    pendingPulses = 0;
+    pendingConsumptionLiters = 0.0f;
+    pendingSampleSeconds = 0.0f;
+    pendingTelemetrySequence = 0;
+    pendingTelemetryTimestamp = "";
+    saveTotalLiters();
+    measurementEnabled = false;
+    saveMeasurementEnabled(false);
+    Serial.println("[MEASUREMENT] Lectura pausada por comando remoto.");
+    return;
+  }
+
+  noInterrupts();
+  pulseCount = 0;
+  interrupts();
+  pendingPulses = 0;
+  pendingConsumptionLiters = 0.0f;
+  pendingSampleSeconds = 0.0f;
+  pendingTelemetrySequence = 0;
+  pendingTelemetryTimestamp = "";
+  lastSampleAt = millis();
+  measurementEnabled = true;
+  saveMeasurementEnabled(true);
+  if (!flowInterruptAttached) {
+    attachInterrupt(digitalPinToInterrupt(HIDROSMART_FLOW_PIN), onPulse, FALLING);
+    flowInterruptAttached = true;
+  }
+  Serial.println("[MEASUREMENT] Lectura reanudada por comando remoto.");
+}
+
+bool synchronizeSystemTime() {
+#if HIDROSMART_MQTT_USE_TLS
+  if (time(nullptr) >= MIN_VALID_EPOCH) return true;
+
+  Serial.println("[NTP] Solicitando hora a servidores publicos...");
+  configTime(0, 0, "time.cloudflare.com", "pool.ntp.org", "time.google.com");
+
+  struct tm timeInfo = {};
+  if (getLocalTime(&timeInfo, 12000) && time(nullptr) >= MIN_VALID_EPOCH) {
+    char timestamp[24] = {};
+    strftime(timestamp, sizeof(timestamp), "%Y-%m-%dT%H:%M:%SZ", &timeInfo);
+    Serial.print("[NTP] Hora sincronizada: ");
+    Serial.println(timestamp);
+    return true;
+  }
+
+  Serial.println("[NTP] Sin respuesta. Verifica Internet, DNS y que la red permita UDP/123.");
+  return false;
+#else
+  return true;
+#endif
 }
 
 bool connectToWifi(const String& ssid, const String& password, unsigned long timeoutMs) {
@@ -458,6 +538,9 @@ bool connectKnownWifi() {
       mqttHost = knownNetworks[index].mqttHost.isEmpty() ? String(HIDROSMART_MQTT_HOST) : knownNetworks[index].mqttHost;
       mqttPort = knownNetworks[index].mqttPort == 0 ? HIDROSMART_MQTT_PORT : knownNetworks[index].mqttPort;
 #endif
+#if HIDROSMART_MQTT_USE_TLS
+      synchronizeSystemTime();
+#endif
       saveNetwork(knownNetworks[index].ssid, knownNetworks[index].password, mqttHost, mqttPort);
       saveMqttConfiguration(mqttHost, mqttPort);
       activeKnownNetworkIndex = static_cast<int8_t>(index);
@@ -482,6 +565,7 @@ void setBleStatus(const char* state, bool shouldNotify) {
   document["mqttConnected"] = mqttConnected;
   document["bleEnabled"] = bleAdvertising;
   document["linkedToHome"] = linkedToHome;
+  document["measurementEnabled"] = measurementEnabled;
   document["bleLocked"] = bleLocked;
   const String activeSsid = wifiConnected && connectedSsid.isEmpty() ? WiFi.SSID() : connectedSsid;
   if (!activeSsid.isEmpty()) document["ssid"] = activeSsid;
@@ -524,6 +608,23 @@ void handleMqttCommand(char* topic, uint8_t* payload, unsigned int length) {
   String command = document["command"] | "";
   command.toLowerCase();
 
+  if (command == "set_measurement") {
+    JsonVariantConst enabledValue = document["enabled"];
+    if (!enabledValue.is<bool>()) {
+      Serial.println("[MQTT] Comando set_measurement rechazado: falta enabled booleano.");
+      return;
+    }
+
+    setMeasurementEnabled(enabledValue.as<bool>());
+    notifyStatus(measurementEnabled ? "measurement_enabled" : "measurement_paused");
+    const String statusTopic = deviceTopic(PRIMARY_LOGICAL_DEVICE_CODE, STATUS_SUFFIX);
+    const String currentStatus = statusPayload(PRIMARY_LOGICAL_DEVICE_CODE, "ONLINE");
+    if (mqttClient.connected()) {
+      mqttClient.publish(statusTopic.c_str(), currentStatus.c_str(), true);
+    }
+    return;
+  }
+
   if (command == "enable_ble") {
     saveBleLock(false);
     startProvisioningBLE();
@@ -565,6 +666,14 @@ bool connectMqtt() {
     Serial.println("[MQTT] El perfil TLS solo permite mqtt.flespi.io:8883.");
     return false;
   }
+  if (time(nullptr) < MIN_VALID_EPOCH) {
+    const unsigned long now = millis();
+    if (lastNtpWarningAt == 0 || now - lastNtpWarningAt >= NTP_WARNING_INTERVAL_MS) {
+      Serial.println("[NTP] Aun no hay hora valida; MQTT/TLS espera sincronizacion. Se requiere Internet, DNS y UDP/123.");
+      lastNtpWarningAt = now;
+    }
+    return false;
+  }
 #endif
 
   const String clientId = String("HidroSmart-") + hardwareId + "-" + String(bootId);
@@ -575,10 +684,6 @@ bool connectMqtt() {
 #if HIDROSMART_MQTT_USE_TLS
     if (std::strlen(HIDROSMART_MQTT_USERNAME) == 0) {
       Serial.println("[MQTT] TLS requiere un token Flespi por dispositivo en config.h.");
-      return false;
-    }
-    if (time(nullptr) < 1735689600) {
-      Serial.println("[MQTT] Esperando sincronizacion NTP para validar el certificado TLS.");
       return false;
     }
     secureWifiClient.setCACert(HIDROSMART_FLESPI_ROOT_CA);
@@ -971,10 +1076,12 @@ void setup() {
   Serial.println(deviceCode);
 
   pinMode(HIDROSMART_FLOW_PIN, INPUT);
-  attachInterrupt(digitalPinToInterrupt(HIDROSMART_FLOW_PIN), onPulse, FALLING);
+  if (measurementEnabled) {
+    attachInterrupt(digitalPinToInterrupt(HIDROSMART_FLOW_PIN), onPulse, FALLING);
+    flowInterruptAttached = true;
+  }
   pinMode(CONFIG_BUTTON_PIN, INPUT_PULLUP);
 
-  configTime(0, 0, "pool.ntp.org", "time.nist.gov");
   mqttClient.setKeepAlive(HIDROSMART_MQTT_KEEPALIVE_SECONDS);
   mqttClient.setBufferSize(768);
 
@@ -1017,6 +1124,11 @@ void loop() {
       connectMqtt();
     }
     mqttClient.loop();
+  }
+
+  if (!measurementEnabled) {
+    delay(10);
+    return;
   }
 
   if (now - lastSampleAt < HIDROSMART_SAMPLE_INTERVAL_MS) {

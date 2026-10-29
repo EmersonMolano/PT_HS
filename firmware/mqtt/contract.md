@@ -54,7 +54,7 @@ consumptionLiters = flowRateLpm × segundos / 60
 
 El estado MQTT es retenido y contiene, entre otros, `deviceId`, `hardwareId`,
 `status`, `provisioningState`, `timestamp`, `firmwareVersion`, `lastIp`,
-`linkedToHome`, `bleLocked`, `ssid` y `wifiRssiDbm`.
+`linkedToHome`, `measurementEnabled`, `bleLocked`, `ssid` y `wifiRssiDbm`.
 
 El campo `status` utiliza `ONLINE` u `OFFLINE`. `provisioningState` expresa
 `PENDING`, `BLE_READY`, `WIFI_CONNECTED`, `MQTT_CONNECTED` o `COMPLETE`.
@@ -67,12 +67,31 @@ El backend publica JSON en `commands`:
 { "command": "confirm_link" }
 ```
 
+Para pausar o reanudar la toma de lecturas, el backend envía:
+
+```json
+{
+  "command": "set_measurement",
+  "enabled": false,
+  "commandId": "uuid-de-la-orden",
+  "timestamp": "2026-10-28T12:00:00Z"
+}
+```
+
+El ESP32 persiste el valor de `enabled`, detiene o reactiva la interrupción del
+caudalímetro y responde publicando su estado actualizado con
+`measurementEnabled`. Wi-Fi y MQTT permanecen conectados para poder reanudar
+la medición remotamente. El estado de la interfaz cambia cuando llega esa
+confirmación por `status`; la aceptación del publish MQTT por sí sola no
+confirma que la placa ejecutó la orden.
+
 | Comando | Efecto |
 | --- | --- |
 | `confirm_link` | Marca hogar asociado y detiene BLE. |
 | `unlink` | Elimina asociación, conserva Wi-Fi y vuelve a anunciar BLE. |
 | `enable_ble` | Habilita BLE para configuración. |
 | `disable_ble` | Solo se acepta si la placa ya está asociada. |
+| `set_measurement` | Pausa o reanuda las lecturas según el booleano `enabled`; no apaga la placa ni MQTT. |
 
 ## BLE
 

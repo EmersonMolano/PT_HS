@@ -26,6 +26,8 @@ import {
   History,
   Loader2,
   MapPin,
+  Pause,
+  Play,
   RefreshCw,
   Settings2,
   Trash2,
@@ -62,6 +64,7 @@ type Device = {
   hardwareId?: string | null;
   status: string;
   connectivityStatus?: string;
+  measurementEnabled?: boolean;
   alertThreshold?: number | null;
   lastConnectionAt?: string | null;
   lastIp?: string | null;
@@ -133,6 +136,7 @@ export function DeviceManagement({
   const [historyLoading, setHistoryLoading] = useState(false);
   const [actuatorStates, setActuatorStates] = useState<ActuatorState[]>([]);
   const [commandingActuator, setCommandingActuator] = useState<string | null>(null);
+  const [commandingMeasurement, setCommandingMeasurement] = useState<string | null>(null);
   const [provisioningDevice, setProvisioningDevice] = useState<Device | null>(null);
   const [provisioningHardwareId, setProvisioningHardwareId] = useState('');
   const [provisioningSaving, setProvisioningSaving] = useState(false);
@@ -601,6 +605,24 @@ export function DeviceManagement({
     }
   };
 
+  const toggleMeasurement = async (device: Device) => {
+    if (device.connectivityStatus !== 'ONLINE') {
+      toast.error(t('devices.measurementDeviceOffline'));
+      return;
+    }
+
+    const enabled = device.measurementEnabled === false;
+    setCommandingMeasurement(device.deviceId);
+    try {
+      await devicesApi.setMeasurement(device.deviceId, enabled);
+      toast.info(t('devices.measurementCommandSent'));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t('devices.measurementCommandError'));
+    } finally {
+      setCommandingMeasurement(null);
+    }
+  };
+
   const online = devices.filter((device) => device.connectivityStatus === 'ONLINE').length;
   const offline = devices.filter((device) => device.connectivityStatus === 'OFFLINE').length;
   const otherStatus = Math.max(devices.length - online - offline, 0);
@@ -955,6 +977,38 @@ export function DeviceManagement({
                         </div>
                       )}
                       <div className="iot-device-actions flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+                        {canManageAssignedDevice && (() => {
+                          const measurementEnabled = device.measurementEnabled !== false;
+                          const online = device.connectivityStatus === 'ONLINE';
+                          return (
+                            <div className="flex w-full flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                              <div className="flex flex-col gap-1">
+                                <span className="text-xs font-medium text-slate-600">
+                                  {t('devices.measurementState')}
+                                </span>
+                                <Badge variant={measurementEnabled ? 'default' : 'secondary'}>
+                                  {t(measurementEnabled ? 'devices.measurementActive' : 'devices.measurementPaused')}
+                                </Badge>
+                              </div>
+                              <Button
+                                variant={measurementEnabled ? 'destructive' : 'default'}
+                                size="sm"
+                                disabled={!online || commandingMeasurement === device.deviceId}
+                                title={!online ? t('devices.measurementDeviceOffline') : undefined}
+                                onClick={() => void toggleMeasurement(device)}
+                              >
+                                {commandingMeasurement === device.deviceId ? (
+                                  <Loader2 className="mr-2 size-4 animate-spin" />
+                                ) : measurementEnabled ? (
+                                  <Pause className="mr-2 size-4" />
+                                ) : (
+                                  <Play className="mr-2 size-4" />
+                                )}
+                                {t(measurementEnabled ? 'devices.pauseMeasurement' : 'devices.resumeMeasurement')}
+                              </Button>
+                            </div>
+                          );
+                        })()}
                         {canManageAssignedDevice && (
                           <Button
                             className="flex-1"

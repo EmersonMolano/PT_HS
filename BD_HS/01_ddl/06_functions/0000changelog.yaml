@@ -1210,3 +1210,21 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: false
             stripComments: false
+
+  - changeSet:
+      id: 20261028-device-measurement-state-ingest
+      author: HidroSmart
+      labels: "ddl,function,device,iot,measurement,measurement-toggle-v1,status"
+      comment: "Persists ESP32 confirmed measurement pause/resume state and rejects stale status events."
+      changes:
+        - sqlFile:
+            path: 071_fn_record_device_measurement_state.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/06_functions/071_fn_record_device_measurement_state.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false

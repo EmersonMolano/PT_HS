@@ -37,14 +37,14 @@ class PostgresDeviceRepository extends DeviceRepository {
           provisioningStatus,
         ],
       );
-      if (wifiSsid) {
+      const deviceRow = statusResult.rows[0];
+      if (wifiSsid && deviceRow) {
         await client.query(
           "SELECT device.fn_record_device_wifi_ssid($1::varchar, $2::varchar)",
           [deviceCode, wifiSsid],
         );
       }
 
-      const deviceRow = statusResult.rows[0];
       if (deviceRow) {
         const linkedResult = await client.query(
           `SELECT EXISTS (
@@ -750,6 +750,7 @@ class PostgresDeviceRepository extends DeviceRepository {
            LEFT JOIN device.logical_device_group_member gm ON gm.device_id = d.device_id
           WHERE hd.device_id = $1::uuid
             AND hd.home_id = $2::uuid
+            AND hd.status = 'Active'
           LIMIT 1`,
         [deviceId, homeId],
       );
@@ -775,9 +776,11 @@ class PostgresDeviceRepository extends DeviceRepository {
       const groupDeviceIds = groupMembers.rows.map((row) => row.device_id);
 
       const deleted = await client.query(
-        `DELETE FROM home.home_device
+        `UPDATE home.home_device
+            SET status = 'Suspended', suspended_at = now()
           WHERE device_id = ANY($1::uuid[])
             AND home_id = $2::uuid
+            AND status = 'Active'
           RETURNING home_id, device_id`,
         [groupDeviceIds, homeId],
       );

@@ -70,3 +70,39 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: true
             stripComments: false
+
+  - changeSet:
+      id: 20261028-restore-single-esp32-device
+      author: HidroSmart
+      labels: "dml,device,iot,provisioning,single-device"
+      comment: "Restores the preassigned ESP32 to one logical device while preserving telemetry history."
+      changes:
+        - sqlFile:
+            path: 005_restore_single_esp32_device.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/02_dml/03_upserts/005_restore_single_esp32_device.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+
+  - changeSet:
+      id: 20261028-clean-retired-esp32-alias-state
+      author: HidroSmart
+      labels: "dml,device,iot,provisioning,cleanup"
+      comment: "Clears stale connection and location metadata from the three retired ESP32 aliases."
+      changes:
+        - sqlFile:
+            path: 006_clean_retired_esp32_alias_state.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/02_dml/03_upserts/006_clean_retired_esp32_alias_state.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: true
+            stripComments: false

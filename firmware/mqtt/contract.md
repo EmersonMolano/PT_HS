@@ -1,18 +1,13 @@
 # Contrato MQTT del ESP32
 
-## Grupo logico de una placa
+## Un dispositivo lógico por placa
 
-El ESP32 de este grupo publica cada muestra en los cuatro IDs
-`HS-7A3F91C8D2E4`, `HS-B6E04D79A153`, `HS-2C8A5F01E7B9` y
-`HS-141F47470968`. El ID principal conserva el consumo en litros; los tres
-alias guardan caudal y estado con consumo cero para que el total del hogar no
-se cuente cuatro veces. Una vinculacion o desvinculacion actua sobre los
-cuatro registros.
+El ESP32 usa únicamente el código lógico `HS-7A3F91C8D2E4` y publica una
+lectura por intervalo en su tópico `telemetry`. El `hardwareId` derivado del
+eFuse identifica la placa física y no sustituye el código lógico.
 
-La ACL Flespi del ESP32 debe permitir publicar estado y telemetria para los
-cuatro IDs y suscribirse a comandos para los cuatro. Solo el estado del ID
-principal queda retenido para conservar el LWT; los estados de los alias son
-en vivo. El backend conserva un token separado.
+La ACL Flespi del ESP32 debe permitir publicar `status` y `telemetry` y
+suscribirse a `commands` para ese código. El backend conserva un token separado.
 
 ## Topics
 

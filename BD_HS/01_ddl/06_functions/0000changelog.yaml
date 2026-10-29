@@ -1192,3 +1192,21 @@ databaseChangeLog:
             relativeToChangelogFile: true
             splitStatements: false
             stripComments: false
+
+  - changeSet:
+      id: 20261028-ignore-suspended-device-mqtt-status
+      author: HidroSmart
+      labels: "ddl,function,device,iot,provisioning,status,stale-message"
+      comment: "Ignores MQTT status and Wi-Fi reports for suspended devices and stale retained messages."
+      changes:
+        - sqlFile:
+            path: 070_fn_ignore_suspended_device_mqtt_status.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false
+      rollback:
+        - sqlFile:
+            path: ../../05_rollbacks/01_ddl/06_functions/070_fn_ignore_suspended_device_mqtt_status.rollback.sql
+            relativeToChangelogFile: true
+            splitStatements: false
+            stripComments: false

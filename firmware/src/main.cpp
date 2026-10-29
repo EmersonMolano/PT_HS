@@ -63,9 +63,6 @@ constexpr char NVS_TOTAL_LITERS_KEY[] = "totalLiters";
 constexpr char PRIMARY_LOGICAL_DEVICE_CODE[] = "HS-7A3F91C8D2E4";
 constexpr const char* LOGICAL_DEVICE_CODES[] = {
   "HS-7A3F91C8D2E4",
-  "HS-B6E04D79A153",
-  "HS-2C8A5F01E7B9",
-  "HS-141F47470968",
 };
 constexpr size_t LOGICAL_DEVICE_COUNT = sizeof(LOGICAL_DEVICE_CODES) / sizeof(LOGICAL_DEVICE_CODES[0]);
 constexpr char BLE_SERVICE_UUID[] = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";

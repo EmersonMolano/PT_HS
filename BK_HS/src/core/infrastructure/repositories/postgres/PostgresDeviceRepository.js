@@ -17,6 +17,7 @@ class PostgresDeviceRepository extends DeviceRepository {
     wifiSsid,
     hardwareId,
     provisioningStatus,
+    measurementEnabled = null,
   }) {
     const result = await withTransaction(null, async (client) => {
       const statusResult = await client.query(
@@ -37,21 +38,40 @@ class PostgresDeviceRepository extends DeviceRepository {
           provisioningStatus,
         ],
       );
-      if (wifiSsid) {
+      const deviceRow = statusResult.rows[0];
+      if (wifiSsid && deviceRow) {
         await client.query(
           "SELECT device.fn_record_device_wifi_ssid($1::varchar, $2::varchar)",
           [deviceCode, wifiSsid],
         );
       }
 
-      const deviceRow = statusResult.rows[0];
+      if (deviceRow && typeof measurementEnabled === "boolean") {
+        const measurementResult = await client.query(
+          `SELECT device_id, measurement_enabled, measurement_updated_at
+             FROM device.fn_record_device_measurement_state($1::varchar, $2::boolean, $3::timestamptz)`,
+          [deviceCode, measurementEnabled, eventAt],
+        );
+        const measurementRow = measurementResult.rows[0];
+        if (measurementRow) {
+          deviceRow.measurement_enabled = measurementRow.measurement_enabled;
+          deviceRow.measurement_updated_at = measurementRow.measurement_updated_at;
+        }
+      }
+
       if (deviceRow) {
         const linkedResult = await client.query(
           `SELECT EXISTS (
              SELECT 1
                FROM home.home_device hd
-              WHERE hd.device_id = $1::uuid
-                AND hd.status = 'Active'
+              WHERE hd.status = 'Active'
+                AND (hd.device_id = $1::uuid OR hd.device_id IN (
+                  SELECT sibling.device_id
+                    FROM device.logical_device_group_member current_member
+                    JOIN device.logical_device_group_member sibling
+                      ON sibling.group_key = current_member.group_key
+                   WHERE current_member.device_id = $1::uuid
+                ))
            ) AS linked_to_home`,
           [deviceRow.device_id],
         );
@@ -109,16 +129,24 @@ class PostgresDeviceRepository extends DeviceRepository {
 
   async linkToHome({ userId, homeId, code, hardwareId }) {
     const result = await withTransaction(userId, async (client) => {
-      const linked = hardwareId
-        ? await client.query(
-            `SELECT device.fn_link_device_to_home_by_hardware($1::varchar, $2::uuid) AS device_id`,
-            [hardwareId, homeId],
-          )
-        : await client.query(
-            `SELECT device.fn_link_device_to_home($1::varchar, $2::uuid) AS device_id`,
-            [code, homeId],
-          );
-      const deviceId = linked.rows[0]?.device_id;
+      let deviceId = null;
+
+      if (code) {
+        const linkedByCode = await client.query(
+          `SELECT device.fn_link_device_to_home($1::varchar, $2::uuid) AS device_id`,
+          [code, homeId],
+        );
+        deviceId = linkedByCode.rows[0]?.device_id || null;
+      }
+
+      if (!deviceId && hardwareId) {
+        const linkedByHardware = await client.query(
+          `SELECT device.fn_link_device_to_home_by_hardware($1::varchar, $2::uuid) AS device_id`,
+          [hardwareId, homeId],
+        );
+        deviceId = linkedByHardware.rows[0]?.device_id || null;
+      }
+
       if (!deviceId) return null;
 
       return client.query(
@@ -126,7 +154,8 @@ class PostgresDeviceRepository extends DeviceRepository {
                 d.model, d.umbral_alerta, d.status, d.firmware_version,
                 d.connectivity_status, d.last_connection_at, d.last_ip, d.wifi_ssid, d.wifi_rssi_dbm,
                 d.signal_quality, d.battery_level, d.provisioning_status,
-                d.provisioning_error, d.provisioning_updated_at, d.provisioned_at
+                d.provisioning_error, d.provisioning_updated_at, d.provisioned_at,
+                d.measurement_enabled, d.measurement_updated_at
            FROM device.device d
           WHERE d.device_id = $1::uuid
           LIMIT 1`,
@@ -155,6 +184,8 @@ class PostgresDeviceRepository extends DeviceRepository {
           wifiRssiDbm: row.wifi_rssi_dbm,
           signalQuality: row.signal_quality,
           batteryLevel: row.battery_level,
+          measurementEnabled: row.measurement_enabled,
+          measurementUpdatedAt: row.measurement_updated_at,
           provisioningStatus: row.provisioning_status,
           provisioningError: row.provisioning_error,
           provisioningUpdatedAt: row.provisioning_updated_at,
@@ -170,7 +201,8 @@ class PostgresDeviceRepository extends DeviceRepository {
               d.model, d.umbral_alerta, d.status, d.firmware_version,
               d.connectivity_status, d.last_connection_at, d.last_ip, d.wifi_ssid, d.wifi_rssi_dbm,
               d.signal_quality, d.battery_level, d.provisioning_status,
-              d.provisioning_error, d.provisioning_updated_at, d.provisioned_at, d.created_at
+              d.provisioning_error, d.provisioning_updated_at, d.provisioned_at, d.created_at,
+              d.measurement_enabled, d.measurement_updated_at
          FROM device.device d
          JOIN home.home_device hd ON hd.device_id = d.device_id
          JOIN home.home_user hu ON hu.home_id = hd.home_id
@@ -203,6 +235,8 @@ class PostgresDeviceRepository extends DeviceRepository {
           wifiRssiDbm: row.wifi_rssi_dbm,
           signalQuality: row.signal_quality,
           batteryLevel: row.battery_level,
+          measurementEnabled: row.measurement_enabled,
+          measurementUpdatedAt: row.measurement_updated_at,
           provisioningStatus: row.provisioning_status,
           provisioningError: row.provisioning_error,
           provisioningUpdatedAt: row.provisioning_updated_at,
@@ -218,7 +252,8 @@ class PostgresDeviceRepository extends DeviceRepository {
               d.model, d.umbral_alerta, d.status, d.firmware_version,
               d.connectivity_status, d.last_connection_at, d.last_ip, d.wifi_ssid, d.wifi_rssi_dbm,
               d.signal_quality, d.battery_level, d.provisioning_status,
-              d.provisioning_error, d.provisioning_updated_at, d.provisioned_at
+              d.provisioning_error, d.provisioning_updated_at, d.provisioned_at,
+              d.measurement_enabled, d.measurement_updated_at
          FROM device.device d
          JOIN home.home_device hd ON hd.device_id = d.device_id
          JOIN home.home_user hu ON hu.home_id = hd.home_id
@@ -251,6 +286,8 @@ class PostgresDeviceRepository extends DeviceRepository {
           wifiRssiDbm: row.wifi_rssi_dbm,
           signalQuality: row.signal_quality,
           batteryLevel: row.battery_level,
+          measurementEnabled: row.measurement_enabled,
+          measurementUpdatedAt: row.measurement_updated_at,
           provisioningStatus: row.provisioning_status,
           provisioningError: row.provisioning_error,
           provisioningUpdatedAt: row.provisioning_updated_at,
@@ -268,7 +305,8 @@ class PostgresDeviceRepository extends DeviceRepository {
                d.firmware_version, d.connectivity_status, d.last_connection_at,
                d.last_ip, d.wifi_ssid, d.wifi_rssi_dbm, d.signal_quality, d.battery_level,
               d.provisioning_status, d.provisioning_error,
-              d.provisioning_updated_at, d.provisioned_at
+              d.provisioning_updated_at, d.provisioned_at, d.measurement_enabled,
+              d.measurement_updated_at
          FROM device.device d
          JOIN home.home_device hd ON hd.device_id = d.device_id
          JOIN home.home_user hu ON hu.home_id = hd.home_id
@@ -302,6 +340,8 @@ class PostgresDeviceRepository extends DeviceRepository {
           wifiRssiDbm: row.wifi_rssi_dbm,
           signalQuality: row.signal_quality,
           batteryLevel: row.battery_level,
+          measurementEnabled: row.measurement_enabled,
+          measurementUpdatedAt: row.measurement_updated_at,
           provisioningStatus: row.provisioning_status,
           provisioningError: row.provisioning_error,
           provisioningUpdatedAt: row.provisioning_updated_at,
@@ -441,6 +481,7 @@ class PostgresDeviceRepository extends DeviceRepository {
     userId,
     deviceId,
     name,
+    type,
     location,
     manufacturer,
     model,
@@ -450,10 +491,11 @@ class PostgresDeviceRepository extends DeviceRepository {
       client.query(
         `UPDATE device.device
           SET name = COALESCE($2::varchar, name),
-              location = COALESCE($3::varchar, location),
-              manufacturer = COALESCE($4::varchar, manufacturer),
-              model = COALESCE($5::varchar, model),
-              umbral_alerta = COALESCE($6::decimal, umbral_alerta),
+              type = COALESCE($3::varchar, type),
+              location = COALESCE($4::varchar, location),
+              manufacturer = COALESCE($5::varchar, manufacturer),
+              model = COALESCE($6::varchar, model),
+              umbral_alerta = COALESCE($7::decimal, umbral_alerta),
               updated_at = now()
         WHERE device_id = $1::uuid
         RETURNING device_id, code, name, type, location, manufacturer, model,
@@ -463,6 +505,7 @@ class PostgresDeviceRepository extends DeviceRepository {
         [
           deviceId,
           name ?? null,
+          type ?? null,
           location ?? null,
           manufacturer ?? null,
           model ?? null,
@@ -581,7 +624,8 @@ class PostgresDeviceRepository extends DeviceRepository {
                 d.manufacturer, d.model, d.umbral_alerta, d.status, d.firmware_version,
                 d.connectivity_status, d.last_connection_at, d.last_ip, d.wifi_ssid,
                 d.wifi_rssi_dbm, d.signal_quality, d.battery_level, d.provisioning_status,
-                d.provisioning_error, d.provisioning_updated_at, d.provisioned_at
+                d.provisioning_error, d.provisioning_updated_at, d.provisioned_at,
+                d.measurement_enabled, d.measurement_updated_at
            FROM device.device d
           WHERE d.device_id = $1::uuid
           LIMIT 1`,
@@ -678,7 +722,7 @@ class PostgresDeviceRepository extends DeviceRepository {
     const result = await withTransaction(userId, async (client) => {
       const claimed = await client.query(
         `SELECT device_id
-           FROM device.fn_claim_provisioned_device($1::uuid, $2::varchar)`,
+           FROM device.fn_switch_device_hardware($1::uuid, $2::varchar)`,
         [deviceId, hardwareId],
       );
       if (!claimed.rows[0]) return claimed;
@@ -727,28 +771,53 @@ class PostgresDeviceRepository extends DeviceRepository {
   async unlinkFromHome({ userId, deviceId, homeId }) {
     const result = await withTransaction(userId, async (client) => {
       const linked = await client.query(
-        `SELECT d.code AS device_code
+        `SELECT d.code AS device_code, gm.group_key
            FROM home.home_device hd
            JOIN device.device d ON d.device_id = hd.device_id
+           LEFT JOIN device.logical_device_group_member gm ON gm.device_id = d.device_id
           WHERE hd.device_id = $1::uuid
             AND hd.home_id = $2::uuid
+            AND hd.status = 'Active'
           LIMIT 1`,
         [deviceId, homeId],
       );
       if (!linked.rowCount) return { rows: [] };
 
+      if (linked.rows[0].group_key) {
+        await client.query(
+          'SELECT pg_advisory_xact_lock(hashtext($1::text))',
+          [linked.rows[0].group_key],
+        );
+      }
+
+      const groupMembers = linked.rows[0].group_key
+        ? await client.query(
+            `SELECT d.device_id, d.code
+               FROM device.logical_device_group_member gm
+               JOIN device.device d ON d.device_id = gm.device_id
+              WHERE gm.group_key = $1::varchar
+              ORDER BY gm.is_primary DESC, d.code`,
+            [linked.rows[0].group_key],
+          )
+        : { rows: [{ device_id: deviceId, code: linked.rows[0].device_code }] };
+      const groupDeviceIds = groupMembers.rows.map((row) => row.device_id);
+
       const deleted = await client.query(
-        `DELETE FROM home.home_device
-          WHERE device_id = $1::uuid
+        `UPDATE home.home_device
+            SET status = 'Suspended', suspended_at = now()
+          WHERE device_id = ANY($1::uuid[])
             AND home_id = $2::uuid
+            AND status = 'Active'
           RETURNING home_id, device_id`,
-        [deviceId, homeId],
+        [groupDeviceIds, homeId],
       );
       if (!deleted.rowCount) return deleted;
       // La capa HTTP trabaja con propiedades camelCase. Mantener este
       // contrato permite al controlador publicar el comando MQTT `unlink`
       // después de retirar la asociación en la base de datos.
       deleted.rows[0].deviceCode = linked.rows[0].device_code;
+      deleted.rows[0].deviceCodes = groupMembers.rows.map((row) => row.code);
+      deleted.rows[0].logicalGroup = Boolean(linked.rows[0].group_key);
       return deleted;
     });
 

@@ -266,6 +266,8 @@ function parseDeviceStatusMessage(message, { maxPayloadBytes } = {}) {
     throw new Error("status debe ser ONLINE, OFFLINE o ERROR");
   }
 
+  const measurementEnabled = parseOptionalBoolean(data, "measurementEnabled");
+
   return {
     status,
     timestamp: parseTimestamp(data.timestamp),
@@ -286,6 +288,7 @@ function parseDeviceStatusMessage(message, { maxPayloadBytes } = {}) {
     reportedDeviceId: parseOptionalDeviceId(data),
     hardwareId: parseOptionalHardwareId(data),
     linkedToHome: parseOptionalBoolean(data, "linkedToHome"),
+    ...(measurementEnabled === null ? {} : { measurementEnabled }),
     provisioningStatus: parseOptionalProvisioningStatus(data),
   };
 }

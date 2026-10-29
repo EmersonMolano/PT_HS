@@ -7,15 +7,6 @@ class NotificationService {
 
   isConfigured() { return this.sender.isConfigured(); }
 
-  async sendEmailVerification({ recipient, verificationToken }) {
-    const verificationUrl = new URL(this.frontendUrl);
-    verificationUrl.pathname = '/verify-email';
-    verificationUrl.searchParams.set('token', verificationToken);
-    return this.sendTemplate({ recipient, subject: 'Verifica tu correo de HidroSmart', title: 'Activa tu cuenta',
-      paragraphs: ['Confirma tu correo electrónico para activar tu cuenta de HidroSmart.'], buttonText: 'Verificar correo',
-      buttonUrl: verificationUrl.toString(), footer: 'El enlace vence en una hora.' });
-  }
-
   async sendPasswordReset({ recipient, resetToken }) {
     const resetUrl = new URL(this.passwordResetUrl);
     resetUrl.searchParams.set('resetToken', resetToken);

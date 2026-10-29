@@ -16,6 +16,12 @@ BD_HS/docs/credenciales-locales.md
 **/.vite/
 **/.expo/
 **/.pio/
+**/.gradle-user-home/
+**/.cxx/
+**/.cxx.*/
+**/.expo-export-*/
+**/.web-dist/
+**/test-results/
 **/*.log
 **/*.pem
 **/*.key
@@ -24,5 +30,6 @@ BD_HS/docs/credenciales-locales.md
 BK_HS/storage/
 BK_HS/tmp/
 backups/
+otras_implementaciones/
 .vscode/
 firmware/provisioning/config.h

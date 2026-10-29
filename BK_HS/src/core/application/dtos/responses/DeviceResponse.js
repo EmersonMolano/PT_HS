@@ -19,6 +19,8 @@ class DeviceResponse {
       wifiRssiDbm: device.wifiRssiDbm,
       signalQuality: device.signalQuality,
       batteryLevel: device.batteryLevel,
+      measurementEnabled: device.measurementEnabled,
+      measurementUpdatedAt: device.measurementUpdatedAt,
       provisioningStatus: device.provisioningStatus,
       provisioningError: device.provisioningError,
       provisioningUpdatedAt: device.provisioningUpdatedAt,

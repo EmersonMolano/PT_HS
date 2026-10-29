@@ -1,6 +1,7 @@
 class UpdateDeviceRequest {
-  constructor({ name, location, manufacturer = null, model = null, alertThreshold = null }) {
+  constructor({ name, type, location, manufacturer = null, model = null, alertThreshold = null }) {
     this.name = name;
+    this.type = type;
     this.location = location;
     this.manufacturer = manufacturer;
     this.model = model;
@@ -10,6 +11,7 @@ class UpdateDeviceRequest {
   static fromRequest(body = {}) {
     return new UpdateDeviceRequest({
       name: body.name,
+      type: body.type,
       location: body.location,
       manufacturer: body.manufacturer,
       model: body.model,

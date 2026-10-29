@@ -399,6 +399,8 @@
     "sendBleConfiguration": "Invia configurazione all'ESP32",
     "bleInvalidConfiguration": "Inserisci la rete Wi-Fi e la password",
     "mqttBrokerAutomaticHelp": "Il broker MQTT viene dalla configurazione firmware o dal profilo salvato; non devi inserire un IP.",
+    "bleProvisioningComplete": "ESP32 confermato: Wi-Fi e MQTT sono connessi.",
+    "bleWaitingLinkConfirmation": "Wi-Fi e MQTT connessi; HidroSmart deve confermare il collegamento del dispositivo.",
     "bleConfigurationSent": "Configurazione inviata; in attesa dell'ESP32",
     "bleWriteError": "Impossibile inviare la configurazione tramite Bluetooth",
     "bleWifiFailed": "L'ESP32 non ha potuto connettersi alla rete Wi-Fi",

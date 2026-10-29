@@ -150,6 +150,7 @@ export function DeviceManagement({
     hardwareId: string;
     promise: Promise<Partial<Device> | null>;
   } | null>(null);
+  const bleAwaitingResponseRef = useRef(false);
   const devicesRequestInFlightRef = useRef(false);
   const devicesViewKeyRef = useRef('');
   const selectedHome = homes.find((home) => home.homeId === homeId);
@@ -390,6 +391,25 @@ export function DeviceManagement({
     ) {
       return;
     }
+    if (
+      bleAwaitingResponseRef.current &&
+      ['provisioning_complete', 'waiting_link_confirmation', 'wifi_failed', 'mqtt_unreachable'].includes(
+        reportedState
+      )
+    ) {
+      bleAwaitingResponseRef.current = false;
+      if (reportedState === 'provisioning_complete') {
+        toast.success(t('devices.bleProvisioningComplete'));
+      } else if (reportedState === 'waiting_link_confirmation') {
+        toast.success(t('devices.bleWaitingLinkConfirmation'));
+      } else {
+        toast.error(
+          reportedState === 'wifi_failed'
+            ? t('devices.bleWifiFailed')
+            : t('devices.bleMqttUnreachable')
+        );
+      }
+    }
     let deviceForStatus = provisioningDevice;
     const reportedHardwareId = String(status.hardwareId || '').trim();
     const activeOnRequestedCode = [
@@ -481,6 +501,7 @@ export function DeviceManagement({
     }
 
     setBleWriting(true);
+    bleAwaitingResponseRef.current = true;
     try {
       await bleConnection.write({
         ssid: bleSsid.trim(),
@@ -492,6 +513,7 @@ export function DeviceManagement({
       setBleState('wifi_connecting');
       toast.success(t('devices.bleConfigurationSent'));
     } catch (error) {
+      bleAwaitingResponseRef.current = false;
       toast.error(error instanceof Error ? error.message : t('devices.bleWriteError'));
     } finally {
       setBleWriting(false);
